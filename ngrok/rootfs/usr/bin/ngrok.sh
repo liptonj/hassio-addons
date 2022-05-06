@@ -19,7 +19,7 @@ if bashio::var.has_value "$(bashio::config 'region')"; then
 else
   echo "No region defined, default region is US."
 fi
-echo "version: 2"
+echo "version: 2" >> $configPath
 echo "tunnels:" >> $configPath
 for id in $(bashio::config "tunnels|keys"); do
   name=$(bashio::config "tunnels[${id}].name")
