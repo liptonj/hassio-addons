@@ -83,4 +83,7 @@ done
 configfile=$(cat $configPath)
 bashio::log.debug "Config file: \n${configfile}"
 bashio::log.info "Starting ngrok..."
+echo $configPath
+ngrok config upgrade --config $configPath
+echo $configPath
 ngrok start --config $configPath --all
