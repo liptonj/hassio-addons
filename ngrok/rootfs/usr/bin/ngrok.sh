@@ -19,6 +19,7 @@ if bashio::var.has_value "$(bashio::config 'region')"; then
 else
   echo "No region defined, default region is US."
 fi
+echo "version: 2"
 echo "tunnels:" >> $configPath
 for id in $(bashio::config "tunnels|keys"); do
   name=$(bashio::config "tunnels[${id}].name")
@@ -81,9 +82,7 @@ for id in $(bashio::config "tunnels|keys"); do
   fi
 done
 configfile=$(cat $configPath)
-bashio::log.debug "Config file: \n${configfile}"
+bashio::log.info "Config file: \n${configfile}"
 bashio::log.info "Starting ngrok..."
-echo $configPath
-ngrok config upgrade --config $configPath
-echo $configPath
+bashio::log.info "COnfig Version: 2"
 ngrok start --config $configPath --all
