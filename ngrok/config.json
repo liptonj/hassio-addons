@@ -5,7 +5,7 @@
   "description": "A ngrok client for Hass.io",
   "webui": "http://[HOST]:[PORT:4040]",
   "url": "https://github.com/liptonj/hassio-addons/ngrok",
-  "stage": "STABLE",
+  "stage": "experimental",
   "arch": [
     "aarch64",
     "amd64",
