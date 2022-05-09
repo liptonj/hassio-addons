@@ -82,8 +82,8 @@ for id in $(bashio::config "tunnels|keys"); do
   fi
   schemes=$(bashio::config "tunnels[${id}].schemes")
   if [[ schemes != "null" ]]; then
-    echo "    schemes: $metadata" >> $configPath
-    for item in $("${schemes}|keys"); do
+    echo "    schemes:" >> $configPath
+    for item in $(bashio::config "tunnels[${id}].schemes|keys"); do
       echo "        - $schemes[${item}]" >> $configPath
     done
   fi
