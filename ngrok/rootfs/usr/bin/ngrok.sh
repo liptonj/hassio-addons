@@ -80,9 +80,16 @@ for id in $(bashio::config "tunnels|keys"); do
   if [[ $metadata != "null" ]]; then
     echo "    metadata: $metadata" >> $configPath
   fi
+  schemes=$(bashio::config "tunnels[${id}].schemes")
+  if [[ schemes != "null" ]]; then
+    echo "    schemes: $metadata" >> $configPath
+    for item in $("${schemes}|keys"); do
+      echo "        - $schemes[${item}]" >> $configPath
+    done
+  fi
 done
 configfile=$(cat $configPath)
 bashio::log.info "Config file: \n${configfile}"
 bashio::log.info "Starting ngrok..."
-bashio::log.info "COnfig Version: 2"
+bashio::log.info "Config Version: 2"
 ngrok start --config $configPath --all
