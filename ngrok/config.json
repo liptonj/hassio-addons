@@ -2,7 +2,7 @@
   "name": "ngrok Client",
   "version": "dev",
   "slug": "ngrok",
-  "init": false,
+  "init": true,
   "description": "A ngrok client for Hass.io",
   "webui": "http://[HOST]:[PORT:4040]",
   "url": "https://github.com/liptonj/hassio-addons/ngrok",
