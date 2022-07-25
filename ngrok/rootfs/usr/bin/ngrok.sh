@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin
 set -e
 bashio::log.debug "Building ngrok.yml..."
 configPath="/ngrok-config/ngrok.yml"
