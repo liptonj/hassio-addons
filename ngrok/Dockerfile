@@ -5,8 +5,7 @@ ENV \
     HOME="/root" \
     LANG="C.UTF-8" \
     PS1="$(whoami)@$(hostname):$(pwd)$ " \
-    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
-    S6_CMD_WAIT_FOR_SERVICES=1 \
+    S6_BEHAVIOUR_IF_STAGE2_FAILS=0 \
     TERM="xterm-256color"
 # Copy root filesystem
 COPY rootfs /
@@ -22,8 +21,8 @@ RUN set -x \
  && unzip -o /ngrok.zip -d /bin \
  && rm -f /ngrok.zip
 #Permissions Fix
-RUN chmod 755 /usr/bin/ngrok.sh
-RUN chown root:root /usr/bin/ngrok.sh
+RUN chmod 777 /usr/bin/ngrok.sh
+#RUN chown root:root /usr/bin/ngrok.sh
 # Entrypoint & CMD
 
 
