@@ -1,0 +1,3 @@
+if { mkdir -p /var/log/ngrok }
+if { chown nobody:nogroup /var/log/ngrok }
+chmod 02755 /var/log/ngrok
