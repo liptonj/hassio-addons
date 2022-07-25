@@ -21,7 +21,11 @@ RUN set -x \
  && curl -Lo /ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-${ARCH}.zip \
  && unzip -o /ngrok.zip -d /bin \
  && rm -f /ngrok.zip
+#Permissions Fix
+RUN chmod 755 /usr/bin/ngrok.sh
+RUN chown root:root /usr/bin/ngrok.sh
 # Entrypoint & CMD
+
 
 
 # Build arugments
