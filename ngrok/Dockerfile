@@ -22,8 +22,7 @@ RUN set -x \
  && rm -f /ngrok.zip
 #Permissions Fix
 RUN chmod 755 /usr/bin/ngrok.sh \
-    && chmod 755 /etc/s6-overlay/s6-rc.d/ngrok/run \
-    && chmod 755 /etc/s6-overlay/s6-rc.d/ngrok-log/run
+    && chmod 755 /etc/s6-overlay/s6-rc.d/ngrok/run
 
 #RUN chown root:root /usr/bin/ngrok.sh
 # Entrypoint & CMD
