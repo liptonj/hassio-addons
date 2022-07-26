@@ -1,10 +1,10 @@
-#!/command/with-contenv bash
+#!/command/with-contenv bashio
 set -e
-#bashio::log.debug "Building ngrok.yml..."
+bashio::log.debug "Building ngrok.yml..."
 configPath="/ngrok-config/ngrok.yml"
 mkdir -p /ngrok-config
 echo "log: stdout" > $configPath
-#bashio::log.debug "Web interface port: $(bashio::addon.port 4040)"
+bashio::log.debug "Web interface port: $(bashio::addon.port 4040)"
 if bashio::var.has_value "$(bashio::addon.port 4040)"; then
   echo "web_addr: 0.0.0.0:$(bashio::addon.port 4040)" >> $configPath
 fi
@@ -83,15 +83,15 @@ for id in $(bashio::config "tunnels|keys"); do
   schemes=$(bashio::config "tunnels[${id}].schemes")
   if [[ schemes != "null" ]]; then
     echo "    schemes:" >> $configPath
-    #bashio::log.info "schemes: ${schemes}"
+    bashio::log.info "schemes: ${schemes}"
     for item in $(bashio::config "tunnels[${id}].schemes"); do
-      #bashio::log.info "schemes - item: ${item}"
+      bashio::log.info "schemes - item: ${item}"
       echo "        - ${item}" >> $configPath
     done
   fi
 done
 configfile=$(cat $configPath)
-#bashio::log.info "Config file: \n${configfile}"
+bashio::log.info "Config file: \n${configfile}"
 echo "Starting ngrok..."
 echo "Config Version: 2"
 ngrok start --config $configPath --all
