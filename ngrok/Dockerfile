@@ -58,4 +58,5 @@ LABEL \
     org.opencontainers.image.revision=${BUILD_REF} \
     org.opencontainers.image.version=${BUILD_VERSION}
 # Initialize ngrok
-ENTRYPOINT ["/init"]
+#ENTRYPOINT ["/init"]
+CMD ngrok --version
