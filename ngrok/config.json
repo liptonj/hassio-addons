@@ -1,6 +1,6 @@
 {
   "name": "ngrok Client",
-  "version": "3.2.1c",
+  "version": "3.2.2",
   "slug": "ngrok",
   "description": "A ngrok client for Hass.io",
   "webui": "http://[HOST]:[PORT:4040]",

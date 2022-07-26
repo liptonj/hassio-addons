@@ -1,6 +1,6 @@
 docker build \
-  --build-arg BUILD_FROM="homeassistant/amd64-base:latest" \
-  --build-arg BUILD_ARCH="amd64" \
+  --build-arg BUILD_FROM="homeassistant/armv7-base:latest" \
+  --build-arg BUILD_ARCH="armv7" \
   --no-cache \
   -t local/ngrok-addon \
   .

@@ -1,2 +1,2 @@
-#!/command/execlineb -P
+#!/command/with-contenv bash
 exec /usr/bin/ngrok.sh
