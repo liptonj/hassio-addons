@@ -1,2 +1,3 @@
-#!/bin/sh
+#!/command/with-contenv bashio
+exec 2>&1
 exec /usr/bin/ngrok.sh

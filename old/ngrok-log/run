@@ -1,2 +1,2 @@
 #!/bin/sh
-#exec logutil-service /var/log/ngrok
+exec logutil-service /var/log/ngrok

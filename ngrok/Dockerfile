@@ -5,6 +5,7 @@ ENV \
     HOME="/root" \
     LANG="C.UTF-8" \
     PS1="$(whoami)@$(hostname):$(pwd)$ " \
+    S6_LOGGING=0 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=0 \
     TERM="xterm-256color"
 # Copy root filesystem
