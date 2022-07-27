@@ -23,7 +23,8 @@ RUN set -x \
  && rm -f /ngrok.zip
 #Permissions Fix
 RUN chmod 755 /usr/bin/ngrok.sh \
-    && chmod 755 /etc/s6-overlay/s6-rc.d/ngrok/run
+    && chmod 755 /etc/services.d/ngrok/run \
+    && chmod 755 /etc/services.d/ngrok/finish
 
 #RUN chown root:root /usr/bin/ngrok.sh
 # Entrypoint & CMD
@@ -58,5 +59,5 @@ LABEL \
     org.opencontainers.image.revision=${BUILD_REF} \
     org.opencontainers.image.version=${BUILD_VERSION}
 # Initialize ngrok
+#CMD ["ngrok --version"]
 ENTRYPOINT ["/init"]
-#CMD ngrok --version
