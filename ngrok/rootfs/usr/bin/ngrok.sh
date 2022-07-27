@@ -22,6 +22,7 @@ fi
 echo "version: 2" >> $configPath
 echo "tunnels:" >> $configPath
 for id in $(bashio::config "tunnels|keys"); do
+  bashio::log.debug id
   name=$(bashio::config "tunnels[${id}].name")
   echo "  $name:" >> $configPath
   proto=$(bashio::config "tunnels[${id}].proto")
@@ -81,7 +82,7 @@ for id in $(bashio::config "tunnels|keys"); do
     echo "    metadata: $metadata" >> $configPath
   fi
   schemes=$(bashio::config "tunnels[${id}].schemes")
-  if [[ schemes[0] != "null" ]]; then
+  if [[ "schemes[0]" != "null" ]]; then
     echo "    schemes:" >> $configPath
     bashio::log.info "schemes: ${schemes}"
     for item in $(bashio::config "tunnels[${id}].schemes"); do
