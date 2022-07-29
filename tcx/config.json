@@ -1,0 +1,38 @@
+{
+  "name": "Jandy TCX Client",
+  "version": "0.0.1",
+  "slug": "tcx-client",
+  "init": false,
+  "description": "Jandy TCX Client for to interact with Home Assistant",
+  "webui": "http://[HOST]:[PORT:5050]",
+  "url": "https://github.com/liptonj/hassio-addons/tcx",
+  "stage": "experimental",
+  "arch": [
+    "amd64"
+  ],
+  "startup": "system",
+  "boot": "auto",
+  "ports": {
+    "5050/tcp": "5050"
+  },
+  "ports_description": {
+    "5050/tcp": "Web interface"
+  },
+  "options": {
+    "log_level": "info",
+    "JANDY_USERNAME": "user@email.com",
+    "JANDY_PASSWORD": "<Password>",
+    "BROKER": "192.168.14.50",
+    "BROKER_USERNAME": "<username>",
+    "BROKER_PASSWORD": "<Password>"
+
+  },
+  "schema": {
+    "log_level": "list(crit|warn|error|info|debug)",
+    "JANDY_USERNAM": "str?",
+    "JANDY_PASSWORD": "str?",
+    "BROKER": "str?",
+    "BROKER_USERNAME": "str?",
+    "BROKER_PASSWORD": "str?"
+  }
+}
