@@ -1,4 +1,6 @@
 ---
 build_from:
-  amd64: ghcr.io/liptonj/tcx-client:latest
+  amd64: ghcr.io/liptonj/amd64-tcx-client:latest
+  aarch64: ghcr.io/liptonj/aarch64-tcx-client:latest
+
 
