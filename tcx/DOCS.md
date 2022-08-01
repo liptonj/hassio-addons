@@ -21,10 +21,23 @@ Example add-on configuration:
   BROKER: 192.168.14.50
   BROKER_USERNAME: <username>
   BROKER_PASSWORD: <PASSWORD>
+  WS_TRACE: False
+  AUTO_RECONNECT: True
+  RECONNECT_TIMER: 60
+  
 ```
 
 
-
+### Configuration info
+ * log_lecel: Sets logging level for addon
+ * JANDY_USERNAME: Username to login into iAquaLink App
+ * JANDY_PASSWORD: Password to login into iAquaLink App
+ * BROKER: MQTT Broker
+ * BROKER_USERNAME: Username to login into MQTT nroker
+ * BROKER_PASSWORD: Password to login into MQTT Password
+ * WS_TRACE: Turns on WebSocket Trace
+ * AUTO_RECONNECT: Enables Reconnections if systems is closed
+ * RECONNECT_TIMER: Sets delay to reconnecting in secounds 
 
 
 ### Further reading
