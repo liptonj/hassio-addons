@@ -1,6 +1,6 @@
 {
   "name": "Jandy TCX Client",
-  "version": "0.0.5",
+  "version": "0.0.5a",
   "slug": "tcx-client",
   "init": false,
   "description": "Jandy TCX Client for to interact with Home Assistant",
@@ -27,7 +27,8 @@
     "BROKER_PASSWORD": "<Password>",
     "WS_TRACE": "False",
     "AUTO_RECONNECT": "True",
-    "RECONNECT_TIMER": "60"
+    "RECONNECT_TIMER": "60",
+    "PING_TIMER": "60"
 
   },
   "schema": {
@@ -39,6 +40,7 @@
     "BROKER_PASSWORD": "str?",
     "WS_TRACE": "list(True|False)",
     "AUTO_RECONNECT": "list(True|False)",
-    "RECONNECT_TIMER": "str?"
+    "RECONNECT_TIMER": "str?",
+    "PING_TIMER": "str?"
   }
 }
