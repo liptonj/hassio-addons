@@ -1,7 +1,7 @@
 {
   "name": "ThousandEyes Enterprise Agent",
   "description": "Run ThousandEyes Enterprise Agent for network monitoring and testing",
-  "version": "1.226.11",
+  "version": "1.226.13",
   "slug": "thousandeyes_agent",
   "init": false,
   "url": "https://github.com/liptonj/hassio-addons/tree/master/thousandeyes",

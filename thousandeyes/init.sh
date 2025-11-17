@@ -13,39 +13,74 @@ fi
 # Load required kernel modules for BrowserBot (iptables support)
 # BrowserBot requires iptables with comment extension for container networking
 echo "Loading kernel modules for BrowserBot..."
+echo "========================================"
+
+# Check if modules exist before trying to load them
+echo "Checking available modules..."
+find /lib/modules/$(uname -r) -name "xt_comment*" 2>/dev/null || echo "  xt_comment module not found in kernel"
+find /lib/modules/$(uname -r) -name "*comment*" 2>/dev/null || echo "  No comment modules found"
+
+# Try loading xt_comment with different approaches
 if modprobe xt_comment 2>/dev/null; then
     echo "✓ xt_comment module loaded successfully"
+elif modprobe -f xt_comment 2>/dev/null; then
+    echo "✓ xt_comment module loaded (forced)"
 else
-    echo "⚠ WARNING: Could not load xt_comment module - BrowserBot may not work"
-    echo "  This requires kernel_modules: true and SYS_MODULE capability"
+    echo "⚠ WARNING: Could not load xt_comment module"
+    echo "  BrowserBot requires this for iptables comment extension"
+    echo "  Checking if kernel has nft_compat support instead..."
+    
+    # Check if nftables compat layer can help
+    if lsmod | grep -q nft_compat; then
+        echo "✓ nft_compat is loaded - may work with nftables backend"
+        # Try loading through nftables compat layer
+        modprobe nft_compat 2>/dev/null || true
+        modprobe xt_comment 2>/dev/null || true
+    fi
 fi
 
 # Load other iptables modules that may be needed
-for module in xt_nat xt_conntrack nf_nat nf_conntrack ip_tables iptable_nat iptable_filter; do
+echo ""
+echo "Loading supporting iptables modules..."
+for module in xt_nat xt_conntrack nf_nat nf_conntrack ip_tables iptable_nat iptable_filter xt_addrtype xt_MASQUERADE; do
     if modprobe "$module" 2>/dev/null; then
         echo "✓ $module loaded"
     fi
 done
 
+echo ""
 echo "Kernel modules status:"
-lsmod | grep -E "xt_|nf_|ip_tables" || echo "  (no iptables modules visible)"
+lsmod | grep -E "xt_|nf_|nft_|ip_tables" || echo "  (no netfilter modules visible)"
+echo "========================================"
 
 # Create persistent data directories in /data (Home Assistant persistent storage)
 mkdir -p /data/te-agent /data/te-browserbot /data/te-logs
 
-# Create mount point for logs (matching official Docker command)
-mkdir -p /var/log/agent
+# Create mount points for ThousandEyes data
+mkdir -p /var/lib/te-agent /var/lib/te-browserbot /var/log/agent
 
 # Bind mount persistent storage to ThousandEyes expected paths
-# Using --bind option to ensure proper mounting (matches official docker run command)
+# Using --bind with recursive and private propagation to allow nested mounts
+echo "Setting up persistent storage with mount propagation..."
+
+# Mount te-agent (simple bind mount)
 mount --bind /data/te-agent /var/lib/te-agent
+
+# Mount te-browserbot with shared propagation to allow BrowserBot's internal mounts
+# This is critical - BrowserBot creates many nested mounts inside this directory
 mount --bind /data/te-browserbot /var/lib/te-browserbot
+mount --make-shared /var/lib/te-browserbot || mount --make-private /var/lib/te-browserbot
+
+# Mount logs
 mount --bind /data/te-logs /var/log/agent
 
-echo "Persistent storage configured (matching official ThousandEyes Docker command):"
+echo "Persistent storage configured (with mount propagation for BrowserBot):"
 echo "  /var/lib/te-agent <- /data/te-agent (bind mount)"
-echo "  /var/lib/te-browserbot <- /data/te-browserbot (bind mount)"
+echo "  /var/lib/te-browserbot <- /data/te-browserbot (bind mount with shared propagation)"
 echo "  /var/log/agent <- /data/te-logs (bind mount)"
+echo ""
+echo "Mount points:"
+mount | grep -E "te-agent|te-browserbot|te-logs" || echo "  (mounts not visible in mount table)"
 
 # Extract and configure ThousandEyes environment variables
 # Official documentation: https://docs.thousandeyes.com/product-documentation/global-vantage-points/enterprise-agents/installing/docker-agent-config-options
