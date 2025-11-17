@@ -9,8 +9,11 @@ RUN apk add --no-cache jq bash
 COPY init.sh /init.sh
 RUN chmod +x /init.sh
 
-# ThousandEyes expects specific directories - we'll create them at runtime
-# Home Assistant mounts /data as persistent storage
+# Create mount points for ThousandEyes data
+# At runtime, we'll bind mount /data subdirectories to these paths
+RUN mkdir -p /var/lib/te-agent /var/lib/te-browserbot
+
+# Working directory
 WORKDIR /data
 
 # Build arguments

@@ -13,31 +13,28 @@ fi
 # Create persistent data directories in /data (Home Assistant persistent storage)
 mkdir -p /data/te-agent /data/te-browserbot /data/te-logs
 
-# Create symlinks from ThousandEyes expected paths to persistent storage
-# This ensures data persists across container restarts
-if [ ! -L "/var/lib/te-agent" ]; then
-    rm -rf /var/lib/te-agent
-    ln -sf /data/te-agent /var/lib/te-agent
-fi
+# Bind mount persistent storage to ThousandEyes expected paths
+# Using --bind option to ensure proper mounting
+mount --bind /data/te-agent /var/lib/te-agent
+mount --bind /data/te-browserbot /var/lib/te-browserbot
 
-if [ ! -L "/var/lib/te-browserbot" ]; then
-    rm -rf /var/lib/te-browserbot
-    ln -sf /data/te-browserbot /var/lib/te-browserbot
-fi
-
-if [ ! -L "/var/log/agent" ]; then
-    rm -rf /var/log/agent
-    ln -sf /data/te-logs /var/log/agent
-fi
+# Set log path via environment variable (officially supported by ThousandEyes)
+export TEAGENT_LOG_PATH="/data/te-logs"
 
 echo "Persistent storage configured:"
-echo "  /var/lib/te-agent -> /data/te-agent"
-echo "  /var/lib/te-browserbot -> /data/te-browserbot"
-echo "  /var/log/agent -> /data/te-logs"
+echo "  /var/lib/te-agent <- /data/te-agent (bind mount)"
+echo "  /var/lib/te-browserbot <- /data/te-browserbot (bind mount)"
+echo "  /var/log/agent -> /data/te-logs (env var)"
 
 # Extract essential configuration
 export TEAGENT_ACCOUNT_TOKEN=$(jq -r '.account_token // empty' "$CONFIG_PATH")
-export TEAGENT_AGENT_HOSTNAME=$(jq -r '.agent_hostname // empty' "$CONFIG_PATH")
+
+# Agent hostname (optional, uses container hostname if not set)
+AGENT_HOSTNAME=$(jq -r '.agent_hostname // empty' "$CONFIG_PATH")
+if [ -n "$AGENT_HOSTNAME" ]; then
+    export TEAGENT_AGENT_HOSTNAME="$AGENT_HOSTNAME"
+    export TEAGENT_HOSTNAME="$AGENT_HOSTNAME"
+fi
 
 # Convert inet_mode to ThousandEyes format (4=IPv4, 6=IPv6, 46=dual)
 INET_MODE=$(jq -r '.inet_mode // "ipv4"' "$CONFIG_PATH")
@@ -48,7 +45,18 @@ case "$INET_MODE" in
   *) export TEAGENT_INET=4 ;;
 esac
 
-export TEAGENT_LOG_LEVEL=$(jq -r '.log_level // "INFO"' "$CONFIG_PATH")
+# Log level - convert to lowercase for ThousandEyes
+LOG_LEVEL=$(jq -r '.log_level // "INFO"' "$CONFIG_PATH")
+export TEAGENT_LOG_LEVEL=$(echo "$LOG_LEVEL" | tr '[:upper:]' '[:lower:]')
+
+# BrowserBot configuration (requires privileged mode for container-in-container)
+BROWSERBOT_ENABLED=$(jq -r '.browserbot_enabled // true' "$CONFIG_PATH")
+if [ "$BROWSERBOT_ENABLED" = "false" ]; then
+    export TEAGENT_BROWSERBOT_DISABLED=1
+    echo "BrowserBot: DISABLED (saves resources, no web page tests)"
+else
+    echo "BrowserBot: ENABLED (supports web page tests, requires privileged mode)"
+fi
 
 # Validate required configuration
 if [ -z "$TEAGENT_ACCOUNT_TOKEN" ]; then
@@ -56,11 +64,20 @@ if [ -z "$TEAGENT_ACCOUNT_TOKEN" ]; then
     exit 1
 fi
 
-echo "Starting ThousandEyes Enterprise Agent..."
+echo "========================================"
+echo "ThousandEyes Enterprise Agent Starting"
+echo "========================================"
 echo "Account token: configured"
-echo "Agent hostname: ${TEAGENT_AGENT_HOSTNAME:-default}"
+echo "Agent hostname: ${TEAGENT_HOSTNAME:-$(hostname)}"
 echo "Network mode: IPv${TEAGENT_INET}"
 echo "Log level: ${TEAGENT_LOG_LEVEL}"
+echo "Config file: /etc/te-agent.cfg"
+echo "========================================"
+
+# Debug: Show all TEAGENT_ environment variables
+echo "Environment variables set:"
+env | grep TEAGENT_ | grep -v TOKEN | sort
+echo "========================================"
 
 # Execute the native ThousandEyes entrypoint
 # Official ThousandEyes docker command uses /sbin/my_init
