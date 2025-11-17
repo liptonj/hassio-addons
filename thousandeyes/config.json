@@ -11,6 +11,17 @@
   ],
   "startup": "system",
   "boot": "auto",
+  "privileged": false,
+  "apparmor": false,
+  "host_network": false,
+  "cap_add": [
+    "NET_ADMIN",
+    "SYS_ADMIN"
+  ],
+  "tmpfs": true,
+  "map": [
+    "data:rw"
+  ],
   "options": {
     "account_token": "",
     "agent_hostname": "",
@@ -31,10 +42,7 @@
     "browserbot_enabled": true,
     "accept_self_signed_certs": false,
     "crash_reports": true,
-    "auto_update": true,
-    "use_custom_paths": false,
-    "custom_lib_path": "/data/te-agent-lib",
-    "custom_log_path": "/data/te-agent-logs"
+    "auto_update": true
   },
   "schema": {
     "account_token": "password",
@@ -56,10 +64,7 @@
     "browserbot_enabled": "bool?",
     "accept_self_signed_certs": "bool?",
     "crash_reports": "bool?",
-    "auto_update": "bool?",
-    "use_custom_paths": "bool",
-    "custom_lib_path": "str?",
-    "custom_log_path": "str?"
+    "auto_update": "bool?"
   }
 }
 
