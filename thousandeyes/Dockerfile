@@ -9,9 +9,9 @@ RUN apk add --no-cache jq bash
 COPY init.sh /init.sh
 RUN chmod +x /init.sh
 
-# Create mount points for ThousandEyes data
+# Create mount points for ThousandEyes data (matching official Docker command)
 # At runtime, we'll bind mount /data subdirectories to these paths
-RUN mkdir -p /var/lib/te-agent /var/lib/te-browserbot
+RUN mkdir -p /var/lib/te-agent /var/lib/te-browserbot /var/log/agent
 
 # Working directory
 WORKDIR /data
