@@ -10,6 +10,26 @@ if [ ! -f "$CONFIG_PATH" ]; then
     exit 1
 fi
 
+# Load required kernel modules for BrowserBot (iptables support)
+# BrowserBot requires iptables with comment extension for container networking
+echo "Loading kernel modules for BrowserBot..."
+if modprobe xt_comment 2>/dev/null; then
+    echo "✓ xt_comment module loaded successfully"
+else
+    echo "⚠ WARNING: Could not load xt_comment module - BrowserBot may not work"
+    echo "  This requires kernel_modules: true and SYS_MODULE capability"
+fi
+
+# Load other iptables modules that may be needed
+for module in xt_nat xt_conntrack nf_nat nf_conntrack ip_tables iptable_nat iptable_filter; do
+    if modprobe "$module" 2>/dev/null; then
+        echo "✓ $module loaded"
+    fi
+done
+
+echo "Kernel modules status:"
+lsmod | grep -E "xt_|nf_|ip_tables" || echo "  (no iptables modules visible)"
+
 # Create persistent data directories in /data (Home Assistant persistent storage)
 mkdir -p /data/te-agent /data/te-browserbot /data/te-logs
 
