@@ -56,31 +56,48 @@ echo "========================================"
 # Create persistent data directories in /data (Home Assistant persistent storage)
 mkdir -p /data/te-agent /data/te-browserbot /data/te-logs
 
+# BrowserBot has complex internal mount management that can get corrupted
+# Always clean it before starting to ensure a fresh setup
+echo "Cleaning BrowserBot storage for fresh start..."
+if [ "$(ls -A /data/te-browserbot 2>/dev/null)" ]; then
+    echo "  Removing existing BrowserBot data..."
+    rm -rf /data/te-browserbot/* 2>/dev/null || true
+    echo "  ✓ Cleaned"
+else
+    echo "  ✓ Already clean"
+fi
+
 # Create mount points for ThousandEyes data
 mkdir -p /var/lib/te-agent /var/lib/te-browserbot /var/log/agent
 
 # Bind mount persistent storage to ThousandEyes expected paths
-# Using --bind with recursive and private propagation to allow nested mounts
+# Using --bind with mount propagation
 echo "Setting up persistent storage with mount propagation..."
 
 # Mount te-agent (simple bind mount)
 mount --bind /data/te-agent /var/lib/te-agent
+echo "  ✓ te-agent mounted"
 
 # Mount te-browserbot with shared propagation to allow BrowserBot's internal mounts
 # This is critical - BrowserBot creates many nested mounts inside this directory
 mount --bind /data/te-browserbot /var/lib/te-browserbot
-mount --make-shared /var/lib/te-browserbot || mount --make-private /var/lib/te-browserbot
+if mount --make-shared /var/lib/te-browserbot 2>/dev/null; then
+    echo "  ✓ te-browserbot mounted with shared propagation"
+elif mount --make-private /var/lib/te-browserbot 2>/dev/null; then
+    echo "  ✓ te-browserbot mounted with private propagation"
+else
+    echo "  ⚠ te-browserbot mounted (propagation setting failed, may cause issues)"
+fi
 
 # Mount logs
 mount --bind /data/te-logs /var/log/agent
+echo "  ✓ logs mounted"
 
-echo "Persistent storage configured (with mount propagation for BrowserBot):"
-echo "  /var/lib/te-agent <- /data/te-agent (bind mount)"
-echo "  /var/lib/te-browserbot <- /data/te-browserbot (bind mount with shared propagation)"
-echo "  /var/log/agent <- /data/te-logs (bind mount)"
 echo ""
-echo "Mount points:"
-mount | grep -E "te-agent|te-browserbot|te-logs" || echo "  (mounts not visible in mount table)"
+echo "Persistent storage configured:"
+echo "  /var/lib/te-agent <- /data/te-agent"
+echo "  /var/lib/te-browserbot <- /data/te-browserbot (with mount propagation for nested mounts)"
+echo "  /var/log/agent <- /data/te-logs"
 
 # Extract and configure ThousandEyes environment variables
 # Official documentation: https://docs.thousandeyes.com/product-documentation/global-vantage-points/enterprise-agents/installing/docker-agent-config-options
