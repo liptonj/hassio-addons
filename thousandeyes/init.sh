@@ -82,6 +82,16 @@ echo ""
 echo "Final kernel modules status:"
 lsmod | grep -E "xt_|nf_|nft_|ip_tables" | head -20 || echo "  (no netfilter modules visible)"
 echo ""
+echo ""
+echo "Attempting to create persistent module load config..."
+# Try to create a persistent module loading config for xt_comment
+# This will only work if the module is compiled into the HA OS kernel
+if mkdir -p /etc/modules-load.d 2>/dev/null; then
+    echo "xt_comment" > /etc/modules-load.d/xt_comment.conf 2>/dev/null && echo "  ✓ Created /etc/modules-load.d/xt_comment.conf (will load on next reboot if module exists)" || echo "  ✗ Cannot create module config (no write permission)"
+else
+    echo "  ℹ /etc/modules-load.d not accessible in add-on container"
+fi
+
 echo "Testing if iptables comment extension works:"
 if iptables -t nat -N TEST_COMMENT_CHAIN 2>/dev/null; then
     if iptables -t nat -A TEST_COMMENT_CHAIN -j ACCEPT -m comment --comment "test" 2>/dev/null; then
@@ -288,8 +298,48 @@ BROWSERBOT_ENABLED=$(jq -r '.browserbot_enabled // true' "$CONFIG_PATH")
 if [ "$BROWSERBOT_ENABLED" = "false" ]; then
     export TEAGENT_BROWSERBOT_DISABLED=1
     echo "BrowserBot: DISABLED (saves resources, no web page tests)"
+    echo "  Will actively stop BrowserBot service after container starts..."
+    
+    # Create a script to disable BrowserBot service after container starts
+    cat > /tmp/disable-browserbot.sh << 'EOFSCRIPT'
+#!/bin/bash
+# Wait for the container to fully start
+sleep 10
+
+echo "========================================"
+echo "Disabling BrowserBot Service"
+echo "========================================"
+
+# Try multiple methods to stop BrowserBot
+# Method 1: Use sv (runit) to stop the service
+if command -v sv >/dev/null 2>&1; then
+    echo "Stopping te-browserbot-podman service via sv..."
+    sv stop te-browserbot-podman 2>/dev/null && echo "  ✓ Stopped via sv" || echo "  ✗ sv stop failed"
+    sv down te-browserbot-podman 2>/dev/null && echo "  ✓ Marked down" || echo "  ✗ sv down failed"
+fi
+
+# Method 2: Kill any browserbot processes
+echo "Killing any BrowserBot processes..."
+pkill -f "te-browserbot" && echo "  ✓ Killed te-browserbot processes" || echo "  ℹ No processes to kill"
+pkill -f "browserbot" && echo "  ✓ Killed browserbot processes" || echo "  ℹ No processes to kill"
+
+# Method 3: Disable the service directory
+if [ -d "/etc/service/te-browserbot-podman" ]; then
+    echo "Disabling service directory..."
+    chmod -x /etc/service/te-browserbot-podman/run 2>/dev/null && echo "  ✓ Disabled run script"
+fi
+
+echo "BrowserBot disable attempt complete"
+echo "========================================"
+EOFSCRIPT
+
+    chmod +x /tmp/disable-browserbot.sh
+    # Run in background so it doesn't block startup
+    /tmp/disable-browserbot.sh &
 else
     echo "BrowserBot: ENABLED (supports web page tests, requires privileged mode)"
+    echo "  ⚠ WARNING: BrowserBot requires xt_comment kernel module"
+    echo "  ⚠ If you see boot loops, set browserbot_enabled: false"
 fi
 
 # Validate required configuration
