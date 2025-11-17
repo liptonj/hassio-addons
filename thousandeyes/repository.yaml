@@ -1,7 +1,0 @@
-# Home Assistant Add-on Repository Configuration
-# This file is used when hosting the add-on in a repository
-
-name: "ThousandEyes Enterprise Agent Add-on Repository"
-url: "https://github.com/liptonj/thousandeyes-homeassistant-addon"
-maintainer: "Josh Lipton <jolipton@cisco.com>"
-
