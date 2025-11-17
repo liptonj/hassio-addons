@@ -16,26 +16,56 @@ echo "Loading kernel modules for BrowserBot..."
 echo "========================================"
 
 # Check if modules exist before trying to load them
-echo "Checking available modules..."
-find /lib/modules/$(uname -r) -name "xt_comment*" 2>/dev/null || echo "  xt_comment module not found in kernel"
-find /lib/modules/$(uname -r) -name "*comment*" 2>/dev/null || echo "  No comment modules found"
+echo "Checking kernel module availability..."
+echo ""
+echo "Searching for xt_comment module files:"
+find /lib/modules/$(uname -r) -name "*comment*" 2>/dev/null | head -10 || echo "  No comment-related module files found"
 
+echo ""
+echo "Checking kernel config for xt_comment:"
+if [ -f "/proc/config.gz" ]; then
+    zcat /proc/config.gz | grep -i NETFILTER | grep -i COMMENT || echo "  Kernel config not available or comment not configured"
+elif [ -f "/boot/config-$(uname -r)" ]; then
+    cat "/boot/config-$(uname -r)" | grep -i NETFILTER | grep -i COMMENT || echo "  Comment not in kernel config"
+else
+    echo "  Kernel config not accessible"
+fi
+
+echo ""
+echo "Checking if xt_comment is already loaded or built-in:"
+if lsmod | grep -q xt_comment; then
+    echo "  ✓ xt_comment is already loaded as a module"
+elif grep -q xt_comment /proc/modules 2>/dev/null; then
+    echo "  ✓ xt_comment is loaded"
+elif [ -f "/sys/module/xt_comment" ] || [ -d "/sys/module/xt_comment" ]; then
+    echo "  ✓ xt_comment is built into the kernel (not a module)"
+else
+    echo "  ✗ xt_comment is NOT available (not loaded, not built-in)"
+fi
+
+echo ""
+echo "Attempting to load xt_comment module..."
 # Try loading xt_comment with different approaches
 if modprobe xt_comment 2>/dev/null; then
-    echo "✓ xt_comment module loaded successfully"
+    echo "  ✓ xt_comment module loaded successfully"
 elif modprobe -f xt_comment 2>/dev/null; then
-    echo "✓ xt_comment module loaded (forced)"
+    echo "  ✓ xt_comment module loaded (forced)"
 else
-    echo "⚠ WARNING: Could not load xt_comment module"
-    echo "  BrowserBot requires this for iptables comment extension"
-    echo "  Checking if kernel has nft_compat support instead..."
+    echo "  ✗ Could not load xt_comment module"
+    echo ""
+    echo "  Checking if we can work around this with nftables compatibility..."
     
     # Check if nftables compat layer can help
     if lsmod | grep -q nft_compat; then
-        echo "✓ nft_compat is loaded - may work with nftables backend"
-        # Try loading through nftables compat layer
-        modprobe nft_compat 2>/dev/null || true
-        modprobe xt_comment 2>/dev/null || true
+        echo "  ✓ nft_compat is loaded - nftables compatibility layer active"
+        echo "  ℹ This MAY allow iptables to work via nftables backend"
+    else
+        echo "  ⚠ nft_compat not loaded - trying to load it..."
+        if modprobe nft_compat 2>/dev/null; then
+            echo "  ✓ nft_compat loaded"
+            # Try xt_comment again
+            modprobe xt_comment 2>/dev/null && echo "  ✓ xt_comment now loaded via nft_compat!"
+        fi
     fi
 fi
 
@@ -44,13 +74,27 @@ echo ""
 echo "Loading supporting iptables modules..."
 for module in xt_nat xt_conntrack nf_nat nf_conntrack ip_tables iptable_nat iptable_filter xt_addrtype xt_MASQUERADE; do
     if modprobe "$module" 2>/dev/null; then
-        echo "✓ $module loaded"
+        echo "  ✓ $module loaded"
     fi
 done
 
 echo ""
-echo "Kernel modules status:"
-lsmod | grep -E "xt_|nf_|nft_|ip_tables" || echo "  (no netfilter modules visible)"
+echo "Final kernel modules status:"
+lsmod | grep -E "xt_|nf_|nft_|ip_tables" | head -20 || echo "  (no netfilter modules visible)"
+echo ""
+echo "Testing if iptables comment extension works:"
+if iptables -t nat -N TEST_COMMENT_CHAIN 2>/dev/null; then
+    if iptables -t nat -A TEST_COMMENT_CHAIN -j ACCEPT -m comment --comment "test" 2>/dev/null; then
+        echo "  ✓ SUCCESS: iptables comment extension is WORKING!"
+        iptables -t nat -D TEST_COMMENT_CHAIN -j ACCEPT -m comment --comment "test" 2>/dev/null
+    else
+        echo "  ✗ FAILED: iptables comment extension NOT working"
+        echo "     Error: $(iptables -t nat -A TEST_COMMENT_CHAIN -j ACCEPT -m comment --comment "test" 2>&1)"
+    fi
+    iptables -t nat -X TEST_COMMENT_CHAIN 2>/dev/null
+else
+    echo "  ⚠ Cannot test: no permission to create iptables chains"
+fi
 echo "========================================"
 
 # Create persistent data directories in /data (Home Assistant persistent storage)
