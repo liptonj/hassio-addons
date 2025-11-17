@@ -1,0 +1,22 @@
+# Home Assistant Add-on Build Configuration
+# This file is used by the Home Assistant build system
+
+build_from:
+  aarch64: "thousandeyes/enterprise-agent:latest"
+  amd64: "thousandeyes/enterprise-agent:latest"
+  armhf: "thousandeyes/enterprise-agent:latest"
+  armv7: "thousandeyes/enterprise-agent:latest"
+  i386: "thousandeyes/enterprise-agent:latest"
+
+labels:
+  org.opencontainers.image.title: "ThousandEyes Enterprise Agent"
+  org.opencontainers.image.description: "ThousandEyes Enterprise Agent for network monitoring"
+  org.opencontainers.image.vendor: "Cisco Systems, Inc."
+  org.opencontainers.image.authors: "Cisco Systems, Inc."
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.source: "https://github.com/liptonj/thousandeyes-homeassistant-addon"
+  org.opencontainers.image.documentation: "https://github.com/liptonj/thousandeyes-homeassistant-addon/blob/main/README.md"
+
+args:
+  BASHIO_VERSION: "v0.16.2"
+
