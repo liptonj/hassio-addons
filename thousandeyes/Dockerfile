@@ -1,5 +1,5 @@
 ARG BUILD_FROM
-FROM thousandeyes/enterprise-agent:latest
+FROM ${BUILD_FROM}
 
 # Install jq for JSON parsing (needed to read Home Assistant config)
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
