@@ -2,7 +2,8 @@ ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 # Install jq for JSON parsing (needed to read Home Assistant config)
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+# ThousandEyes container is Alpine-based, so use apk
+RUN apk add --no-cache jq bash
 
 # Copy startup script that bridges Home Assistant config to ThousandEyes
 COPY init.sh /init.sh
