@@ -1,19 +1,18 @@
 {
   "name": "ThousandEyes Enterprise Agent",
   "description": "Run ThousandEyes Enterprise Agent for network monitoring and testing",
-  "version": "1.226.0",
+  "version": "1.226.3",
   "slug": "thousandeyes_agent",
   "init": false,
   "url": "https://github.com/liptonj/hassio-addons/tree/master/thousandeyes",
-  "stage": "experimental",
+  "stage": "stable",
   "arch": [
     "amd64"
   ],
   "startup": "system",
   "boot": "auto",
-  "privileged": true,
   "apparmor": false,
-  "cap_add": [
+  "privileged": [
     "NET_ADMIN",
     "SYS_ADMIN"
   ],
