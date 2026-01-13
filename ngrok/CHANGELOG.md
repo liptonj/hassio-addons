@@ -1,5 +1,52 @@
 ## Changes
 
+### Version 3.35.4 (2026-01-13)
+
+#### Critical Fixes
+- **Fixed hostname validation** - Config editor no longer strips TCP reserved addresses like `5.tcp.ngrok.io:21829`
+- **Fixed simple hostname support** - Now accepts Docker service names like `core-mariadb:3306`
+- **Added regex validation** - Both `addr` and `hostname` fields properly preserve values on config save/reload
+
+#### Validation Improvements
+The `addr` field now accepts:
+- IP:port - `192.168.1.1:3306`
+- FQDN:port - `server.example.com:3306`
+- Simple hostname:port - `core-mariadb:3306` ✅ NEW
+- Port only - `3306`
+
+The `hostname` field now accepts:
+- Domain only - `ha.example.com` (HTTP/HTTPS)
+- Domain with port - `5.tcp.ngrok.io:21829` (TCP reserved) ✅ NEW
+- Subdomain - `subdomain.ngrok.app`
+
+#### Why This Matters
+Before these fixes, the Home Assistant config editor would strip out your carefully entered values:
+- `core-mariadb:3306` → became `3306`
+- `5.tcp.ngrok.io:21829` → was completely removed
+
+Now both values are properly preserved when you save and reopen the configuration!
+
+---
+
+### Version 3.35.3 (2026-01-13)
+
+#### Critical Fix
+- **Added upstream.protocol field** - TCP and TLS endpoints now properly set `protocol: tcp` or `protocol: tls`
+- This was causing TCP tunnels to incorrectly start as HTTP tunnels!
+
+#### Config Schema Improvements
+- Reordered fields by usage frequency (most common at top)
+- `api_key` moved up (more commonly used than region)
+- Advanced fields (OAuth, OIDC, TLS certs) moved to bottom
+
+#### Documentation Updates
+- Added clear TCP tunnel setup section with examples
+- Documented hostname field usage for TCP reserved addresses
+- Added examples of random vs reserved TCP addresses
+- Link to [ngrok dashboard](https://dashboard.ngrok.com/cloud-edge/tcp-addresses)
+
+---
+
 ### Version 3.35.2 (2026-01-13)
 
 #### Critical Fixes
