@@ -1,6 +1,6 @@
 {
   "name": "ngrok Client",
-  "version": "3.35.0",
+  "version": "3.35.1",
   "slug": "ngrok",
   "init": false,
   "description": "ngrok v3 agent for Home Assistant - Expose your instance securely to the internet",
@@ -32,8 +32,7 @@
         "name": "hass",
         "proto": "http",
         "addr": 8123,
-        "inspect": true,
-        "schemes": ["https"]
+        "inspect": true
       }
     ]
   },
@@ -67,7 +66,6 @@
         "client_cas": "str?",
         "remote_addr": "str?",
         "metadata": "str?",
-        "schemes": ["list(http|https)?"],
         "mutual_tls_cas": "str?",
         "compression": "bool?",
         "websocket_tcp_converter": "bool?",
