@@ -45,6 +45,11 @@ for id in $(bashio::config "tunnels|keys"); do
   proto=$(bashio::config "tunnels[${id}].proto")
   addr=$(bashio::config "tunnels[${id}].addr")
   
+  # Strip any protocol prefix from addr (user convenience)
+  # tcp://host:port -> host:port
+  # http://host:port -> host:port
+  addr=$(echo "$addr" | sed -E 's|^[a-z]+://||')
+  
   bashio::log.info "Configuring endpoint: ${name} (${proto})"
   
   echo "  - name: $name" >> $configPath

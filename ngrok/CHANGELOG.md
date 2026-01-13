@@ -1,5 +1,19 @@
 ## Changes
 
+### Version 3.35.5 (2026-01-13)
+
+#### User Experience Improvement
+- **Auto-strip protocol prefixes from addr field** - Backend now removes `tcp://`, `http://`, etc. from addresses
+- Users can enter either format and it will work:
+  - `core-mariadb:3306` ✅
+  - `tcp://core-mariadb:3306` ✅ (auto-stripped to `core-mariadb:3306`)
+- Note: Regex still validates without protocol for clean config storage
+
+#### Why This Helps
+Some users naturally want to enter `tcp://host:port` for TCP tunnels. Now the script is smart enough to strip the protocol prefix automatically, so both formats work seamlessly.
+
+---
+
 ### Version 3.35.4 (2026-01-13)
 
 #### Critical Fixes
