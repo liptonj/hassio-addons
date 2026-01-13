@@ -1,0 +1,58 @@
+{
+  // Python Interpreter - Force venv usage
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+
+  // Ensure Pylance/Python extension uses the venv
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}/backend/app"
+  ],
+  "python.analysis.ignore": [
+    "**/node_modules",
+    "**/__pycache__"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+
+  // Disable ALL spell checkers
+  "cSpell.enabled": false,
+  "spellright.enabled": false,
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+
+  // Disable basedpyright entirely - we use Mypy and Ruff
+  "basedpyright.disableLanguageServices": true,
+  "basedpyright.disableOrganizeImports": true,
+  "basedpyright.analysis.diagnosticMode": "openFilesOnly",
+  "basedpyright.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
+    "reportMissingTypeStubs": "none",
+    "reportMissingModuleSource": "none"
+  },
+
+  // Ruff - native language server (no path needed, uses venv automatically)
+  "ruff.nativeServer": "on",
+
+  // Pylint integration - use .pylintrc file
+  "pylint.path": ["${workspaceFolder}/backend/.venv/bin/pylint"],
+  "pylint.args": ["--rcfile=${workspaceFolder}/backend/.pylintrc"],
+  "pylint.importStrategy": "fromEnvironment",
+
+  // Mypy integration
+  "mypy-type-checker.path": ["${workspaceFolder}/backend/.venv/bin/mypy"],
+  "mypy-type-checker.args": ["--config-file=${workspaceFolder}/backend/pyproject.toml"],
+  "mypy-type-checker.importStrategy": "fromEnvironment",
+
+  // Testing
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestPath": "${workspaceFolder}/backend/.venv/bin/pytest",
+  "python.testing.pytestArgs": ["tests"],
+
+  // Disable problematic linters
+  "python.linting.enabled": false,
+  "python.linting.pylintEnabled": false,
+  "python.linting.mypyEnabled": false
+}
+

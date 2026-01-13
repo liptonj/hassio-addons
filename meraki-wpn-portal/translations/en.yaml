@@ -1,0 +1,56 @@
+---
+configuration:
+  ha_url:
+    name: Home Assistant URL
+    description: URL to connect to Home Assistant (usually http://supervisor/core for add-ons)
+  ha_token:
+    name: Access Token
+    description: Long-lived access token for Home Assistant API access
+  property_name:
+    name: Property Name
+    description: Name of your property displayed on the registration portal
+  logo_url:
+    name: Logo URL
+    description: URL to your property logo (optional)
+  primary_color:
+    name: Primary Color
+    description: Primary theme color in hex format (e.g., #00A4E4)
+  default_network_id:
+    name: Default Network ID
+    description: Meraki network ID for IPSK creation (found in Meraki Dashboard URL)
+  default_ssid_number:
+    name: Default SSID Number
+    description: SSID number to use for new IPSKs (0-14)
+  default_group_policy_id:
+    name: Default Group Policy
+    description: Optional group policy ID to apply to new IPSKs
+  auth_self_registration:
+    name: Allow Self-Registration
+    description: Allow anyone to register for WiFi access without an invite code
+  auth_invite_codes:
+    name: Enable Invite Codes
+    description: Allow or require invite codes for registration
+  auth_email_verification:
+    name: Email Verification
+    description: Require email verification before providing credentials
+  auth_sms_verification:
+    name: SMS Verification
+    description: Require SMS verification before providing credentials (not implemented)
+  require_unit_number:
+    name: Require Unit Number
+    description: Require users to select or enter their unit/room number
+  unit_source:
+    name: Unit Source
+    description: Source for the unit/room dropdown (ha_areas, manual_list, or free_text)
+  manual_units:
+    name: Manual Units
+    description: List of unit numbers when using manual_list as unit source
+  default_ipsk_duration_hours:
+    name: Default IPSK Duration
+    description: Default duration for new IPSKs in hours (0 = permanent)
+  passphrase_length:
+    name: Passphrase Length
+    description: Length of auto-generated WiFi passphrases (8-32 characters)
+  admin_notification_email:
+    name: Admin Email
+    description: Email address for admin notifications (optional)

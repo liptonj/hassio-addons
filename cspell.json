@@ -1,0 +1,37 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "ipsk",
+    "ipsks",
+    "IPSK",
+    "Psks",
+    "meraki",
+    "Meraki",
+    "MERAKI",
+    "ssid",
+    "ssids",
+    "SSID",
+    "SSIDs",
+    "passphrase",
+    "passphrases",
+    "bashio",
+    "uvicorn",
+    "pydantic",
+    "sqlalchemy",
+    "fastapi",
+    "homeassistant",
+    "hassio",
+    "aiohttp",
+    "httpx",
+    "wpn"
+  ],
+  "ignorePaths": [
+    "node_modules",
+    "*.lock",
+    "package-lock.json",
+    "data",
+    "*.db",
+    ".git"
+  ]
+}

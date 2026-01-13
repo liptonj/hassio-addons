@@ -1,0 +1,18 @@
+{
+  // Python Interpreter - Force venv usage for this project
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+
+  // Disable basedpyright entirely - we use Mypy and Ruff
+  "basedpyright.disableOrganizeImports": true,
+  "basedpyright.disableLanguageServices": true,
+  
+  // If basedpyright still runs, suppress its warnings
+  "basedpyright.analysis.diagnosticMode": "openFilesOnly",
+  "basedpyright.analysis.useLibraryCodeForTypes": true,
+  "basedpyright.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
+    "reportMissingTypeStubs": "none",
+    "reportMissingModuleSource": "none",
+    "reportImportCycles": "none"
+  }
+}

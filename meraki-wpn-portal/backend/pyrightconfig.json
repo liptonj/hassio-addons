@@ -1,0 +1,25 @@
+{
+  "include": ["app"],
+  "exclude": [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+    "tests"
+  ],
+  "ignore": [],
+  "defineConstant": {},
+  "stubPath": "typings",
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": "none",
+  "reportMissingModuleSource": "none",
+  "pythonVersion": "3.13",
+  "pythonPlatform": "All",
+  "executionEnvironments": [
+    {
+      "root": "."
+    }
+  ],
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true
+}
