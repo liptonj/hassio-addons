@@ -1,5 +1,48 @@
 ## Changes
 
+### Version 3.35.7 (2026-01-13)
+
+#### Critical Fix - TCP Protocol Field
+- **Removed `protocol: tcp` from upstream section** for TCP endpoints
+- Per [ngrok v3 docs](https://ngrok.com/docs/agent/config/v3#upstreamprotocol), `upstream.protocol` is **ONLY for HTTP endpoints** (http1 or http2)
+- TCP and TLS endpoints should NOT have the protocol field
+
+#### What Was Wrong
+Before (incorrect):
+```yaml
+upstream:
+  url: core-mariadb:3306
+  protocol: tcp  # ❌ This caused issues!
+```
+
+After (correct):
+```yaml
+upstream:
+  url: core-mariadb:3306  # ✅ No protocol field for TCP
+```
+
+#### Why This Matters
+The `upstream.protocol` field is specifically for choosing between http1 and http2 for HTTP endpoints. Including it for TCP endpoints was causing the address to display incorrectly as `//core-mariadb:3306` in logs.
+
+---
+
+### Version 3.35.6 (2026-01-13)
+
+#### Critical Fix
+- **Regex now accepts protocol prefixes** - `tcp://core-mariadb:3306` now passes validation
+- Previous version stripped protocol in script but rejected it in validation
+- Now accepts both formats in validation: `core-mariadb:3306` OR `tcp://core-mariadb:3306`
+- Script still strips protocol prefix for clean config generation
+
+#### What This Fixes
+You can now enter the address either way:
+- `core-mariadb:3306` ✅
+- `tcp://core-mariadb:3306` ✅
+
+Both are accepted by validation, and the script handles the protocol prefix automatically.
+
+---
+
 ### Version 3.35.5 (2026-01-13)
 
 #### User Experience Improvement

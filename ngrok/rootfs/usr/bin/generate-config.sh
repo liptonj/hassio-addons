@@ -121,13 +121,11 @@ for id in $(bashio::config "tunnels|keys"); do
   fi
   
   # Protocol field - for all endpoint types
-  if [[ $proto == "tcp" ]]; then
-    # TCP requires protocol: tcp in upstream
-    echo "      protocol: tcp" >> $configPath
-  elif [[ $proto == "tls" ]]; then
-    # TLS requires protocol: tls in upstream
-    echo "      protocol: tls" >> $configPath
-  elif [[ $proto == "http" ]] || [[ $proto == "https" ]]; then
+  # Protocol field in upstream - ONLY for HTTP/HTTPS endpoints
+  # Per https://ngrok.com/docs/agent/config/v3#upstreamprotocol
+  # upstream.protocol is for HTTP endpoints only (http1 or http2)
+  # TCP and TLS endpoints should NOT have this field
+  if [[ $proto == "http" ]] || [[ $proto == "https" ]]; then
     # HTTP/HTTPS can specify http1 or http2
     echo "      protocol: http1" >> $configPath
     
