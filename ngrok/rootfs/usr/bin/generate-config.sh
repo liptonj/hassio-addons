@@ -49,10 +49,36 @@ for id in $(bashio::config "tunnels|keys"); do
   
   echo "  - name: $name" >> $configPath
   
-  # Add endpoint URL if hostname is specified
+  # Handle endpoint URL - different for TCP vs HTTP/HTTPS
   hostname=$(bashio::config "tunnels[${id}].hostname")
   if [[ $hostname != "null" ]]; then
-    echo "    url: https://${hostname}" >> $configPath
+    if [[ $proto == "tcp" ]]; then
+      # For TCP, hostname should be the full reserved address (e.g., 3.tcp.ngrok.io:12345)
+      if [[ $hostname =~ \.tcp\.ngrok\.io:[0-9]+ ]]; then
+        # Full TCP address provided
+        echo "    url: tcp://${hostname}" >> $configPath
+      else
+        bashio::log.warning "TCP hostname should be a reserved TCP address (e.g., 3.tcp.ngrok.io:12345)"
+        echo "    url: tcp://${hostname}" >> $configPath
+      fi
+    elif [[ $proto == "tls" ]]; then
+      echo "    url: tls://${hostname}" >> $configPath
+    else
+      # HTTP/HTTPS
+      echo "    url: https://${hostname}" >> $configPath
+    fi
+  else
+    # No hostname specified
+    if [[ $proto == "tcp" ]]; then
+      bashio::log.info "No hostname specified for TCP - ngrok will assign a random TCP address"
+      # Don't add url field for TCP without hostname - ngrok will auto-assign
+    elif [[ $proto == "tls" ]]; then
+      bashio::log.info "No hostname specified for TLS - ngrok will assign a random TLS address"
+      # Don't add url field for TLS without hostname
+    else
+      # For HTTP/HTTPS without hostname, ngrok will assign random address
+      bashio::log.info "No hostname specified - ngrok will assign a random address"
+    fi
   fi
   
   # Add metadata if specified
@@ -66,14 +92,21 @@ for id in $(bashio::config "tunnels|keys"); do
   
   # Handle address - check if it's just a port number
   if [[ $addr =~ ^([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$ ]]; then
-    # Just a port number - use localhost
-    echo "      url: ${addr}" >> $configPath
-  else
-    # Full address (hostname:port or IP:port) - need to prepend with scheme for non-TCP
+    # Just a port number
     if [[ $proto == "tcp" ]]; then
+      # For TCP with just port, forward to Home Assistant gateway
+      echo "      url: 172.30.32.1:${addr}" >> $configPath
+    else
+      # For HTTP/HTTPS, use port shorthand
+      echo "      url: ${addr}" >> $configPath
+    fi
+  else
+    # Full address (hostname:port or IP:port)
+    if [[ $proto == "tcp" ]]; then
+      # For TCP, just use the address as-is
       echo "      url: ${addr}" >> $configPath
     else
-      # For HTTP/HTTPS, add http:// prefix if not present
+      # For HTTP/HTTPS, ensure it has a scheme
       if [[ $addr =~ ^https?:// ]]; then
         echo "      url: ${addr}" >> $configPath
       else
@@ -82,7 +115,7 @@ for id in $(bashio::config "tunnels|keys"); do
     fi
   fi
   
-  # Protocol for HTTP endpoints (optional)
+  # Protocol field - only for HTTP/HTTPS endpoints
   if [[ $proto == "http" ]] || [[ $proto == "https" ]]; then
     echo "      protocol: http1" >> $configPath
     
@@ -93,7 +126,7 @@ for id in $(bashio::config "tunnels|keys"); do
     fi
   fi
   
-  # PROXY protocol (optional)
+  # PROXY protocol - available for all protocols
   proxy_proto=$(bashio::config "tunnels[${id}].proxy_proto")
   if [[ $proxy_proto != "null" ]]; then
     bashio::log.info "Enabling PROXY protocol version: ${proxy_proto}"
