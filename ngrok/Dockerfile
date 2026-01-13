@@ -1,5 +1,10 @@
+# Use official ngrok image to get the latest ngrok binary
+FROM ngrok/ngrok:latest AS ngrok-official
+
+# Build the Home Assistant add-on
 ARG BUILD_FROM
 FROM $BUILD_FROM
+
 # Environment variables
 ENV \
     HOME="/root" \
@@ -8,30 +13,23 @@ ENV \
     S6_LOGGING=0 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=0 \
     TERM="xterm-256color"
+
+# Copy ngrok binary from official image
+COPY --from=ngrok-official /usr/local/bin/ngrok /bin/ngrok
+
 # Copy root filesystem
 COPY rootfs /
-ARG BUILD_ARCH
+
+# Verify ngrok installation and set permissions
 RUN set -x \
- && apk add --no-cache curl \
- && if [[ "${BUILD_ARCH}" = "aarch64" ]]; then ARCH="arm64"; fi \
- && if [[ "${BUILD_ARCH}" = "amd64" ]]; then ARCH="amd64"; fi \
- && if [[ "${BUILD_ARCH}" = "armhf" ]]; then ARCH="arm"; fi \
- && if [[ "${BUILD_ARCH}" = "armv7" ]]; then ARCH="arm"; fi \
- && if [[ "${BUILD_ARCH}" = "i386" ]]; then ARCH="386"; fi \
- && curl -Lo /ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-${ARCH}.zip \
- && unzip -o /ngrok.zip -d /bin \
- && rm -f /ngrok.zip
-#Permissions Fix
-RUN chmod 755 /usr/bin/ngrok.sh \
-    && chmod 755 /etc/services.d/ngrok/run \
-    && chmod 755 /etc/services.d/ngrok/finish
+ && echo "Verifying ngrok installation..." \
+ && /bin/ngrok version \
+ && echo "ngrok installation complete" \
+ && chmod 755 /usr/bin/generate-config.sh \
+ && chmod 755 /etc/services.d/ngrok/run \
+ && chmod 755 /etc/services.d/ngrok/finish
 
-#RUN chown root:root /usr/bin/ngrok.sh
-# Entrypoint & CMD
-
-
-
-# Build arugments
+# Build arguments
 ARG BUILD_DATE
 ARG BUILD_REF
 ARG BUILD_VERSION

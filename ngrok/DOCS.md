@@ -1,5 +1,9 @@
 # Documentation
 
+## Overview
+
+This Home Assistant add-on provides an [ngrok](https://ngrok.com) agent that uses the official ngrok v3 Docker image. It automatically stays up-to-date with the latest ngrok releases and follows [official ngrok Docker patterns](https://ngrok.com/docs/using-ngrok-with/docker).
+
 ## How to use
 
 1. Add the Github repo to your Hass.io: <https://github.com/dy1io/hassio-addons>
@@ -43,16 +47,25 @@ Example add-on configuration:
       addr: 80
       bind_tls: false
       hostname: home.example.com
+    - name: database
+      proto: tcp
+      addr: core-mariadb:3306
+      inspect: false
 ```
 
 ## Options
 
 **Note**: _Remember to restart the add-on when the configuration is changed._
 
-### Option: `auth_token`
+### Option: `auth_token` (Required)
 
-Set your ngrok authentication token. This option is required if using a custom
-`subdomain` or `hostname` or for tunnels other than `http`.
+Your ngrok authentication token. Get one from the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken).
+
+**Important**: This is required for all tunnel types in ngrok v3.
+
+### Option: `api_key` (Optional)
+
+Your ngrok API key for programmatic access to the ngrok API. This is optional and only needed if you want to interact with ngrok's management API.
 
 ### Option: `region`
 
@@ -66,7 +79,10 @@ options are available:
 | ap         | Asia/Pacific  |
 | au         | Australia     |
 | sa         | South America |
+| jp         | Japan         |
 | in         | India         |
+
+Default: `us`
 
 ### Option: `tunnels`
 
@@ -78,7 +94,7 @@ details, see [ngrok's documentation][ngrok_docs_tunnels].
 | ------------- | --------- | --------------------------------------------------------------------------------------------------- |
 | `name`*       | all       | unique name for the tunnel must only use `a-z` `0-9` `-` or `_`                                     |
 | `proto`*      | all       | tunnel protocol name, one of http, tcp, tls                                                         |
-| `addr`*       | all       | forward traffic to this local port number or network address                                        |
+| `addr`*       | all       | forward traffic to this local port number, network address, or hostname:port (e.g., core-mariadb:3306)                                        |
 | `inspect`     | all       | enable http request inspection                                                                      |
 | `auth`        | http      | HTTP basic authentication credentials to enforce on tunneled requests                               |
 | `host_header` | http      | Rewrite the HTTP Host header to this value, or preserve to leave it unchanged                       |
@@ -126,6 +142,28 @@ this to create an automation each to alert you of the public url.
 
 You can monitor almost anything about the tunnel as long as it is active.
 See [ngrok's api documentation][ngrok_docs_api] for details.
+
+## ngrok v3 Changes
+
+This add-on now uses ngrok v3 with the [official Docker image](https://ngrok.com/docs/using-ngrok-with/docker). Key changes:
+
+### Configuration Format
+- Uses v3 configuration format internally
+- Your existing v2-style config options are automatically converted
+- Auth option now uses Traffic Policy engine for basic authentication
+
+### Deprecated Options
+- `subdomain`: Use `hostname` instead (still works but generates a warning)
+- Advanced TLS options (`host_header`, `crt`, `key`, `client_cas`) now require Traffic Policy configuration
+
+### Address Format Support
+The `addr` option now supports:
+- Port numbers: `8123`
+- IP addresses with ports: `192.168.1.100:8123`
+- Hostnames with ports: `core-mariadb:3306`, `homeassistant.local:8123`
+
+### Always Up-to-Date
+The add-on automatically uses the latest official ngrok release, ensuring you have access to the newest features and security updates.
 
 [ngrok_docs_tunnels]: https://ngrok.com/docs#tunnel-definitions
 [rest_docs]: https://www.home-assistant.io/integrations/rest/

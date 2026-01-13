@@ -1,9 +1,9 @@
 {
   "name": "ngrok Client",
-  "version": "3.2.2p",
+  "version": "3.3.0",
   "slug": "ngrok",
   "init": false,
-  "description": "A ngrok client for Hass.io",
+  "description": "ngrok v3 agent for Home Assistant - Expose your instance securely to the internet",
   "webui": "http://[HOST]:[PORT:4040]",
   "url": "https://github.com/liptonj/hassio-addons/ngrok",
   "stage": "experimental",
@@ -16,11 +16,12 @@
   ],
   "startup": "system",
   "boot": "auto",
+  "host_network": false,
   "ports": {
     "4040/tcp": "4040"
   },
   "ports_description": {
-    "4040/tcp": "Web interface"
+    "4040/tcp": "ngrok web inspection interface (legacy - prefer Traffic Inspector on ngrok dashboard)"
   },
   "options": {
     "log_level": "info",
@@ -31,31 +32,50 @@
         "name": "hass",
         "proto": "http",
         "addr": 8123,
-        "inspect": false
+        "inspect": true,
+        "schemes": ["https"]
       }
     ]
   },
   "schema": {
-    "log_level": "list(crit|warn|error|info|debug)",
+    "log_level": "list(trace|debug|info|warn|error|crit)?",
     "auth_token": "str?",
     "region": "list(us|eu|ap|au|sa|jp|in)?",
+    "api_key": "str?",
     "tunnels": [
       {
         "name": "str",
-        "proto": "list(http|tls|tcp)",
-        "addr": "match(^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]):([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5]))|([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$)",
+        "proto": "list(http|https|tls|tcp|labeled)?",
+        "addr": "match(^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]):([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5]))|(([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?:([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5]))|([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$)",
         "inspect": "bool?",
         "auth": "str?",
+        "oauth_provider": "list(google|github|microsoft|facebook|gitlab|linkedin|bitbucket|amazon)?",
+        "oauth_allow_domains": ["str?"],
+        "oauth_allow_emails": ["str?"],
+        "oauth_scopes": ["str?"],
+        "oidc_issuer_url": "str?",
+        "oidc_client_id": "str?",
+        "oidc_client_secret": "str?",
+        "oidc_scopes": ["str?"],
         "host_header": "str?",
         "bind_tls": "bool?",
         "subdomain": "str?",
         "hostname": "str?",
+        "domain": "str?",
         "crt": "str?",
         "key": "str?",
         "client_cas": "str?",
         "remote_addr": "str?",
         "metadata": "str?",
-        "schemes": ["str?"]
+        "schemes": ["list(http|https)?"],
+        "mutual_tls_cas": "str?",
+        "compression": "bool?",
+        "websocket_tcp_converter": "bool?",
+        "circuit_breaker": "float(0,1)?",
+        "proxy_proto": "str?",
+        "policy": "str?",
+        "verify_upstream_tls": "bool?",
+        "labels": ["str?"]
       }
     ]
   }

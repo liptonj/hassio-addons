@@ -1,4 +1,9 @@
 #!/usr/bin/with-contenv bashio
 
-echo "Hello"
-exec /usr/bin/ngrok.sh
+# Generate ngrok config from Home Assistant add-on options
+bashio::log.info "Generating ngrok configuration..."
+/usr/bin/generate-config.sh
+
+# Start ngrok with the generated config
+bashio::log.info "Starting ngrok agent..."
+exec ngrok start --config /etc/ngrok.yml --all
