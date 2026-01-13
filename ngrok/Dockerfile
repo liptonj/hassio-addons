@@ -1,8 +1,10 @@
+# Build argument needs to be declared before any FROM statement
+ARG BUILD_FROM
+
 # Use official ngrok image to get the latest ngrok binary
 FROM ngrok/ngrok:latest AS ngrok-official
 
 # Build the Home Assistant add-on
-ARG BUILD_FROM
 FROM $BUILD_FROM
 
 # Environment variables
@@ -15,7 +17,7 @@ ENV \
     TERM="xterm-256color"
 
 # Copy ngrok binary from official image
-COPY --from=ngrok-official /usr/local/bin/ngrok /bin/ngrok
+COPY --from=ngrok-official /bin/ngrok /bin/ngrok
 
 # Copy root filesystem
 COPY rootfs /
