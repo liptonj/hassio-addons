@@ -38,20 +38,49 @@ Example add-on configuration:
   auth_token: my-auth-token
   region: us
   tunnels:
+    # HTTP tunnel with custom domain
     - name: hass
-      proto: tls
+      proto: http
       addr: 8123
-      hostname: home.example.com
+      hostname: ha.example.com
+    # Let's Encrypt verification (HTTP only)
     - name: lets-encrypt
       proto: http
       addr: 80
       bind_tls: false
-      hostname: home.example.com
+      hostname: ha.example.com
+    # TCP tunnel with random address
     - name: database
       proto: tcp
       addr: core-mariadb:3306
       inspect: false
+    # TCP tunnel with reserved address (from ngrok dashboard)
+    - name: ssh
+      proto: tcp
+      addr: 22
+      hostname: 5.tcp.ngrok.io:21829
 ```
+
+### TCP Tunnel Setup
+
+For **TCP tunnels** (like databases, SSH, etc.):
+
+1. **Random TCP address** - Omit `hostname`:
+   ```yaml
+   - name: database
+     proto: tcp
+     addr: 3306  # or core-mariadb:3306
+   ```
+   ngrok will assign a random address like `3.tcp.ngrok.io:12345`
+
+2. **Reserved TCP address** - Get from [ngrok dashboard](https://dashboard.ngrok.com/cloud-edge/tcp-addresses):
+   ```yaml
+   - name: database
+     proto: tcp
+     addr: 3306
+     hostname: 5.tcp.ngrok.io:21829
+   ```
+   You'll always get the same TCP address
 
 ## Options
 
@@ -93,19 +122,22 @@ details, see [ngrok's documentation][ngrok_docs_tunnels].
 | Option        | Protocol  | Description                                                                                         |
 | ------------- | --------- | --------------------------------------------------------------------------------------------------- |
 | `name`*       | all       | unique name for the tunnel must only use `a-z` `0-9` `-` or `_`                                     |
-| `proto`*      | all       | tunnel protocol name, one of http, tcp, tls                                                         |
-| `addr`*       | all       | forward traffic to this local port number, network address, or hostname:port (e.g., core-mariadb:3306)                                        |
+| `proto`*      | all       | tunnel protocol name, one of http, https, tcp, tls                                                  |
+| `addr`*       | all       | forward traffic to this local port number, network address, or hostname:port (e.g., core-mariadb:3306) |
+| `hostname`    | all       | For HTTP/HTTPS: your custom domain (e.g., ha.example.com). For TCP: reserved TCP address (e.g., 5.tcp.ngrok.io:21829) |
+| `metadata`    | all       | arbitrary user-defined metadata that will appear in the ngrok service API when listing tunnels      |
 | `inspect`     | all       | enable http request inspection                                                                      |
+| `proxy_proto` | all       | PROXY protocol version (1 or 2) for passing client connection info                                  |
+| `websocket_tcp_converter` | http | convert WebSocket connections to TCP (requires Traffic Policy in v3)                         |
+| `compression` | http      | enable gzip compression                                                                             |
 | `auth`        | http      | HTTP basic authentication credentials to enforce on tunneled requests                               |
+| `subdomain`   | http, tls | subdomain name to request (deprecated - use hostname instead)                                       |
 | `host_header` | http      | Rewrite the HTTP Host header to this value, or preserve to leave it unchanged                       |
 | `bind_tls`    | http      | bind an HTTPS or HTTP endpoint or both true, false, or both                                         |
-| `subdomain`   | http, tls | subdomain name to request. If unspecified, uses the tunnel name                                     |
-| `hostname`    | http, tls | hostname to request (requires reserved name and DNS CNAME)                                          |
 | `crt`         | tls       | PEM TLS certificate at this path to terminate TLS traffic before forwarding locally                 |
 | `key`         | tls       | PEM TLS private key at this path to terminate TLS traffic before forwarding locally                 |
 | `client_cas`  | tls       | PEM TLS certificate authority at this path will verify incoming TLS client connection certificates. |
-| `remote_addr` | tcp       | bind the remote TCP port on the given address                                                       |
-| `metadata`    | all       | arbitrary user-defined metadata that will appear in the ngrok service API when listing tunnels      |
+| `remote_addr` | tcp       | bind the remote TCP port on the given address (deprecated - use hostname instead)                   |
 
 *required
 

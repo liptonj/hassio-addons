@@ -115,8 +115,15 @@ for id in $(bashio::config "tunnels|keys"); do
     fi
   fi
   
-  # Protocol field - only for HTTP/HTTPS endpoints
-  if [[ $proto == "http" ]] || [[ $proto == "https" ]]; then
+  # Protocol field - for all endpoint types
+  if [[ $proto == "tcp" ]]; then
+    # TCP requires protocol: tcp in upstream
+    echo "      protocol: tcp" >> $configPath
+  elif [[ $proto == "tls" ]]; then
+    # TLS requires protocol: tls in upstream
+    echo "      protocol: tls" >> $configPath
+  elif [[ $proto == "http" ]] || [[ $proto == "https" ]]; then
+    # HTTP/HTTPS can specify http1 or http2
     echo "      protocol: http1" >> $configPath
     
     # WebSocket TCP converter
