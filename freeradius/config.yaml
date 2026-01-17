@@ -1,17 +1,18 @@
 name: "FreeRADIUS Server"
 description: "FreeRADIUS server with RadSec support for Meraki WPN Portal"
-version: "2.0.8"
+version: "2.0.9"
 slug: "freeradius-server"
 arch:
   - amd64
 url: "https://github.com/liptonj/hassio-addons"
 init: false
 startup: services
+host_network: true
 ports:
-  1812/udp: 1812
-  1813/udp: 1813
-  2083/tcp: 2083
-  3799/udp: 3799
+  1812/udp: null
+  1813/udp: null
+  2083/tcp: null
+  3799/udp: null
 ports_description:
   1812/udp: "RADIUS Authentication"
   1813/udp: "RADIUS Accounting"
@@ -32,6 +33,11 @@ options:
   db_password: ""
   api_auth_token: ""
   log_level: "info"
+  radius_auth_port: 1812
+  radius_acct_port: 1813
+  radsec_port: 2083
+  coa_port: 3799
+  api_port: 8000
 
 schema:
   db_type: list(sqlite|mysql|postgresql)?
@@ -42,3 +48,8 @@ schema:
   db_password: password?
   api_auth_token: password?
   log_level: list(debug|info|warn|error)?
+  radius_auth_port: int(1,65535)?
+  radius_acct_port: int(1,65535)?
+  radsec_port: int(1,65535)?
+  coa_port: int(1,65535)?
+  api_port: int(1,65535)?

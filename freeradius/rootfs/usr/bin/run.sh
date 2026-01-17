@@ -64,6 +64,11 @@ if [ "${HA_MODE}" = "true" ]; then
     DB_PASSWORD=$(bashio::config 'db_password')
     API_AUTH_TOKEN_CONFIG=$(bashio::config 'api_auth_token')
     LOG_LEVEL=$(bashio::config 'log_level')
+    RADIUS_AUTH_PORT=$(bashio::config 'radius_auth_port')
+    RADIUS_ACCT_PORT=$(bashio::config 'radius_acct_port')
+    RADSEC_PORT=$(bashio::config 'radsec_port')
+    COA_PORT=$(bashio::config 'coa_port')
+    API_PORT=$(bashio::config 'api_port')
 else
     # Load from environment variables with defaults
     DB_TYPE="${DB_TYPE:-sqlite}"
@@ -74,18 +79,23 @@ else
     DB_PASSWORD="${DB_PASSWORD:-}"
     API_AUTH_TOKEN_CONFIG="${API_AUTH_TOKEN:-}"
     LOG_LEVEL="${LOG_LEVEL:-info}"
+    RADIUS_AUTH_PORT="${RADIUS_AUTH_PORT:-1812}"
+    RADIUS_ACCT_PORT="${RADIUS_ACCT_PORT:-1813}"
+    RADSEC_PORT="${RADSEC_PORT:-2083}"
+    COA_PORT="${COA_PORT:-3799}"
+    API_PORT="${API_PORT:-8000}"
 fi
 
 # Server defaults (same for both modes)
 SERVER_NAME="${SERVER_NAME:-freeradius-server}"
 RADSEC_ENABLED="${RADSEC_ENABLED:-true}"
-RADSEC_PORT="${RADSEC_PORT:-2083}"
 COA_ENABLED="${COA_ENABLED:-true}"
-COA_PORT="${COA_PORT:-3799}"
 CERT_SOURCE="${CERT_SOURCE:-selfsigned}"
 API_ENABLED="${API_ENABLED:-true}"
-API_PORT="${API_PORT:-8000}"
 API_HOST="${API_HOST:-127.0.0.1}"
+
+# Export port configuration
+export RADIUS_AUTH_PORT RADIUS_ACCT_PORT RADSEC_PORT COA_PORT API_PORT
 
 # ============================================================================
 # API Auth Token (same logic for both modes)
@@ -329,7 +339,8 @@ export RADIUS_DATABASE_TYPE="${DATABASE_TYPE}"
 export RADIUS_DATABASE_PATH="${DATABASE_PATH}"
 export RADIUS_LOG_LEVEL="${LOG_LEVEL}"
 export RADIUS_TEST_SECRET="${RADIUS_TEST_SECRET:-$(openssl rand -base64 32)}"
-export SERVER_NAME RADSEC_ENABLED RADSEC_PORT COA_ENABLED COA_PORT
+export SERVER_NAME RADSEC_ENABLED COA_ENABLED
+export RADIUS_AUTH_PORT RADIUS_ACCT_PORT RADSEC_PORT COA_PORT
 export API_ENABLED API_PORT API_HOST
 
 # Start configuration API

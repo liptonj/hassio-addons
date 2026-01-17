@@ -24,3 +24,18 @@ configuration:
   log_level:
     name: Log Level
     description: FreeRADIUS logging verbosity (debug, info, warn, error)
+  radius_auth_port:
+    name: RADIUS Auth Port
+    description: Port for RADIUS authentication (default 1812)
+  radius_acct_port:
+    name: RADIUS Accounting Port
+    description: Port for RADIUS accounting (default 1813)
+  radsec_port:
+    name: RadSec Port
+    description: Port for RadSec/RADIUS over TLS (default 2083)
+  coa_port:
+    name: CoA Port
+    description: Port for Change of Authorization/Disconnect Messages (default 3799)
+  api_port:
+    name: API Port
+    description: Port for the internal management API (default 8000)
