@@ -1,101 +1,8 @@
 ---
 configuration:
-  run_mode:
-    name: Run Mode
-    description: Operating mode - homeassistant (add-on) or standalone (Docker)
-  ha_url:
-    name: Home Assistant URL
-    description: URL to connect to Home Assistant (usually http://supervisor/core for add-ons)
-  ha_token:
-    name: Access Token
-    description: Long-lived access token for Home Assistant API access
-  property_name:
-    name: Property Name
-    description: Name of your property displayed on the registration portal
-  logo_url:
-    name: Logo URL
-    description: URL to your property logo (optional)
-  primary_color:
-    name: Primary Color
-    description: Primary theme color in hex format (e.g., #00A4E4)
-  default_network_id:
-    name: Default Network ID
-    description: Meraki network ID for IPSK creation (found in Meraki Dashboard URL)
-  default_ssid_number:
-    name: Default SSID Number
-    description: SSID number to use for new IPSKs (0-14)
-  default_group_policy_id:
-    name: Default Group Policy
-    description: Optional group policy ID to apply to new IPSKs
-  auth_self_registration:
-    name: Allow Self-Registration
-    description: Allow anyone to register for WiFi access without an invite code
-  auth_invite_codes:
-    name: Enable Invite Codes
-    description: Allow or require invite codes for registration
-  auth_email_verification:
-    name: Email Verification
-    description: Require email verification before providing credentials
-  auth_sms_verification:
-    name: SMS Verification
-    description: Require SMS verification before providing credentials (not implemented)
-  require_unit_number:
-    name: Require Unit Number
-    description: Require users to select or enter their unit/room number
-  unit_source:
-    name: Unit Source
-    description: Source for the unit/room dropdown (ha_areas, manual_list, or free_text)
-  manual_units:
-    name: Manual Units
-    description: List of unit numbers when using manual_list as unit source
-  default_ipsk_duration_hours:
-    name: Default IPSK Duration
-    description: Default duration for new IPSKs in hours (0 = permanent)
-  passphrase_length:
-    name: Passphrase Length
-    description: Length of auto-generated WiFi passphrases (8-32 characters)
-  admin_notification_email:
-    name: Admin Email
-    description: Email address for admin notifications (optional)
-  admin_username:
-    name: Admin Username
-    description: Username for admin dashboard login (leave empty to auto-generate)
-  admin_password:
-    name: Admin Password
-    description: Password for admin dashboard login (leave empty to auto-generate secure password)
-  enable_oauth:
-    name: Enable OAuth/SSO
-    description: Enable OAuth/SSO authentication for admin access
-  oauth_provider:
-    name: OAuth Provider
-    description: OAuth provider to use (none, duo, or entra)
-  oauth_admin_only:
-    name: OAuth Admin Only
-    description: Restrict OAuth login to admin users only
-  duo_client_id:
-    name: Duo Client ID
-    description: Duo Security application client ID
-  duo_client_secret:
-    name: Duo Client Secret
-    description: Duo Security application client secret
-  duo_api_hostname:
-    name: Duo API Hostname
-    description: Duo Security API hostname (e.g., api-xxxxxxxx.duosecurity.com)
-  entra_client_id:
-    name: Entra ID Client ID
-    description: Microsoft Entra ID (Azure AD) application client ID
-  entra_client_secret:
-    name: Entra ID Client Secret
-    description: Microsoft Entra ID application client secret
-  entra_tenant_id:
-    name: Entra ID Tenant ID
-    description: Microsoft Entra ID tenant ID
-  oauth_callback_url:
-    name: OAuth Callback URL
-    description: OAuth callback URL for your deployment
   db_type:
     name: Database Type
-    description: Database backend - SQLite (local), MySQL (auto-discovers MariaDB add-on!), or PostgreSQL
+    description: Database backend - SQLite (local file), MySQL (auto-discovers MariaDB add-on), or PostgreSQL
   db_host:
     name: Database Host
     description: Database server hostname (leave empty to auto-discover MariaDB add-on)
@@ -104,19 +11,16 @@ configuration:
     description: Database server port (3306 for MySQL, 5432 for PostgreSQL)
   db_name:
     name: Database Name
-    description: Database name (for SQLite, this is the filename without .db extension)
+    description: Database name (for SQLite, this is the filename in /config/)
   db_user:
     name: Database User
     description: Username for database connection (leave empty to auto-discover from MariaDB add-on)
   db_password:
     name: Database Password
     description: Password for database connection (leave empty to auto-discover from MariaDB add-on)
-  freeradius_enabled:
-    name: Enable FreeRADIUS Integration
-    description: Enable integration with FreeRADIUS for RADIUS-based WiFi authentication
-  freeradius_api_url:
-    name: FreeRADIUS API URL
-    description: FreeRADIUS API endpoint (leave empty to auto-discover from FreeRADIUS add-on)
-  freeradius_api_token:
-    name: FreeRADIUS API Token
-    description: Bearer token for FreeRADIUS API (leave empty to auto-discover from FreeRADIUS add-on)
+  admin_username:
+    name: Admin Username
+    description: Initial admin username (leave empty to auto-generate - check logs for credentials)
+  admin_password:
+    name: Admin Password
+    description: Initial admin password (leave empty to auto-generate secure password - check logs)

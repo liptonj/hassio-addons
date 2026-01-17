@@ -1,6 +1,6 @@
 name: "FreeRADIUS Server"
 description: "FreeRADIUS server with RadSec support for Meraki WPN Portal"
-version: "2.0.3"
+version: "2.0.4"
 slug: "freeradius-server"
 arch:
   - amd64
@@ -12,15 +12,11 @@ ports:
   1813/udp: 1813
   2083/tcp: 2083
   3799/udp: 3799
-  8000/tcp: null
-  80/tcp: null
 ports_description:
   1812/udp: "RADIUS Authentication"
   1813/udp: "RADIUS Accounting"
   2083/tcp: "RadSec (RADIUS over TLS)"
   3799/udp: "CoA/DM (Change of Authorization)"
-  8000/tcp: "Configuration API (internal only)"
-  80/tcp: "Let's Encrypt HTTP-01 challenge"
 map:
   - config:rw
   - ssl:ro
@@ -28,73 +24,26 @@ services:
   - mysql:want
 
 options:
-  server_name: "freeradius-server"
-  max_requests: 16384
-  max_request_time: 30
-  cleanup_delay: 5
-  max_servers: 32
-  min_spare_servers: 3
-  max_spare_servers: 10
-  radsec_enabled: true
-  radsec_port: 2083
-  coa_enabled: true
-  coa_port: 3799
-  cert_source: "selfsigned"
-  log_level: "info"
-  log_auth: true
-  log_auth_badpass: true
-  log_auth_goodpass: false
+  # Database Configuration
   db_type: "sqlite"
   db_host: ""
   db_port: 3306
   db_name: "freeradius"
   db_user: ""
   db_password: ""
-  db_pool_size: 5
-  db_max_overflow: 10
-  db_pool_recycle: 3600
-  api_enabled: true
-  api_port: 8000
-  api_host: "127.0.0.1"
+  
+  # API Authentication (leave empty to auto-generate)
   api_auth_token: ""
-  letsencrypt_standalone: false
-  letsencrypt_domain: ""
-  letsencrypt_email: ""
-  letsencrypt_http_port: 80
-  cert_password: ""
+  
+  # Logging
+  log_level: "info"
 
 schema:
-  server_name: str?
-  max_requests: int(1024,65536)?
-  max_request_time: int(10,120)?
-  cleanup_delay: int(1,30)?
-  max_servers: int(1,256)?
-  min_spare_servers: int(1,32)?
-  max_spare_servers: int(1,64)?
-  radsec_enabled: bool?
-  radsec_port: int(1024,65535)?
-  coa_enabled: bool?
-  coa_port: int(1024,65535)?
-  cert_source: list(selfsigned|letsencrypt)?
-  log_level: list(debug|info|warn|error)?
-  log_auth: bool?
-  log_auth_badpass: bool?
-  log_auth_goodpass: bool?
   db_type: list(sqlite|mysql|postgresql)?
   db_host: str?
   db_port: int(1,65535)?
   db_name: str?
   db_user: str?
   db_password: password?
-  db_pool_size: int(1,20)?
-  db_max_overflow: int(0,50)?
-  db_pool_recycle: int(300,7200)?
-  api_enabled: bool?
-  api_port: int(1024,65535)?
-  api_host: str?
   api_auth_token: password?
-  letsencrypt_standalone: bool?
-  letsencrypt_domain: str?
-  letsencrypt_email: email?
-  letsencrypt_http_port: int(1,65535)?
-  cert_password: password?
+  log_level: list(debug|info|warn|error)?

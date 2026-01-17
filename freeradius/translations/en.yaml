@@ -1,56 +1,8 @@
 ---
 configuration:
-  server_name:
-    name: Server Name
-    description: Hostname identifier for this RADIUS server
-  max_requests:
-    name: Max Requests
-    description: Maximum number of concurrent RADIUS requests (1024-65536)
-  max_request_time:
-    name: Max Request Time
-    description: Maximum time (seconds) for a RADIUS request to complete
-  cleanup_delay:
-    name: Cleanup Delay
-    description: Time (seconds) before cleaning up finished requests
-  max_servers:
-    name: Max Servers
-    description: Maximum number of server threads
-  min_spare_servers:
-    name: Min Spare Servers
-    description: Minimum number of idle server threads to maintain
-  max_spare_servers:
-    name: Max Spare Servers
-    description: Maximum number of idle server threads to keep
-  radsec_enabled:
-    name: Enable RadSec
-    description: Enable RADIUS over TLS (RadSec) on port 2083
-  radsec_port:
-    name: RadSec Port
-    description: TCP port for RadSec connections (default 2083)
-  coa_enabled:
-    name: Enable CoA
-    description: Enable Change of Authorization (CoA) and Disconnect Messages
-  coa_port:
-    name: CoA Port
-    description: UDP port for CoA/DM requests (default 3799)
-  cert_source:
-    name: Certificate Source
-    description: Use 'selfsigned' for auto-generated certs or 'letsencrypt' for /ssl certs
-  log_level:
-    name: Log Level
-    description: Logging verbosity (debug, info, warn, error)
-  log_auth:
-    name: Log Authentication
-    description: Log all authentication requests
-  log_auth_badpass:
-    name: Log Bad Passwords
-    description: Log authentication failures with incorrect passwords
-  log_auth_goodpass:
-    name: Log Good Passwords
-    description: Log successful authentications (not recommended in production)
   db_type:
     name: Database Type
-    description: Database backend - SQLite (local), MySQL (auto-discovers MariaDB add-on!), or PostgreSQL
+    description: Database backend - SQLite (local file), MySQL (auto-discovers MariaDB add-on), or PostgreSQL
   db_host:
     name: Database Host
     description: Database server hostname (leave empty to auto-discover MariaDB add-on)
@@ -59,46 +11,16 @@ configuration:
     description: Database server port (3306 for MySQL, 5432 for PostgreSQL)
   db_name:
     name: Database Name
-    description: Database name (for SQLite, this is the filename without .db extension)
+    description: Database name (for SQLite, this is the filename in /config/)
   db_user:
     name: Database User
     description: Username for database connection (leave empty to auto-discover from MariaDB add-on)
   db_password:
     name: Database Password
     description: Password for database connection (leave empty to auto-discover from MariaDB add-on)
-  db_pool_size:
-    name: Database Pool Size
-    description: Number of database connections to maintain in the pool
-  db_max_overflow:
-    name: Database Max Overflow
-    description: Maximum extra connections allowed beyond pool_size
-  db_pool_recycle:
-    name: Database Pool Recycle
-    description: Time (seconds) before recycling idle database connections
-  api_enabled:
-    name: Enable API
-    description: Enable the configuration REST API for dynamic management
-  api_port:
-    name: API Port
-    description: Port for the configuration API (internal access only)
-  api_host:
-    name: API Host
-    description: IP address to bind the API (127.0.0.1 for localhost only)
   api_auth_token:
     name: API Auth Token
-    description: Bearer token for API authentication (leave empty to auto-generate secure token)
-  letsencrypt_standalone:
-    name: Let's Encrypt Standalone
-    description: Run standalone certbot for certificate management
-  letsencrypt_domain:
-    name: Let's Encrypt Domain
-    description: Domain name for Let's Encrypt certificate
-  letsencrypt_email:
-    name: Let's Encrypt Email
-    description: Email address for Let's Encrypt notifications
-  letsencrypt_http_port:
-    name: Let's Encrypt HTTP Port
-    description: Port for Let's Encrypt HTTP-01 challenge (default 80)
-  cert_password:
-    name: Certificate Password
-    description: Password for encrypted private keys (optional)
+    description: Bearer token for the management API (leave empty to auto-generate - check logs)
+  log_level:
+    name: Log Level
+    description: FreeRADIUS logging verbosity (debug, info, warn, error)
