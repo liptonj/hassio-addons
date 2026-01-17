@@ -24,3 +24,6 @@ configuration:
   admin_password:
     name: Admin Password
     description: Initial admin password (leave empty to auto-generate secure password - check logs)
+  web_port:
+    name: Web Server Port
+    description: Port for the web application (default 8080)

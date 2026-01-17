@@ -72,6 +72,7 @@ if [ "${HA_MODE}" = "true" ]; then
     DB_PASSWORD=$(bashio::config 'db_password')
     ADMIN_USERNAME_CONFIG=$(bashio::config 'admin_username')
     ADMIN_PASSWORD_CONFIG=$(bashio::config 'admin_password')
+    WEB_PORT=$(bashio::config 'web_port')
 else
     # Load from environment variables with defaults
     DB_TYPE="${DB_TYPE:-sqlite}"
@@ -82,6 +83,7 @@ else
     DB_PASSWORD="${DB_PASSWORD:-}"
     ADMIN_USERNAME_CONFIG="${ADMIN_USERNAME:-}"
     ADMIN_PASSWORD_CONFIG="${ADMIN_PASSWORD:-}"
+    WEB_PORT="${WEB_PORT:-8080}"
 fi
 
 # ============================================================================
@@ -259,5 +261,5 @@ echo "Initializing database..."
 python -c "from app.db.database import init_db; init_db()"
 
 # Start the FastAPI application
-echo "Starting FastAPI server on port 8080..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8080
+echo "Starting FastAPI server on port ${WEB_PORT}..."
+exec uvicorn app.main:app --host 0.0.0.0 --port ${WEB_PORT}

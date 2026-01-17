@@ -4,8 +4,7 @@
 # Note: Using FreeRADIUS 3.x (stable) until v4 has better package availability
 # FreeRADIUS 4.0 is still in alpha with limited distribution support
 
-ARG BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20"
-FROM ${BUILD_FROM}
+FROM ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
 
 # Install FreeRADIUS and dependencies
 RUN apk add --no-cache \

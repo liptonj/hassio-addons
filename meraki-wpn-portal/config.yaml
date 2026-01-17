@@ -1,6 +1,6 @@
 name: "Meraki WPN Portal"
 description: "Self-service WiFi registration portal for Cisco Meraki networks with IPSK management"
-version: "1.0.8"
+version: "1.0.9"
 slug: "meraki-wpn-portal"
 arch:
   - amd64
@@ -12,9 +12,9 @@ ingress_port: 8099
 panel_icon: "mdi:wifi-plus"
 panel_title: "WPN Portal"
 ports:
-  8080/tcp: 8080
+  8080/tcp: null
 ports_description:
-  8080/tcp: "Public registration portal"
+  8080/tcp: "Public registration portal (optional external access)"
 map:
   - config:rw
   - ssl:ro
@@ -30,6 +30,7 @@ options:
   db_password: ""
   admin_username: ""
   admin_password: ""
+  web_port: 8080
 
 schema:
   db_type: list(sqlite|mysql|postgresql)?
@@ -40,3 +41,4 @@ schema:
   db_password: password?
   admin_username: str?
   admin_password: password?
+  web_port: int(1024,65535)?
