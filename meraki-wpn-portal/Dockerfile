@@ -24,10 +24,8 @@ FROM ${BUILD_FROM}
 RUN apk add --no-cache \
     curl \
     libffi-dev \
-    build-base
-
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+    build-base \
+    && pip install --no-cache-dir uv
 
 WORKDIR /app
 
