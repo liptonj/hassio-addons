@@ -1,6 +1,6 @@
 name: "FreeRADIUS Server"
 description: "FreeRADIUS server with RadSec support for Meraki WPN Portal"
-version: "2.0.6"
+version: "2.0.7"
 slug: "freeradius-server"
 arch:
   - amd64
@@ -24,18 +24,13 @@ services:
   - mysql:want
 
 options:
-  # Database Configuration
   db_type: "sqlite"
   db_host: ""
   db_port: 3306
   db_name: "freeradius"
   db_user: ""
   db_password: ""
-  
-  # API Authentication (leave empty to auto-generate)
   api_auth_token: ""
-  
-  # Logging
   log_level: "info"
 
 schema:

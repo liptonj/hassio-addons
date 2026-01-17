@@ -1,6 +1,6 @@
 name: "Meraki WPN Portal"
 description: "Self-service WiFi registration portal for Cisco Meraki networks with IPSK management"
-version: "1.0.6"
+version: "1.0.7"
 slug: "meraki-wpn-portal"
 arch:
   - amd64
@@ -22,15 +22,12 @@ services:
   - mysql:want
 
 options:
-  # Database Configuration
   db_type: "sqlite"
   db_host: ""
   db_port: 3306
   db_name: "meraki_wpn_portal"
   db_user: ""
   db_password: ""
-  
-  # Initial Admin Credentials (leave empty to auto-generate)
   admin_username: ""
   admin_password: ""
 
