@@ -6,9 +6,7 @@ slug: "freeradius-server"
 # Remove this line to build locally from Dockerfile
 image: "ghcr.io/liptonj/freeradius-server-{arch}"
 arch:
-  - aarch64
   - amd64
-  - armv7
 url: "https://github.com/liptonj/hassio-addons"
 init: false
 startup: services

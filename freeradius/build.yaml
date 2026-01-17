@@ -2,9 +2,7 @@
 # Note: FreeRADIUS 4 is still in alpha with limited package availability
 # When v4 is stable, switch to Debian base with NetworkRADIUS packages
 build_from:
-  aarch64: "ghcr.io/home-assistant/aarch64-base-python:3.13-alpine3.22"
   amd64: "ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22"
-  armv7: "ghcr.io/home-assistant/armv7-base-python:3.13-alpine3.22"
 args:
   BUILD_FROM: ${build_from}
 labels:
