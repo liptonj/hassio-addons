@@ -1,0 +1,59 @@
+# -*- text -*-
+#
+# Official Meraki RADIUS dictionary file.
+#
+# Per Meraki documentation:
+# https://documentation.meraki.com/Wireless/Design_and_Configure/Configuration_Guides/Encryption_and_Authentication/IPSK_with_RADIUS_Authentication
+#
+# Version 2
+#
+# Required for:
+# - IPSK with RADIUS authentication
+# - Easy PSK (MR 32.1.3+)
+# - WPN (udn_id assignment)
+#
+
+VENDOR Meraki 29671
+
+BEGIN-VENDOR Meraki
+
+# Device and network identification
+ATTRIBUTE Meraki-Device-Name      1 string
+ATTRIBUTE Meraki-Network-Name     2 string
+ATTRIBUTE Meraki-Ap-Name          3 string
+ATTRIBUTE Meraki-Ap-Tags          4 string
+
+# IPSK authentication attributes (Easy PSK - MR 32.1.3+)
+# These are used for EAPOL-based PSK validation
+ATTRIBUTE Meraki-IPSK             5 tlv
+ATTRIBUTE Meraki-IPSK-Anonce      5.1 octets
+ATTRIBUTE Meraki-IPSK-EAPOL       5.2 octets
+ATTRIBUTE Meraki-IPSK-BSSID       5.3 octets
+ATTRIBUTE Meraki-IPSK-AP-MAC      5.4 octets
+ATTRIBUTE Meraki-IPSK-SSID        5.5 string
+
+END-VENDOR Meraki
+
+#
+# IPSK Authentication Flow (MAC-Based):
+# =====================================
+# 1. Client connects to SSID
+# 2. MR sends RADIUS request with:
+#    - User-Name = client MAC address (aa:bb:cc:dd:ee:ff)
+#    - Calling-Station-Id = client MAC address
+#    - Called-Station-Id = AP MAC:SSID name
+# 3. FreeRADIUS looks up MAC address in database
+# 4. Returns Access-Accept with:
+#    - Tunnel-Password = PSK for this client
+#    - Filter-Id = Group policy name (optional)
+#    - Cisco-AVPair = "udn:private-group-id=<UDN>" (for WPN)
+# 5. AP completes 4-way handshake with client using PSK
+#
+# Easy PSK Flow (MR 32.1.3+):
+# ===========================
+# 1. Client connects with a PSK
+# 2. MR sends RADIUS request with Meraki-IPSK TLV attributes
+# 3. FreeRADIUS validates EAPOL MIC against known PSKs
+# 4. Returns Access-Accept with Tunnel-Password
+# 5. AP restarts EAPOL handshake and completes it
+#

@@ -233,9 +233,18 @@ class DatabaseSettingsManager:
 
             # Define which keys are booleans
             bool_keys = {
+                # New registration modes
+                "auth_open_registration",
+                "auth_open_registration_approval",
+                "auth_account_only",
+                "auth_invite_code_account",
+                "auth_invite_code_only",
+                # Legacy/verification
                 "auth_self_registration",
                 "auth_invite_codes",
                 "auth_email_verification",
+                "auth_sms_verification",
+                # Other settings
                 "require_unit_number",
                 "enable_oauth",
                 "oauth_admin_only",

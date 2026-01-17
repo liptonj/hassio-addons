@@ -1,0 +1,141 @@
+# Auto-generated CoA/DM (Change of Authorization / Disconnect Message) Server
+# Generated from shared database
+# Timestamp: {{ timestamp }}
+# DO NOT EDIT MANUALLY - Changes will be overwritten
+#
+# Per FreeRADIUS documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0.0/reference/raddb/sites-available/coa.html
+
+server coa-dynamic {
+    # Listen for incoming CoA/DM requests
+    # RFC 5176 default port: 3799
+    listen {
+        type = coa
+        ipaddr = {{ listen_address | default('*') }}
+        port = {{ coa_port | default(3799) }}
+        
+        limit {
+            max_connections = {{ max_connections | default(16) }}
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Receive CoA-Request section
+    recv CoA-Request {
+        # Log the CoA request
+        %{log.info:CoA-Request received for User-Name=%{User-Name} NAS-IP=%{NAS-IP-Address}}
+        
+        # Validate session identification
+        if (!&Acct-Session-Id && !&User-Name) {
+            reject
+        }
+        
+{% if validate_nas_source %}
+        # Verify request comes from known NAD
+        # The client shared secret verification happens automatically
+        if (!&client) {
+            %{log.warn:CoA-Request from unknown source %{NAS-IP-Address}}
+            reject
+        }
+{% endif %}
+        
+{% if sql_session_check %}
+        # Check if session exists in database
+        sql
+{% endif %}
+        
+        ok
+    }
+
+    # Send CoA-ACK section
+    send CoA-ACK {
+        %{log.info:CoA-ACK sent for User-Name=%{User-Name} Session-Id=%{Acct-Session-Id}}
+        
+{% if log_coa_to_detail %}
+        detail
+{% endif %}
+        
+        ok
+    }
+
+    # Send CoA-NAK section  
+    send CoA-NAK {
+        %{log.warn:CoA-NAK sent for User-Name=%{User-Name} - Error-Cause=%{Error-Cause}}
+        
+        if (!&reply.Error-Cause) {
+            update reply {
+                &Error-Cause := Invalid-Request
+            }
+        }
+        
+{% if log_coa_to_detail %}
+        detail
+{% endif %}
+        
+        ok
+    }
+
+    # Receive Disconnect-Request section
+    recv Disconnect-Request {
+        %{log.info:Disconnect-Request received for User-Name=%{User-Name} NAS-IP=%{NAS-IP-Address}}
+        
+        # Validate session identification
+        if (!&Acct-Session-Id && !&User-Name) {
+            reject
+        }
+        
+{% if validate_nas_source %}
+        # Verify request comes from known NAD
+        if (!&client) {
+            %{log.warn:Disconnect-Request from unknown source %{NAS-IP-Address}}
+            reject
+        }
+{% endif %}
+        
+{% if sql_session_check %}
+        # Check if session exists in database
+        sql
+{% endif %}
+        
+        ok
+    }
+
+    # Send Disconnect-ACK section
+    send Disconnect-ACK {
+        %{log.info:Disconnect-ACK sent for User-Name=%{User-Name}}
+        
+{% if log_coa_to_detail %}
+        detail
+{% endif %}
+        
+        ok
+    }
+
+    # Send Disconnect-NAK section
+    send Disconnect-NAK {
+        %{log.warn:Disconnect-NAK sent for User-Name=%{User-Name} - Error-Cause=%{Error-Cause}}
+        
+        if (!&reply.Error-Cause) {
+            update reply {
+                &Error-Cause := Invalid-Request
+            }
+        }
+        
+{% if log_coa_to_detail %}
+        detail
+{% endif %}
+        
+        ok
+    }
+}
+
+{% if nads_with_coa %}
+# NAD-specific CoA configuration
+# These NADs have CoA enabled and can receive CoA/DM packets
+{% for nad in nads_with_coa %}
+# NAD: {{ nad.name }} ({{ nad.ipaddr }})
+#   CoA Port: {{ nad.coa_port | default(3799) }}
+#   Vendor: {{ nad.vendor | default('Unknown') }}
+{% endfor %}
+{% endif %}

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Filter, Trash2, Ban, Eye, Building2, Tv, User } from 'lucide-react'
+import { Plus, Search, Filter, Trash2, Ban, Eye, Building2, Tv, User, Shield } from 'lucide-react'
 import {
   listIPSKs,
   createIPSK,
   deleteIPSK,
   revokeIPSK,
   revealIPSKPassphrase,
+  getIPSKOptions,
 } from '../../api/client'
 import type { IPSK, IPSKCreate } from '../../types/ipsk'
 
@@ -163,7 +164,8 @@ export default function IPSKManager() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>WPN ID</th>
+                <th>WPN/UPN ID</th>
+                <th>Group Policy</th>
                 <th>Association</th>
                 <th>SSID</th>
                 <th>Status</th>
@@ -174,7 +176,7 @@ export default function IPSKManager() {
             <tbody>
               {filteredIPSKs?.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted p-8">
+                  <td colSpan={8} className="text-center text-muted p-8">
                     No IPSKs found
                   </td>
                 </tr>
@@ -190,15 +192,27 @@ export default function IPSKManager() {
                       )}
                     </td>
                     <td>
-                      {ipsk.pskGroupId ? (
+                      {(ipsk.psk_group_id || ipsk.pskGroupId) ? (
                         <code className="text-sm" style={{ 
                           background: 'var(--bg-secondary)',
                           padding: '2px 6px',
                           borderRadius: '4px',
                           fontFamily: 'monospace'
                         }}>
-                          {ipsk.pskGroupId}
+                          {ipsk.psk_group_id || ipsk.pskGroupId}
                         </code>
+                      ) : (
+                        <span className="text-muted text-sm">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {ipsk.group_policy_name ? (
+                        <span className="flex items-center gap-1 text-sm">
+                          <Shield size={14} className="text-meraki-blue" />
+                          {ipsk.group_policy_name}
+                        </span>
+                      ) : ipsk.group_policy_id ? (
+                        <span className="text-sm text-muted">ID: {ipsk.group_policy_id}</span>
                       ) : (
                         <span className="text-muted text-sm">—</span>
                       )}
@@ -285,8 +299,15 @@ function CreateIPSKModal({
     name: '',
     passphrase: '',
     duration_hours: 0,
+    group_policy_id: '',
     associated_unit: '',
     associated_user: '',
+  })
+
+  // Fetch available group policies
+  const { data: ipskOptions } = useQuery({
+    queryKey: ['ipsk-options'],
+    queryFn: getIPSKOptions,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -347,6 +368,28 @@ function CreateIPSKModal({
               value={formData.passphrase}
               onChange={(e) => setFormData({ ...formData, passphrase: e.target.value })}
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">
+              <Shield size={16} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+              Group Policy
+            </label>
+            <select
+              className="form-select"
+              value={formData.group_policy_id || ''}
+              onChange={(e) => setFormData({ ...formData, group_policy_id: e.target.value || undefined })}
+            >
+              <option value="">Use default policy</option>
+              {ipskOptions?.group_policies?.map((policy) => (
+                <option key={policy.id} value={policy.id}>
+                  {policy.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-sm text-muted mt-1">
+              Group policy determines splash page bypass and network access rules
+            </p>
           </div>
 
           <div className="form-group">

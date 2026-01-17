@@ -1,0 +1,160 @@
+# RadSec virtual server - RADIUS over TLS
+# For secure communication with Meraki Dashboard
+
+server radsec {
+    # Listen on RadSec port (TLS)
+    listen {
+        ipaddr = *
+        port = {{ radsec_port|default(2083) }}
+        type = auth
+        proto = tcp
+        
+        # TLS configuration
+        tls {
+            private_key_password = whatever
+            private_key_file = ${certdir}/server-key.pem
+            certificate_file = ${certdir}/server.pem
+            ca_file = ${certdir}/ca.pem
+            
+            dh_file = ${certdir}/dh
+            random_file = /dev/urandom
+            fragment_size = 8192
+            
+            # TLS version requirements
+            tls_min_version = "1.2"
+            tls_max_version = "1.3"
+            
+            # Strong cipher suites
+            cipher_list = "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4"
+            cipher_server_preference = yes
+            
+            # Disable weak TLS versions
+            disable_tlsv1 = yes
+            disable_tlsv1_1 = yes
+            
+            # Cache configuration
+            cache {
+                enable = yes
+                lifetime = 24
+                name = "TLS"
+                max_entries = 255
+            }
+            
+            # Require client certificates (optional, set to 'no' for Meraki)
+            require_client_cert = no
+            
+            # Verify client certificates if provided
+            verify {
+                skip_if_ocsp_ok = no
+                tmpdir = /tmp/radiusd
+                client = "/usr/bin/openssl verify -CAfile ${..ca_file} %{TLS-Client-Cert-Filename}"
+            }
+        }
+        
+        # Connection limits
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Accounting over RadSec
+    listen {
+        ipaddr = *
+        port = {{ radsec_port|default(2083) }}
+        type = acct
+        proto = tcp
+        
+        # Use same TLS config as auth
+        tls {
+            private_key_password = whatever
+            private_key_file = ${certdir}/server-key.pem
+            certificate_file = ${certdir}/server.pem
+            ca_file = ${certdir}/ca.pem
+            
+            tls_min_version = "1.2"
+            tls_max_version = "1.3"
+            
+            cipher_list = "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4"
+            cipher_server_preference = yes
+            
+            disable_tlsv1 = yes
+            disable_tlsv1_1 = yes
+        }
+        
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Authorization (same as default server)
+    authorize {
+        filter_username
+        preprocess
+        
+        # MAC address normalization
+        if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            update request {
+                Stripped-User-Name := "%{tolower:%{User-Name}}"
+            }
+        }
+        
+        files
+        eap {
+            ok = return
+        }
+        pap
+    }
+
+    # Authentication
+    authenticate {
+        Auth-Type PAP {
+            pap
+        }
+        Auth-Type eap {
+            eap
+        }
+    }
+
+    # Post-authentication
+    post-auth {
+        # Add UDN ID response
+        if (&reply:Cisco-AVPair) {
+            update reply {
+                Reply-Message := "WPN RadSec Authentication Successful"
+            }
+        }
+        
+        update {
+            &reply: += &session-state:
+        }
+        
+        Post-Auth-Type REJECT {
+            attr_filter.access_reject
+        }
+        
+        detail
+    }
+
+    # Accounting
+    accounting {
+        detail
+        unix
+        attr_filter.accounting_response
+    }
+
+    # Session
+    session {
+    }
+
+    # Pre/Post proxy
+    pre-proxy {
+    }
+
+    post-proxy {
+        eap
+    }
+}

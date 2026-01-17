@@ -1,0 +1,159 @@
+# Inner tunnel virtual server for TTLS/PEAP
+# Generated from database
+#
+# Per FreeRADIUS documentation:
+# - Inner tunnel handles the inner authentication of EAP methods
+# - TTLS and PEAP use this virtual server for tunneled authentication
+# - Supports PAP, CHAP, MS-CHAP, and optionally SQL-based user lookups
+#
+{% if freeradius_version == 4 %}
+# FreeRADIUS v4 syntax
+server inner-tunnel {
+    namespace = radius
+
+    listen {
+        transport = udp
+        udp {
+            ipaddr = 127.0.0.1
+            port = 18120
+        }
+        type = Access-Request
+    }
+
+    # Receive Access-Request (v4 syntax)
+    recv Access-Request {
+        filter_username
+        
+        # Check certificate subject against username
+        if (&TLS-Client-Cert-Subject) {
+            &User-Name := &TLS-Client-Cert-Subject
+        }
+
+        # Read users file
+        files
+
+{% if use_sql %}
+        # SQL module for dynamic user lookups
+        -sql
+{% endif %}
+
+        # EAP for inner authentication
+        eap {
+            ok = return
+        }
+
+        # Authentication modules
+        pap
+        chap
+        mschap
+    }
+
+    # Send Access-Accept (v4 syntax)
+    send Access-Accept {
+        if (&User-Name) {
+            &reply.Reply-Message := "Inner tunnel authentication successful"
+        }
+
+{% if use_sql %}
+        # SQL post-auth logging
+        sql
+{% endif %}
+    }
+
+    # Send Access-Reject (v4 syntax)
+    send Access-Reject {
+        attr_filter.access_reject
+    }
+}
+{% else %}
+# FreeRADIUS v3 syntax
+server inner-tunnel {
+
+    listen {
+        type = auth
+        ipaddr = 127.0.0.1
+        port = 18120
+    }
+
+    # Authorization
+    authorize {
+        filter_username
+        
+        # Preprocess attributes
+        preprocess
+
+        # Check certificate subject against username
+        if (&TLS-Client-Cert-Subject) {
+            update request {
+                &User-Name := &TLS-Client-Cert-Subject
+            }
+        }
+
+        # Read users file
+        files
+
+{% if use_sql %}
+        # SQL module for dynamic user lookups (- prefix means failure is ok)
+        -sql
+{% endif %}
+
+        # EAP for inner authentication
+        eap {
+            ok = return
+        }
+
+        # PAP, CHAP, MS-CHAP
+        pap
+        chap
+        mschap
+    }
+
+    # Authentication
+    authenticate {
+        # EAP
+        Auth-Type eap {
+            eap
+        }
+
+        # PAP
+        Auth-Type PAP {
+            pap
+        }
+
+        # CHAP
+        Auth-Type CHAP {
+            chap
+        }
+
+        # MS-CHAP
+        Auth-Type MS-CHAP {
+            mschap
+        }
+
+    }
+
+    # Post-authentication
+    post-auth {
+        # Log successful authentication
+        if (&User-Name) {
+            update reply {
+                Reply-Message := "Inner tunnel authentication successful"
+            }
+        }
+
+{% if use_sql %}
+        # SQL post-auth logging
+        -sql
+{% endif %}
+
+        # Copy outer identity to session
+        update {
+            &outer.session-state: += &reply:
+        }
+        
+        Post-Auth-Type REJECT {
+            attr_filter.access_reject
+        }
+    }
+}
+{% endif %}

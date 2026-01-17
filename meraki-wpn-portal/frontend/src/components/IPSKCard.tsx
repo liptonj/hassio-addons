@@ -82,10 +82,10 @@ export default function IPSKCard({ ipsk, onReveal, onRevoke, onDelete }: IPSKCar
   }
 
   return (
-    <div className="card" style={{ marginBottom: '1rem' }}>
+    <div className="card mb-4">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <h4 style={{ margin: 0 }}>{ipsk.name}</h4>
+          <h4 className="m-0">{ipsk.name}</h4>
           {getStatusBadge()}
         </div>
         
@@ -102,9 +102,8 @@ export default function IPSKCard({ ipsk, onReveal, onRevoke, onDelete }: IPSKCar
           {onDelete && (
             <button
               onClick={() => onDelete(ipsk.id)}
-              className="btn btn-icon btn-ghost"
+              className="btn btn-icon btn-ghost text-error"
               title="Delete IPSK"
-              style={{ color: 'var(--error)' }}
             >
               <Trash2 size={18} />
             </button>
@@ -146,10 +145,10 @@ export default function IPSKCard({ ipsk, onReveal, onRevoke, onDelete }: IPSKCar
           </button>
           
           {showPassphrase && passphrase && (
-            <div className="credential-box" style={{ flex: 1 }}>
+            <div className="credential-box flex-1">
               <span className="credential-value">{passphrase}</span>
               <button onClick={handleCopy} className="credential-copy" title="Copy">
-                {copied ? <Check size={16} color="var(--success)" /> : <Copy size={16} />}
+                {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
               </button>
             </div>
           )}

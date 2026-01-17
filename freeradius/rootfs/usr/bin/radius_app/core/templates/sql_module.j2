@@ -1,0 +1,354 @@
+# SQL module configuration - Generated from database
+# Do not edit manually - changes will be overwritten
+#
+# Per FreeRADIUS SQL documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0~alpha1/raddb/mods-available/sql.html
+# - SQL module queries radcheck/radreply for user attributes
+# - Uses radusergroup/radgroupcheck/radgroupreply for group attributes
+# - Operators (:=, ==, +=) are critical for proper operation
+#
+sql {
+
+{% if driver == "mysql" or driver == "mariadb" %}
+    # MySQL/MariaDB driver
+    driver = "rlm_sql_mysql"
+
+    # Connection pool
+    pool {
+        start = {{ pool.start | default(5) }}
+        min = {{ pool.min | default(4) }}
+        max = {{ pool.max | default(10) }}
+        spare = {{ pool.spare | default(3) }}
+        uses = {{ pool.uses | default(0) }}
+        retry_delay = {{ pool.retry_delay | default(30) }}
+        lifetime = {{ pool.lifetime | default(0) }}
+        idle_timeout = {{ pool.idle_timeout | default(60) }}
+        connect_timeout = {{ pool.connect_timeout | default(3.0) }}
+    }
+
+    server = "{{ host }}"
+    port = {{ port }}
+    login = "{{ user }}"
+    password = "{{ password }}"
+    radius_db = "{{ dbname }}"
+
+{% elif driver == "postgresql" %}
+    # PostgreSQL driver
+    driver = "rlm_sql_postgresql"
+
+    # Connection pool
+    pool {
+        start = {{ pool.start | default(5) }}
+        min = {{ pool.min | default(4) }}
+        max = {{ pool.max | default(10) }}
+        spare = {{ pool.spare | default(3) }}
+        uses = {{ pool.uses | default(0) }}
+        retry_delay = {{ pool.retry_delay | default(30) }}
+        lifetime = {{ pool.lifetime | default(0) }}
+        idle_timeout = {{ pool.idle_timeout | default(60) }}
+        connect_timeout = {{ pool.connect_timeout | default(3.0) }}
+    }
+
+    server = "{{ host }}"
+    port = {{ port }}
+    login = "{{ user }}"
+    password = "{{ password }}"
+    radius_db = "{{ dbname }}"
+
+{% elif driver == "sqlite" %}
+    # SQLite driver
+    driver = "rlm_sql_sqlite"
+
+    sqlite {
+        filename = "{{ dbname }}"
+        busy_timeout = {{ sqlite_busy_timeout | default(200) }}
+        bootstrap = "${modconfdir}/../sql/main/sqlite/schema.sql"
+    }
+
+{% endif %}
+    # SQL queries
+    # Per FreeRADIUS SQL docs:
+    # - authorize_check_query: Query radcheck for user check attributes
+    # - authorize_reply_query: Query radreply for user reply attributes
+    # - authorize_group_query: Query radusergroup for user groups
+    # - group_membership_query: Query radgroupcheck/radgroupreply for group attributes
+
+    # User authorization query (radcheck table)
+    authorize_check_query = """
+        SELECT id, username, attribute, op, value
+        FROM {{ tables.radcheck | default('radcheck') }}
+        WHERE username = '%{SQL-User-Name}'
+        ORDER BY id
+    """
+
+    # User reply query (radreply table)
+    authorize_reply_query = """
+        SELECT id, username, attribute, op, value
+        FROM {{ tables.radreply | default('radreply') }}
+        WHERE username = '%{SQL-User-Name}'
+        ORDER BY id
+    """
+
+    # Group membership query (radusergroup table)
+    authorize_group_query = """
+        SELECT groupname
+        FROM {{ tables.radusergroup | default('radusergroup') }}
+        WHERE username = '%{SQL-User-Name}'
+        ORDER BY priority
+    """
+
+    # Group check query (radgroupcheck table)
+    group_membership_query = """
+        SELECT id, groupname, attribute, op, value
+        FROM {{ tables.radgroupcheck | default('radgroupcheck') }}
+        WHERE groupname = '%{SQL-Group}'
+        ORDER BY id
+    """
+
+    # Group reply query (radgroupreply table)
+    group_reply_query = """
+        SELECT id, groupname, attribute, op, value
+        FROM {{ tables.radgroupreply | default('radgroupreply') }}
+        WHERE groupname = '%{SQL-Group}'
+        ORDER BY id
+    """
+
+    # Accounting queries
+    accounting {
+        reference = "%{tolower:type.%{Acct-Status-Type}}"
+
+        type {
+            accounting-on {
+                query = """
+{% if driver == "mysql" or driver == "mariadb" %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = NOW(),
+                        acctsessiontime = UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(acctstarttime)
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% elif driver == "postgresql" %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = NOW(),
+                        acctsessiontime = EXTRACT(EPOCH FROM (NOW() - acctstarttime))::INTEGER
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% else %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = CURRENT_TIMESTAMP,
+                        acctsessiontime = strftime('%s', 'now') - strftime('%s', acctstarttime)
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% endif %}
+                """
+            }
+
+            accounting-off {
+                query = """
+{% if driver == "mysql" or driver == "mariadb" %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = NOW(),
+                        acctsessiontime = UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(acctstarttime)
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% elif driver == "postgresql" %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = NOW(),
+                        acctsessiontime = EXTRACT(EPOCH FROM (NOW() - acctstarttime))::INTEGER
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% else %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = CURRENT_TIMESTAMP,
+                        acctsessiontime = strftime('%s', 'now') - strftime('%s', acctstarttime)
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% endif %}
+                """
+            }
+
+            start {
+                query = """
+{% if driver == "mysql" or driver == "mariadb" %}
+                    INSERT INTO ${..acct_table1} (
+                        acctuniqueid, username, realm, nasipaddress,
+                        nasportid, nasporttype, acctstarttime, acctstoptime,
+                        acctsessiontime, acctauthentic, connectinfo_start,
+                        acctinputoctets, acctoutputoctets, calledstationid,
+                        callingstationid, acctterminatecause, servicetype,
+                        framedprotocol, framedipaddress
+                    ) VALUES (
+                        '%{Acct-Unique-Session-Id}', '%{SQL-User-Name}',
+                        '%{Realm}', '%{NAS-IP-Address}',
+                        '%{NAS-Port}', '%{NAS-Port-Type}',
+                        NOW(), NULL,
+                        0, '%{Acct-Authentic}', '%{Connect-Info}',
+                        '%{Acct-Input-Octets}', '%{Acct-Output-Octets}',
+                        '%{Called-Station-Id}', '%{Calling-Station-Id}',
+                        '', '%{Service-Type}',
+                        '%{Framed-Protocol}', '%{Framed-IP-Address}'
+                    )
+{% elif driver == "postgresql" %}
+                    INSERT INTO ${..acct_table1} (
+                        acctuniqueid, username, realm, nasipaddress,
+                        nasportid, nasporttype, acctstarttime, acctstoptime,
+                        acctsessiontime, acctauthentic, connectinfo_start,
+                        acctinputoctets, acctoutputoctets, calledstationid,
+                        callingstationid, acctterminatecause, servicetype,
+                        framedprotocol, framedipaddress
+                    ) VALUES (
+                        '%{Acct-Unique-Session-Id}', '%{SQL-User-Name}',
+                        '%{Realm}', '%{NAS-IP-Address}',
+                        '%{NAS-Port}', '%{NAS-Port-Type}',
+                        NOW(), NULL,
+                        0, '%{Acct-Authentic}', '%{Connect-Info}',
+                        '%{Acct-Input-Octets}', '%{Acct-Output-Octets}',
+                        '%{Called-Station-Id}', '%{Calling-Station-Id}',
+                        '', '%{Service-Type}',
+                        '%{Framed-Protocol}', '%{Framed-IP-Address}'
+                    )
+{% else %}
+                    INSERT INTO ${..acct_table1} (
+                        acctuniqueid, username, realm, nasipaddress,
+                        nasportid, nasporttype, acctstarttime, acctstoptime,
+                        acctsessiontime, acctauthentic, connectinfo_start,
+                        acctinputoctets, acctoutputoctets, calledstationid,
+                        callingstationid, acctterminatecause, servicetype,
+                        framedprotocol, framedipaddress
+                    ) VALUES (
+                        '%{Acct-Unique-Session-Id}', '%{SQL-User-Name}',
+                        '%{Realm}', '%{NAS-IP-Address}',
+                        '%{NAS-Port}', '%{NAS-Port-Type}',
+                        CURRENT_TIMESTAMP, NULL,
+                        0, '%{Acct-Authentic}', '%{Connect-Info}',
+                        '%{Acct-Input-Octets}', '%{Acct-Output-Octets}',
+                        '%{Called-Station-Id}', '%{Calling-Station-Id}',
+                        '', '%{Service-Type}',
+                        '%{Framed-Protocol}', '%{Framed-IP-Address}'
+                    )
+{% endif %}
+                """
+            }
+
+            interim-update {
+                query = """
+                    UPDATE ${..acct_table1} SET
+                        framedipaddress = '%{Framed-IP-Address}',
+                        acctsessiontime = '%{Acct-Session-Time}',
+                        acctinputoctets = '%{Acct-Input-Octets}',
+                        acctoutputoctets = '%{Acct-Output-Octets}'
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+                """
+            }
+
+            stop {
+                query = """
+{% if driver == "mysql" or driver == "mariadb" %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = NOW(),
+                        acctsessiontime = '%{Acct-Session-Time}',
+                        acctinputoctets = '%{Acct-Input-Octets}',
+                        acctoutputoctets = '%{Acct-Output-Octets}',
+                        acctterminatecause = '%{Acct-Terminate-Cause}'
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% elif driver == "postgresql" %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = NOW(),
+                        acctsessiontime = '%{Acct-Session-Time}',
+                        acctinputoctets = '%{Acct-Input-Octets}',
+                        acctoutputoctets = '%{Acct-Output-Octets}',
+                        acctterminatecause = '%{Acct-Terminate-Cause}'
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% else %}
+                    UPDATE ${..acct_table1} SET
+                        acctstoptime = CURRENT_TIMESTAMP,
+                        acctsessiontime = '%{Acct-Session-Time}',
+                        acctinputoctets = '%{Acct-Input-Octets}',
+                        acctoutputoctets = '%{Acct-Output-Octets}',
+                        acctterminatecause = '%{Acct-Terminate-Cause}'
+                    WHERE acctuniqueid = '%{Acct-Unique-Session-Id}'
+                    AND acctstoptime IS NULL
+{% endif %}
+                """
+            }
+        }
+
+        # Accounting table names
+        acct_table1 = "{{ tables.radacct | default('radacct') }}"
+        acct_table2 = "{{ tables.radacct | default('radacct') }}"
+
+        # Post-accounting queries
+        post-accounting {
+            query = """
+{% if driver == "mysql" or driver == "mariadb" %}
+                INSERT INTO ${..postauth_table} (
+                    username, pass, reply, authdate
+                ) VALUES (
+                    '%{SQL-User-Name}', '%{User-Password}',
+                    '%{reply:Packet-Type}', NOW()
+                )
+{% elif driver == "postgresql" %}
+                INSERT INTO ${..postauth_table} (
+                    username, pass, reply, authdate
+                ) VALUES (
+                    '%{SQL-User-Name}', '%{User-Password}',
+                    '%{reply:Packet-Type}', NOW()
+                )
+{% else %}
+                INSERT INTO ${..postauth_table} (
+                    username, pass, reply, authdate
+                ) VALUES (
+                    '%{SQL-User-Name}', '%{User-Password}',
+                    '%{reply:Packet-Type}', CURRENT_TIMESTAMP
+                )
+{% endif %}
+            """
+
+            postauth_table = "{{ tables.radpostauth | default('radpostauth') }}"
+        }
+    }
+
+    # Post-authentication queries
+    post-auth {
+        query = """
+{% if driver == "mysql" or driver == "mariadb" %}
+            INSERT INTO ${..postauth_table} (
+                username, pass, reply, authdate
+            ) VALUES (
+                '%{SQL-User-Name}', '%{User-Password}',
+                '%{reply:Packet-Type}', NOW()
+            )
+{% elif driver == "postgresql" %}
+            INSERT INTO ${..postauth_table} (
+                username, pass, reply, authdate
+            ) VALUES (
+                '%{SQL-User-Name}', '%{User-Password}',
+                '%{reply:Packet-Type}', NOW()
+            )
+{% else %}
+            INSERT INTO ${..postauth_table} (
+                username, pass, reply, authdate
+            ) VALUES (
+                '%{SQL-User-Name}', '%{User-Password}',
+                '%{reply:Packet-Type}', CURRENT_TIMESTAMP
+            )
+{% endif %}
+        """
+
+        postauth_table = "{{ tables.radpostauth | default('radpostauth') }}"
+    }
+
+    # Read groups for user (if enabled)
+    read_groups = {{ 'yes' if read_groups | default(true) else 'no' }}
+
+    # Remove stale sessions
+    remove_stale_sessions = {{ 'yes' if remove_stale_sessions | default(true) else 'no' }}
+
+    # SQL query timeout
+    query_timeout = {{ query_timeout | default(5) }}
+
+    # Connection retry
+    connect_failure_retry_delay = {{ connect_failure_retry_delay | default(60) }}
+}

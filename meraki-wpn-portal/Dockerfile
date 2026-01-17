@@ -54,6 +54,10 @@ COPY run.sh /run.sh
 COPY run-standalone.sh /run-standalone.sh
 RUN chmod a+x /run.sh /run-standalone.sh
 
+# Set default environment variables (can be overridden by docker-compose or HA)
+ENV RUN_MODE=standalone
+ENV SECRET_KEY=change-this-in-production
+
 # Expose ports
 EXPOSE 8080
 

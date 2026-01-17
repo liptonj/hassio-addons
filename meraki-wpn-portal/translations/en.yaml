@@ -1,5 +1,8 @@
 ---
 configuration:
+  run_mode:
+    name: Run Mode
+    description: Operating mode - homeassistant (add-on) or standalone (Docker)
   ha_url:
     name: Home Assistant URL
     description: URL to connect to Home Assistant (usually http://supervisor/core for add-ons)
@@ -54,3 +57,66 @@ configuration:
   admin_notification_email:
     name: Admin Email
     description: Email address for admin notifications (optional)
+  admin_username:
+    name: Admin Username
+    description: Username for admin dashboard login (leave empty to auto-generate)
+  admin_password:
+    name: Admin Password
+    description: Password for admin dashboard login (leave empty to auto-generate secure password)
+  enable_oauth:
+    name: Enable OAuth/SSO
+    description: Enable OAuth/SSO authentication for admin access
+  oauth_provider:
+    name: OAuth Provider
+    description: OAuth provider to use (none, duo, or entra)
+  oauth_admin_only:
+    name: OAuth Admin Only
+    description: Restrict OAuth login to admin users only
+  duo_client_id:
+    name: Duo Client ID
+    description: Duo Security application client ID
+  duo_client_secret:
+    name: Duo Client Secret
+    description: Duo Security application client secret
+  duo_api_hostname:
+    name: Duo API Hostname
+    description: Duo Security API hostname (e.g., api-xxxxxxxx.duosecurity.com)
+  entra_client_id:
+    name: Entra ID Client ID
+    description: Microsoft Entra ID (Azure AD) application client ID
+  entra_client_secret:
+    name: Entra ID Client Secret
+    description: Microsoft Entra ID application client secret
+  entra_tenant_id:
+    name: Entra ID Tenant ID
+    description: Microsoft Entra ID tenant ID
+  oauth_callback_url:
+    name: OAuth Callback URL
+    description: OAuth callback URL for your deployment
+  db_type:
+    name: Database Type
+    description: Database backend - SQLite (local), MySQL (auto-discovers MariaDB add-on!), or PostgreSQL
+  db_host:
+    name: Database Host
+    description: Database server hostname (leave empty to auto-discover MariaDB add-on)
+  db_port:
+    name: Database Port
+    description: Database server port (3306 for MySQL, 5432 for PostgreSQL)
+  db_name:
+    name: Database Name
+    description: Database name (for SQLite, this is the filename without .db extension)
+  db_user:
+    name: Database User
+    description: Username for database connection (leave empty to auto-discover from MariaDB add-on)
+  db_password:
+    name: Database Password
+    description: Password for database connection (leave empty to auto-discover from MariaDB add-on)
+  freeradius_enabled:
+    name: Enable FreeRADIUS Integration
+    description: Enable integration with FreeRADIUS for RADIUS-based WiFi authentication
+  freeradius_api_url:
+    name: FreeRADIUS API URL
+    description: FreeRADIUS API endpoint (leave empty to auto-discover from FreeRADIUS add-on)
+  freeradius_api_token:
+    name: FreeRADIUS API Token
+    description: Bearer token for FreeRADIUS API (leave empty to auto-discover from FreeRADIUS add-on)

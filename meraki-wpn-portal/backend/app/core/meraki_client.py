@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from functools import partial
-from typing import Any
+from typing import Any, Optional
 
 import meraki  # type: ignore[import-untyped]
 
@@ -42,7 +42,7 @@ class MerakiDashboardClient:
     async def connect(self) -> None:
         """Initialize the Meraki SDK client."""
         # Run SDK initialization in executor since it's synchronous
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._dashboard = await loop.run_in_executor(
             None,
             partial(
@@ -93,7 +93,7 @@ class MerakiDashboardClient:
         if not self._dashboard:
             raise MerakiClientError("Client not connected")
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             return await loop.run_in_executor(None, partial(func, *args, **kwargs))
         except meraki.APIError as e:
@@ -119,6 +119,20 @@ class MerakiDashboardClient:
     async def get_network(self, network_id: str) -> dict:
         """Get network details."""
         return await self._run_sync(self._dashboard.networks.getNetwork, network_id)
+
+    async def get_network_devices(self, network_id: str) -> list[dict]:
+        """Get all devices in a network (APs, switches, MXs, etc).
+        
+        Args:
+            network_id: Network ID
+            
+        Returns:
+            List of device dictionaries with keys: serial, name, model, lanIp, mac, tags, networkId
+        """
+        return await self._run_sync(
+            self._dashboard.networks.getNetworkDevices,
+            network_id
+        )
 
     # =========================================================================
     # SSID Management
@@ -159,17 +173,22 @@ class MerakiDashboardClient:
         # Check if WPN is enabled (wifiPersonalNetworkEnabled field)
         wpn_enabled = ssid.get("wifiPersonalNetworkEnabled", False)
 
-        # Ready for WPN means: SSID enabled + iPSK auth + WPN enabled
-        ready_for_wpn = is_enabled and is_ipsk and wpn_enabled
+        # Configuration complete (everything done via API)
+        configuration_complete = is_enabled and is_ipsk
+        
+        # Fully ready for WPN means: SSID enabled + iPSK auth + WPN enabled
+        ready_for_wpn = configuration_complete and wpn_enabled
 
         # Build status messages
         issues = []
+        warnings = []
+        
         if not is_enabled:
             issues.append("SSID is disabled")
         if not is_ipsk:
             issues.append(f"Auth mode is '{auth_mode}' (needs 'ipsk-without-radius')")
-        if not wpn_enabled:
-            issues.append("Wi-Fi Personal Network (WPN) is not enabled")
+        if not wpn_enabled and configuration_complete:
+            warnings.append("WPN must be enabled manually in Meraki Dashboard (API limitation)")
 
         return {
             "name": ssid.get("name", f"SSID-{ssid_number}"),
@@ -178,10 +197,12 @@ class MerakiDashboardClient:
             "auth_mode": auth_mode,
             "is_ipsk_configured": is_ipsk,
             "wpn_enabled": wpn_enabled,
+            "configuration_complete": configuration_complete,  # All API-configurable items done
             "encryption_mode": ssid.get("wpaEncryptionMode", ""),
             "ip_assignment_mode": ssid.get("ipAssignmentMode", ""),
-            "ready_for_wpn": ready_for_wpn,
+            "ready_for_wpn": ready_for_wpn,  # Fully ready (including manual WPN enable)
             "issues": issues,
+            "warnings": warnings,
             "raw_config": ssid,
         }
 
@@ -281,11 +302,25 @@ class MerakiDashboardClient:
 
         # Save group policy ID to settings for future iPSK creation
         try:
-            from app.core.db_settings import DBSettingsManager
-            db_mgr = DBSettingsManager()
+            import os
+            from cryptography.fernet import Fernet
+            from app.core.db_settings import DatabaseSettingsManager
+            from app.db.database import get_session_local
+            
             if group_policy_id:
-                db_mgr.update_setting("default_group_policy_id", group_policy_id)
-                logger.info(f"Saved default group policy ID: {group_policy_id}")
+                # Get encryption key from environment
+                key_env = os.getenv("SETTINGS_ENCRYPTION_KEY")
+                if key_env:
+                    db_mgr = DatabaseSettingsManager(key_env.encode())
+                    SessionLocal = get_session_local()
+                    with SessionLocal() as db:
+                        db_mgr.bulk_update_settings(
+                            db=db,
+                            settings_dict={"default_group_policy_id": group_policy_id},
+                        )
+                    logger.info(f"Saved default group policy ID: {group_policy_id}")
+                else:
+                    logger.warning("SETTINGS_ENCRYPTION_KEY not set, skipping settings save")
         except Exception as e:
             logger.warning(f"Could not save group policy to settings: {e}")
 
@@ -332,10 +367,14 @@ class MerakiDashboardClient:
         network_id: str,
         ssid_number: int,
         splash_url: str,
+        welcome_message: str = "Welcome! Please register to get your personal WiFi credentials.",
+        splash_timeout: int = 1440,
+        redirect_url: Optional[str] = None,
     ) -> dict:
         """Configure splash page settings for an SSID.
 
-        Sets up a custom splash page URL that users will be redirected to.
+        Uses official Meraki API:
+        https://developer.cisco.com/meraki/api-v1/update-network-wireless-ssid-splash-settings/
 
         Parameters
         ----------
@@ -344,24 +383,48 @@ class MerakiDashboardClient:
         ssid_number : int
             SSID number (0-14)
         splash_url : str
-            URL for the custom splash page
+            URL for the custom splash page (your portal URL)
+        welcome_message : str
+            Welcome message shown on splash page
+        splash_timeout : int
+            Splash timeout in minutes (default 1440 = 24 hours)
+            Valid values: 30, 60, 120, 240, 480, 720, 1080, 1440, 2880, 5760, 
+                         7200, 10080, 20160, 43200, 86400, 129600
+        redirect_url : str | None
+            Optional redirect URL after splash page
 
         Returns
         -------
         dict
             Updated splash settings
         """
-        # Update splash page settings using the wireless API
+        # Validate splash timeout against Meraki's allowed values
+        valid_timeouts = [30, 60, 120, 240, 480, 720, 1080, 1440, 2880, 5760, 
+                         7200, 10080, 20160, 43200, 86400, 129600]
+        if splash_timeout not in valid_timeouts:
+            # Find closest valid timeout
+            splash_timeout = min(valid_timeouts, key=lambda x: abs(x - splash_timeout))
+            logger.warning(f"Adjusted splash_timeout to nearest valid value: {splash_timeout}")
+        
+        params = {
+            "splashUrl": splash_url,
+            "useSplashUrl": True,
+            "splashTimeout": splash_timeout,
+            "welcomeMessage": welcome_message,
+            "blockAllTrafficBeforeSignOn": False,  # Allow non-HTTP traffic before splash
+            "allowSimultaneousLogins": True,  # Allow multiple devices per user
+        }
+        
+        # Add redirect URL if provided
+        if redirect_url:
+            params["redirectUrl"] = redirect_url
+            params["useRedirectUrl"] = True
+        
         result = await self._run_sync(
             self._dashboard.wireless.updateNetworkWirelessSsidSplashSettings,
             network_id,
             str(ssid_number),
-            splashUrl=splash_url,
-            useCustomUrl=True,
-            useSplashUrl=True,
-            welcomeMessage=(
-                "Welcome! Please register to get your personal WiFi credentials."
-            ),
+            **params
         )
 
         logger.info(
@@ -439,6 +502,70 @@ class MerakiDashboardClient:
 
         logger.info(
             f"Created group policy '{name}' on network {network_id} "
+            f"(splash bypass: {bypass_splash})"
+        )
+        return {
+            "id": result.get("groupPolicyId"),
+            "name": result.get("name"),
+        }
+
+    async def update_group_policy(
+        self,
+        network_id: str,
+        group_policy_id: str,
+        name: str | None = None,
+        bypass_splash: bool | None = None,
+        scheduling: dict | None = None,
+        bandwidth: dict | None = None,
+    ) -> dict:
+        """Update an existing group policy.
+
+        Parameters
+        ----------
+        network_id : str
+            Meraki network ID
+        group_policy_id : str
+            ID of the group policy to update
+        name : str | None
+            Optional new name for the group policy
+        bypass_splash : bool | None
+            If True, devices with this policy bypass splash page
+        scheduling : dict | None
+            Scheduling settings (optional)
+        bandwidth : dict | None
+            Bandwidth settings (optional)
+
+        Returns
+        -------
+        dict
+            Updated group policy
+        """
+        params: dict[str, Any] = {}
+
+        if name:
+            params["name"] = name
+
+        # Set splash page behavior - bypass for registered users
+        if bypass_splash is not None:
+            if bypass_splash:
+                params["splashAuthSettings"] = "bypass"
+            else:
+                params["splashAuthSettings"] = "network default"
+
+        if scheduling:
+            params["scheduling"] = scheduling
+        if bandwidth:
+            params["bandwidth"] = bandwidth
+
+        result = await self._run_sync(
+            self._dashboard.networks.updateNetworkGroupPolicy,
+            network_id,
+            group_policy_id,
+            **params
+        )
+
+        logger.info(
+            f"Updated group policy '{group_policy_id}' on network {network_id} "
             f"(splash bypass: {bypass_splash})"
         )
         return {
@@ -614,11 +741,35 @@ class MerakiDashboardClient:
             str(ssid_num)
         )
 
+        # Get group policies for name lookup
+        group_policies_map = {}
+        try:
+            policies = await self.get_group_policies(network_id)
+            group_policies_map = {
+                str(p.get("groupPolicyId", p.get("id", ""))): p.get("name", "")
+                for p in policies
+            }
+        except Exception as e:
+            logger.debug(f"Could not fetch group policies for name lookup: {e}")
+
         # Add computed fields
         for ipsk in ipsks:
             ipsk["status"] = self._compute_ipsk_status(ipsk)
             ipsk["ssid_number"] = ssid_num
             ipsk["network_id"] = network_id
+            
+            # Normalize field names for frontend
+            ipsk["group_policy_id"] = ipsk.get("groupPolicyId", ipsk.get("group_policy_id"))
+            ipsk["psk_group_id"] = ipsk.get("wifiPersonalNetworkId") or ipsk.get("pskGroupId")
+            ipsk["expires_at"] = ipsk.get("expiresAt")
+            ipsk["created_at"] = ipsk.get("createdAt")
+            
+            # Lookup group policy name
+            policy_id = ipsk.get("group_policy_id")
+            if policy_id and policy_id in group_policies_map:
+                ipsk["group_policy_name"] = group_policies_map[policy_id]
+            else:
+                ipsk["group_policy_name"] = None
 
         # Filter by status if requested
         if status:
@@ -1009,3 +1160,444 @@ class MerakiDashboardClient:
     async def get_states(self) -> list[dict]:
         """Get states - returns empty in standalone mode."""
         return []
+
+    async def get_splash_settings(
+        self,
+        network_id: str,
+        ssid_number: int,
+    ) -> dict:
+        """Get splash page settings for an SSID.
+
+        Uses official Meraki API:
+        https://developer.cisco.com/meraki/api-v1/get-network-wireless-ssid-splash-settings/
+
+        Parameters
+        ----------
+        network_id : str
+            Meraki network ID
+        ssid_number : int
+            SSID number (0-14)
+
+        Returns
+        -------
+        dict
+            Current splash settings
+        """
+        result = await self._run_sync(
+            self._dashboard.wireless.getNetworkWirelessSsidSplashSettings,
+            network_id,
+            str(ssid_number),
+        )
+        
+        logger.info(f"Retrieved splash settings for SSID {ssid_number}")
+        return result
+
+    async def upload_radsec_ca_certificate(
+        self,
+        organization_id: str,
+        cert_contents: str,
+    ) -> dict:
+        """Upload CA certificate to Meraki for RadSec.
+
+        This uploads your RADIUS server's CA certificate to Meraki so that
+        access points can trust your FreeRADIUS server.
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+        cert_contents : str
+            PEM-encoded CA certificate contents
+
+        Returns
+        -------
+        dict
+            Certificate upload result with certificate ID
+        """
+        try:
+            result = await self._run_sync(
+                self._dashboard.organizations.createOrganizationCertificatesRadSecServerCaCertificate,
+                organization_id,
+                contents=cert_contents,
+            )
+            
+            logger.info(f"Uploaded RadSec CA certificate to organization {organization_id}")
+            return {
+                "certificate_id": result.get("id"),
+                "contents": result.get("contents"),
+                "not_valid_before": result.get("notValidBefore"),
+                "not_valid_after": result.get("notValidAfter"),
+            }
+        except Exception as e:
+            logger.error(f"Failed to upload RadSec CA certificate: {e}")
+            raise MerakiClientError(f"Failed to upload CA certificate: {e}") from e
+
+    async def get_radsec_ca_certificates(
+        self,
+        organization_id: str,
+    ) -> list[dict]:
+        """Get all RadSec CA certificates for an organization.
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+
+        Returns
+        -------
+        list[dict]
+            List of uploaded CA certificates
+        """
+        try:
+            certs = await self._run_sync(
+                self._dashboard.organizations.getOrganizationCertificatesRadSecServerCaCertificates,
+                organization_id,
+            )
+            
+            return [
+                {
+                    "id": cert.get("id"),
+                    "contents": cert.get("contents"),
+                    "not_valid_before": cert.get("notValidBefore"),
+                    "not_valid_after": cert.get("notValidAfter"),
+                }
+                for cert in certs
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get RadSec CA certificates: {e}")
+            raise MerakiClientError(f"Failed to get CA certificates: {e}") from e
+
+    async def delete_radsec_ca_certificate(
+        self,
+        organization_id: str,
+        certificate_id: str,
+    ) -> None:
+        """Delete a RadSec CA certificate from Meraki.
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+        certificate_id : str
+            Certificate ID to delete
+        """
+        try:
+            await self._run_sync(
+                self._dashboard.organizations.deleteOrganizationCertificatesRadSecServerCaCertificate,
+                organization_id,
+                certificate_id,
+            )
+            logger.info(f"Deleted RadSec CA certificate {certificate_id}")
+        except Exception as e:
+            logger.error(f"Failed to delete RadSec CA certificate: {e}")
+            raise MerakiClientError(f"Failed to delete CA certificate: {e}") from e
+
+    async def create_radsec_device_certificate_authority(
+        self,
+        organization_id: str,
+    ) -> dict:
+        """Create Meraki's RADSEC device Certificate Authority (CA).
+
+        Call this endpoint when turning on RADSEC for the first time. This starts
+        an asynchronous process to generate the CA. The CA is generated and controlled
+        by Meraki. Subsequent calls will not generate a new CA.
+
+        Uses official Meraki API:
+        https://developer.cisco.com/meraki/api-v1/create-organization-wireless-devices-radsec-certificates-authority/
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+
+        Returns
+        -------
+        dict
+            Created certificate authority with ID, status, and contents (if ready)
+            
+        Notes
+        -----
+        - Returns 202 Accepted (async operation)
+        - Contents may be None initially while CA is being generated
+        - Call get_radsec_device_certificate_authorities() afterwards to retrieve contents
+        """
+        try:
+            result = await self._run_sync(
+                self._dashboard.wireless.createOrganizationWirelessDevicesRadsecCertificatesAuthority,
+                organization_id,
+            )
+            
+            ca_id = result.get("certificateAuthorityId")
+            status = result.get("status")
+            contents = result.get("contents")
+            
+            logger.info(
+                f"Created RadSec device CA for org {organization_id} "
+                f"(ID: {ca_id}, Status: {status})"
+            )
+            
+            if not contents:
+                logger.warning(
+                    "CA contents not yet available - generation in progress. "
+                    "Call get_radsec_device_certificate_authorities() to retrieve."
+                )
+            
+            return {
+                "certificate_authority_id": ca_id,
+                "status": status,
+                "contents": contents,  # May be None if still generating
+                "ready": contents is not None,
+            }
+        except Exception as e:
+            logger.error(f"Failed to create RadSec device CA: {e}")
+            raise MerakiClientError(f"Failed to create device CA: {e}") from e
+
+    async def get_radsec_device_certificate_authorities(
+        self,
+        organization_id: str,
+        certificate_authority_ids: list[str] | None = None,
+    ) -> list[dict]:
+        """Get organization's RADSEC device Certificate Authority certificates (CAs).
+
+        The primary CA signs all certificates that devices present when establishing
+        a secure connection to RADIUS servers via RADSEC protocol. An organization
+        will have at most one CA unless the CA is being rotated.
+
+        Uses official Meraki API:
+        https://developer.cisco.com/meraki/api-v1/get-organization-wireless-devices-radsec-certificates-authorities/
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+        certificate_authority_ids : list[str] | None
+            Optional filter by specific CA IDs
+
+        Returns
+        -------
+        list[dict]
+            List of device certificate authorities with id, status, and contents
+        """
+        try:
+            # Build kwargs
+            kwargs = {}
+            if certificate_authority_ids:
+                kwargs['certificateAuthorityIds'] = certificate_authority_ids
+            
+            result = await self._run_sync(
+                self._dashboard.wireless.getOrganizationWirelessDevicesRadsecCertificatesAuthorities,
+                organization_id,
+                **kwargs
+            )
+            
+            # API returns array with items and meta
+            # Example: [{"items": [...], "meta": {...}}]
+            if isinstance(result, list) and len(result) > 0:
+                items = result[0].get("items", [])
+            else:
+                items = result if isinstance(result, list) else []
+            
+            authorities = [
+                {
+                    "id": auth.get("certificateAuthorityId"),
+                    "certificate_authority_id": auth.get("certificateAuthorityId"),
+                    "status": auth.get("status"),
+                    "contents": auth.get("contents"),
+                }
+                for auth in items
+            ]
+            
+            logger.info(f"Retrieved {len(authorities)} RadSec device CA(s)")
+            return authorities
+        except Exception as e:
+            logger.error(f"Failed to get RadSec device CAs: {e}")
+            raise MerakiClientError(f"Failed to get device CAs: {e}") from e
+
+    async def get_radsec_device_certificate_authority(
+        self,
+        organization_id: str,
+        certificate_authority_id: str,
+    ) -> dict | None:
+        """Get a specific RadSec device certificate authority by ID.
+
+        Convenience method to retrieve a single CA.
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+        certificate_authority_id : str
+            Specific CA ID to retrieve
+
+        Returns
+        -------
+        dict | None
+            Certificate authority details, or None if not found
+        """
+        authorities = await self.get_radsec_device_certificate_authorities(
+            organization_id=organization_id,
+            certificate_authority_ids=[certificate_authority_id],
+        )
+        
+        return authorities[0] if authorities else None
+
+    async def trust_radsec_device_certificate_authority(
+        self,
+        organization_id: str,
+        authority_id: str,
+    ) -> dict:
+        """Trust a RadSec device certificate authority.
+
+        Updates the CA state to "trusted", at which point Meraki will generate
+        device certificates. "trusted" means the CA is placed on your RADSEC
+        server(s) and devices establishing a secure connection using certs signed
+        by this CA will pass verification.
+
+        Uses official Meraki API:
+        https://developer.cisco.com/meraki/api-v1/update-organization-wireless-devices-radsec-certificates-authorities/
+
+        Parameters
+        ----------
+        organization_id : str
+            Meraki organization ID
+        authority_id : str
+            Certificate authority ID to trust
+
+        Returns
+        -------
+        dict
+            Updated authority with id, status, and contents
+
+        Notes
+        -----
+        Only valid status update is "trusted". This endpoint is called after
+        creating a CA to activate it for device certificate generation.
+        """
+        try:
+            result = await self._run_sync(
+                self._dashboard.wireless.updateOrganizationWirelessDevicesRadsecCertificatesAuthorities,
+                organization_id,
+                status="trusted",
+                certificateAuthorityId=authority_id,
+            )
+
+            ca_id = result.get("certificateAuthorityId")
+            status_val = result.get("status")
+            contents = result.get("contents")
+
+            logger.info(
+                f"Trusted RadSec device CA {ca_id} "
+                f"(status: {status_val})"
+            )
+
+            return {
+                "id": ca_id,
+                "certificate_authority_id": ca_id,
+                "authority_id": ca_id,  # Backward compat
+                "status": status_val,
+                "contents": contents,
+            }
+        except Exception as e:
+            logger.error(f"Failed to trust RadSec device CA: {e}")
+            raise MerakiClientError(f"Failed to trust device CA: {e}") from e
+
+    async def configure_network_radsec(
+        self,
+        network_id: str,
+        ssid_number: int,
+        radius_host: str,
+        radius_port: int = 2083,
+        shared_secret: str = "",
+        ca_certificate_id: str = "",
+        radius_radsec_tls_idle_timeout: int = 60,
+    ) -> dict:
+        """Configure an SSID to use RadSec for RADIUS authentication.
+
+        This fully configures the SSID for Identity PSK with RADIUS (WPN).
+        Uses official Meraki API fields per:
+        https://developer.cisco.com/meraki/api-v1/update-network-wireless-ssid/
+
+        Parameters
+        ----------
+        network_id : str
+            Meraki network ID
+        ssid_number : int
+            SSID number (0-14)
+        radius_host : str
+            RadSec server hostname or IP
+        radius_port : int
+            RadSec port (default 2083)
+        shared_secret : str
+            Shared secret for RADIUS
+        ca_certificate_id : str
+            Meraki certificate ID for the uploaded CA
+        radius_radsec_tls_idle_timeout : int
+            RadSec TLS idle timeout in seconds (default 60)
+
+        Returns
+        -------
+        dict
+            Updated SSID configuration
+        """
+        try:
+            # Configure SSID with Identity PSK and RADIUS authentication
+            # Per Meraki API docs: https://developer.cisco.com/meraki/api-v1/update-network-wireless-ssid/
+            update_params = {
+                "enabled": True,
+                "authMode": "ipsk-with-radius",  # Identity PSK with RADIUS
+                "wpaEncryptionMode": "WPA2 only",
+                "ipAssignmentMode": "Bridge mode",
+                "useVlanTagging": False,
+                # RADIUS server configuration with RadSec
+                "radiusServers": [
+                    {
+                        "host": radius_host,
+                        "port": radius_port,
+                        "secret": shared_secret,
+                        "radsecEnabled": True,
+                        "caCertificate": ca_certificate_id if ca_certificate_id else None,
+                    }
+                ],
+                "radiusAccountingEnabled": True,
+                "radiusAccountingServers": [
+                    {
+                        "host": radius_host,
+                        "port": radius_port,
+                        "secret": shared_secret,
+                        "radsecEnabled": True,
+                        "caCertificate": ca_certificate_id if ca_certificate_id else None,
+                    }
+                ],
+                # RadSec TLS timeout
+                "radiusRadsecTlsIdleTimeout": radius_radsec_tls_idle_timeout,
+            }
+            
+            result = await self._run_sync(
+                self._dashboard.wireless.updateNetworkWirelessSsid,
+                network_id,
+                str(ssid_number),
+                **update_params
+            )
+            
+            logger.info(
+                f"Configured SSID {ssid_number} for RadSec on network {network_id}. "
+                f"RADIUS: {radius_host}:{radius_port}, RadSec enabled with TLS timeout: {radius_radsec_tls_idle_timeout}s"
+            )
+            
+            # Check if WPN ID is returned (indicates WPN support)
+            wpn_enabled = bool(result.get("wifiPersonalNetworkId"))
+            
+            return {
+                "ssid_number": ssid_number,
+                "name": result.get("name"),
+                "enabled": result.get("enabled"),
+                "authMode": result.get("authMode"),
+                "radiusServers": result.get("radiusServers"),
+                "radiusRadsecTlsIdleTimeout": result.get("radiusRadsecTlsIdleTimeout"),
+                "wifiPersonalNetworkId": result.get("wifiPersonalNetworkId"),
+                "wpn_enabled": wpn_enabled,
+                "configured": True,
+            }
+        except Exception as e:
+            logger.error(f"Failed to configure SSID for RadSec: {e}")
+            raise MerakiClientError(f"Failed to configure RadSec: {e}") from e

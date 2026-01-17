@@ -1,0 +1,261 @@
+# ============================================================================
+# Auto-generated FreeRADIUS Unlang Policy
+# Policy: {{ policy.name }}
+# Generated: {{ timestamp }}
+# DO NOT EDIT MANUALLY - Changes will be overwritten
+# ============================================================================
+#
+# This policy determines WHEN/IF a user should be authorized and
+# WHICH authorization profile to apply.
+#
+# Per FreeRADIUS v4 documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0.0/reference/unlang/index.html
+#
+# ============================================================================
+
+{% if policy.description %}
+# Description: {{ policy.description }}
+{% endif %}
+# Priority: {{ policy.priority }}
+# Section: {{ policy.section }}
+# Action: {{ policy.action_type }}
+
+{% if freeradius_version == 4 %}
+{# FreeRADIUS v4 syntax #}
+{% if policy.condition_type == 'attribute' %}
+{% if policy.condition_operator == 'exists' %}
+if (&{{ policy.condition_attribute }}) {
+{% elif policy.condition_operator == 'notexists' %}
+if (!&{{ policy.condition_attribute }}) {
+{% elif policy.condition_operator == '=~' %}
+if (&{{ policy.condition_attribute }} =~ /{{ policy.condition_value }}/) {
+{% elif policy.condition_operator == '!~' %}
+if (&{{ policy.condition_attribute }} !~ /{{ policy.condition_value }}/) {
+{% else %}
+if (&{{ policy.condition_attribute }} {{ policy.condition_operator }} "{{ policy.condition_value }}") {
+{% endif %}
+{% elif policy.condition_type == 'sql_lookup' %}
+# SQL condition lookup
+{# Store result in local variable (v4 feature) #}
+    string sql_result
+
+    sql_result := %sql("{{ policy.sql_condition }}")
+
+if (&sql_result) {
+{% elif policy.condition_type == 'module_call' %}
+# Module call condition
+{{ policy.module_name }} {
+    ok = return
+    notfound = noop
+    fail = noop
+}
+
+if (ok) {
+{% elif policy.condition_type == 'custom' %}
+# Custom condition
+{{ policy.custom_unlang | indent(4) }}
+{% endif %}
+
+{% if policy.additional_conditions %}
+{% for cond in policy.additional_conditions %}
+    # Additional condition: {{ cond.attribute }} {{ cond.operator }} {{ cond.value }}
+    {% if policy.condition_logic == 'AND' %}
+    if (&{{ cond.attribute }} {{ cond.operator }} "{{ cond.value }}") {
+    {% else %}
+    # OR condition - handled separately
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+    # ACTION: {{ policy.action_type }}
+{% if policy.action_type == 'accept' %}
+    &reply.Reply-Message := "{{ policy.reply_message | default('Access Granted') }}"
+    ok
+{% elif policy.action_type == 'reject' %}
+    &reply.Reply-Message := "{{ policy.reject_reason | default('Access Denied') }}"
+    reject
+{% elif policy.action_type == 'apply_profile' and authorization_profile %}
+    # Apply Authorization Profile: {{ authorization_profile.name }}
+{% if authorization_profile.vlan_id %}
+    &reply.Tunnel-Type := VLAN
+    &reply.Tunnel-Medium-Type := IEEE-802
+    &reply.Tunnel-Private-Group-Id := {{ authorization_profile.vlan_id }}
+{% endif %}
+{% if authorization_profile.sgt_value %}
+    &reply.Cisco-AVPair += "cts:security-group-tag={{ '%04x' % authorization_profile.sgt_value }}-00"
+{% endif %}
+{% if authorization_profile.filter_id %}
+    &reply.Filter-Id := "{{ authorization_profile.filter_id }}"
+{% endif %}
+{% if authorization_profile.splash_url %}
+    &reply.Cisco-AVPair += "url-redirect={{ authorization_profile.splash_url }}"
+{% endif %}
+{% if authorization_profile.url_redirect_acl %}
+    &reply.Cisco-AVPair += "url-redirect-acl={{ authorization_profile.url_redirect_acl }}"
+{% endif %}
+{% if authorization_profile.session_timeout %}
+    &reply.Session-Timeout := {{ authorization_profile.session_timeout }}
+{% endif %}
+{% if authorization_profile.idle_timeout %}
+    &reply.Idle-Timeout := {{ authorization_profile.idle_timeout }}
+{% endif %}
+{% if authorization_profile.reply_message %}
+    &reply.Reply-Message := "{{ authorization_profile.reply_message }}"
+{% endif %}
+    ok
+{% elif policy.action_type == 'call_module' %}
+    # Call module: {{ policy.module_name }}
+    {{ policy.module_name }}
+{% elif policy.action_type == 'continue' %}
+    # Continue to next policy
+    noop
+{% endif %}
+
+{% if policy.additional_conditions %}
+{% for cond in policy.additional_conditions %}
+    }
+{% endfor %}
+{% endif %}
+}
+{% if policy.else_action_type %}
+else {
+    # ELSE ACTION: {{ policy.else_action_type }}
+{% if policy.else_action_type == 'reject' %}
+    &reply.Reply-Message := "{{ policy.else_reply_message | default('Access Denied - Condition not met') }}"
+    reject
+{% elif policy.else_action_type == 'apply_profile' and else_profile %}
+    # Apply else profile: {{ else_profile.name }}
+{% if else_profile.splash_url %}
+    &reply.Cisco-AVPair += "url-redirect={{ else_profile.splash_url }}"
+{% endif %}
+{% if else_profile.unregistered_group_policy %}
+    &reply.Filter-Id := "{{ else_profile.unregistered_group_policy }}"
+{% endif %}
+    ok
+{% elif policy.else_action_type == 'continue' %}
+    noop
+{% endif %}
+}
+{% endif %}
+
+{% else %}
+{# FreeRADIUS v3 syntax #}
+{% if policy.condition_type == 'attribute' %}
+{% if policy.condition_operator == 'exists' %}
+if ("%{{{ policy.condition_attribute }}}" != "") {
+{% elif policy.condition_operator == 'notexists' %}
+if ("%{{{ policy.condition_attribute }}}" == "") {
+{% elif policy.condition_operator == '=~' %}
+if ("%{{{ policy.condition_attribute }}}" =~ /{{ policy.condition_value }}/) {
+{% elif policy.condition_operator == '!~' %}
+if ("%{{{ policy.condition_attribute }}}" !~ /{{ policy.condition_value }}/) {
+{% else %}
+if ("%{{{ policy.condition_attribute }}}" {{ policy.condition_operator }} "{{ policy.condition_value }}") {
+{% endif %}
+{% elif policy.condition_type == 'sql_lookup' %}
+# SQL condition lookup
+if ("%{sql:{{ policy.sql_condition }}}" != "") {
+{% elif policy.condition_type == 'module_call' %}
+# Module call condition
+{{ policy.module_name }} {
+    ok = return
+    notfound = noop
+    fail = noop
+}
+
+if (ok) {
+{% elif policy.condition_type == 'custom' %}
+# Custom condition
+{{ policy.custom_unlang | indent(4) }}
+{% endif %}
+
+{% if policy.additional_conditions %}
+{% for cond in policy.additional_conditions %}
+    # Additional condition: {{ cond.attribute }} {{ cond.operator }} {{ cond.value }}
+    {% if policy.condition_logic == 'AND' %}
+    if ("%{{{ cond.attribute }}}" {{ cond.operator }} "{{ cond.value }}") {
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+    # ACTION: {{ policy.action_type }}
+{% if policy.action_type == 'accept' %}
+    update reply {
+        Reply-Message := "{{ policy.reply_message | default('Access Granted') }}"
+    }
+    ok
+{% elif policy.action_type == 'reject' %}
+    update reply {
+        Reply-Message := "{{ policy.reject_reason | default('Access Denied') }}"
+    }
+    reject
+{% elif policy.action_type == 'apply_profile' and authorization_profile %}
+    # Apply Authorization Profile: {{ authorization_profile.name }}
+    update reply {
+{% if authorization_profile.vlan_id %}
+        Tunnel-Type := VLAN
+        Tunnel-Medium-Type := IEEE-802
+        Tunnel-Private-Group-Id := {{ authorization_profile.vlan_id }}
+{% endif %}
+{% if authorization_profile.sgt_value %}
+        Cisco-AVPair += "cts:security-group-tag={{ '%04x' % authorization_profile.sgt_value }}-00"
+{% endif %}
+{% if authorization_profile.filter_id %}
+        Filter-Id := "{{ authorization_profile.filter_id }}"
+{% endif %}
+{% if authorization_profile.splash_url %}
+        Cisco-AVPair += "url-redirect={{ authorization_profile.splash_url }}"
+{% endif %}
+{% if authorization_profile.url_redirect_acl %}
+        Cisco-AVPair += "url-redirect-acl={{ authorization_profile.url_redirect_acl }}"
+{% endif %}
+{% if authorization_profile.session_timeout %}
+        Session-Timeout := {{ authorization_profile.session_timeout }}
+{% endif %}
+{% if authorization_profile.idle_timeout %}
+        Idle-Timeout := {{ authorization_profile.idle_timeout }}
+{% endif %}
+{% if authorization_profile.reply_message %}
+        Reply-Message := "{{ authorization_profile.reply_message }}"
+{% endif %}
+    }
+    ok
+{% elif policy.action_type == 'call_module' %}
+    # Call module: {{ policy.module_name }}
+    {{ policy.module_name }}
+{% elif policy.action_type == 'continue' %}
+    # Continue to next policy
+    noop
+{% endif %}
+
+{% if policy.additional_conditions %}
+{% for cond in policy.additional_conditions %}
+    }
+{% endfor %}
+{% endif %}
+}
+{% if policy.else_action_type %}
+else {
+    # ELSE ACTION: {{ policy.else_action_type }}
+{% if policy.else_action_type == 'reject' %}
+    update reply {
+        Reply-Message := "{{ policy.else_reply_message | default('Access Denied - Condition not met') }}"
+    }
+    reject
+{% elif policy.else_action_type == 'apply_profile' and else_profile %}
+    # Apply else profile: {{ else_profile.name }}
+    update reply {
+{% if else_profile.splash_url %}
+        Cisco-AVPair += "url-redirect={{ else_profile.splash_url }}"
+{% endif %}
+{% if else_profile.unregistered_group_policy %}
+        Filter-Id := "{{ else_profile.unregistered_group_policy }}"
+{% endif %}
+    }
+    ok
+{% elif policy.else_action_type == 'continue' %}
+    noop
+{% endif %}
+}
+{% endif %}
+{% endif %}

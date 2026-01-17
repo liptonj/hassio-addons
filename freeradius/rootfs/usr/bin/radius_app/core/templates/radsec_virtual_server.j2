@@ -1,0 +1,327 @@
+# RadSec virtual server - RADIUS over TLS
+# Generated from database
+#
+# Per FreeRADIUS documentation:
+# - RadSec uses TLS for secure RADIUS communication
+# - Typically used for communication with Meraki Dashboard or other cloud services
+# - Authentication/authorization logic mirrors the default server
+#
+{% if freeradius_version == 4 %}
+# FreeRADIUS v4 syntax
+server radsec {
+    namespace = radius
+
+    # RadSec Auth listener (TLS)
+    listen {
+        transport = tcp
+        tcp {
+            ipaddr = {{ listen_address | default('*') }}
+            port = {{ listen_port | default(2083) }}
+        }
+        type = Access-Request
+
+        tls {
+            certificate_file = {{ certificate_file | default('${certdir}/server.pem') }}
+            private_key_file = {{ private_key_file | default('${certdir}/server-key.pem') }}
+            ca_file = {{ ca_file | default('${certdir}/ca.pem') }}
+            
+            tls_min_version = "{{ tls_min_version | default('1.2') }}"
+            tls_max_version = "{{ tls_max_version | default('1.3') }}"
+            
+            cipher_list = "{{ cipher_list | default('HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4') }}"
+            cipher_server_preference = yes
+            
+            require_client_cert = {{ 'yes' if require_client_cert else 'no' }}
+        }
+
+        limit {
+            max_clients = {{ max_connections | default(16) }}
+            lifetime = {{ connection_timeout | default(0) }}
+            idle_timeout = {{ idle_timeout | default(30) }}
+        }
+    }
+
+    # RadSec Accounting listener (TLS)
+    listen {
+        transport = tcp
+        tcp {
+            ipaddr = {{ listen_address | default('*') }}
+            port = {{ listen_port | default(2083) }}
+        }
+        type = Accounting-Request
+
+        tls {
+            certificate_file = {{ certificate_file | default('${certdir}/server.pem') }}
+            private_key_file = {{ private_key_file | default('${certdir}/server-key.pem') }}
+            ca_file = {{ ca_file | default('${certdir}/ca.pem') }}
+            
+            tls_min_version = "{{ tls_min_version | default('1.2') }}"
+            tls_max_version = "{{ tls_max_version | default('1.3') }}"
+            
+            cipher_list = "{{ cipher_list | default('HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4') }}"
+        }
+
+        limit {
+            max_clients = {{ max_connections | default(16) }}
+        }
+    }
+
+    # Receive Access-Request (v4 syntax)
+    recv Access-Request {
+        filter_username
+        
+        # MAC address normalization
+        if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            &Stripped-User-Name := "%{tolower:%{User-Name}}"
+        }
+        
+        files
+
+{% if use_sql %}
+        sql {
+            ok = return
+            notfound = noop
+            noop = noop
+        }
+
+{% endif %}
+{% if eap_enabled %}
+        eap {
+            ok = return
+        }
+
+{% endif %}
+        pap
+    }
+
+    # Send Access-Accept (v4 syntax)
+    send Access-Accept {
+        if (&reply.Cisco-AVPair) {
+            &reply.Reply-Message := "WPN RadSec Authentication Successful"
+        }
+
+{% if use_sql %}
+        sql
+{% endif %}
+    }
+
+    # Send Access-Reject (v4 syntax)
+    send Access-Reject {
+        attr_filter.access_reject
+    }
+
+    # Receive Accounting-Request (v4 syntax)
+    recv Accounting-Request {
+{% if use_sql %}
+        sql
+{% endif %}
+        detail
+    }
+}
+{% else %}
+# FreeRADIUS v3 syntax
+server radsec {
+    # Listen on RadSec port (TLS) - Authentication
+    listen {
+        ipaddr = {{ listen_address | default('*') }}
+        port = {{ listen_port | default(2083) }}
+        type = auth
+        proto = tcp
+        
+        # TLS configuration
+        tls {
+            private_key_password = {{ private_key_password | default('${ENV::RADIUS_CERT_PASSWORD}') }}
+            private_key_file = {{ private_key_file | default('${certdir}/server-key.pem') }}
+            certificate_file = {{ certificate_file | default('${certdir}/server.pem') }}
+            ca_file = {{ ca_file | default('${certdir}/ca.pem') }}
+            
+            dh_file = {{ dh_file | default('${certdir}/dh') }}
+            random_file = /dev/urandom
+            fragment_size = 8192
+            
+            # TLS version requirements
+            tls_min_version = "{{ tls_min_version | default('1.2') }}"
+            tls_max_version = "{{ tls_max_version | default('1.3') }}"
+            
+            # Strong cipher suites only (per security policy)
+            cipher_list = "{{ cipher_list | default('HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4') }}"
+            cipher_server_preference = yes
+            
+            # Disable weak TLS versions
+            disable_tlsv1 = yes
+            disable_tlsv1_1 = yes
+            
+            # Cache configuration
+            cache {
+                enable = yes
+                lifetime = 24
+                name = "TLS"
+                max_entries = 255
+            }
+            
+            # Require client certificates
+            require_client_cert = {{ 'yes' if require_client_cert else 'no' }}
+            
+{% if verify_client_cert %}
+            # Verify client certificates if provided
+            verify {
+                skip_if_ocsp_ok = no
+                tmpdir = /tmp/radiusd
+                client = "/usr/bin/openssl verify -CAfile ${..ca_file} %{TLS-Client-Cert-Filename}"
+            }
+{% endif %}
+        }
+        
+        # Connection limits
+        limit {
+            max_connections = {{ max_connections | default(16) }}
+            lifetime = {{ connection_timeout | default(0) }}
+            idle_timeout = {{ idle_timeout | default(30) }}
+        }
+    }
+
+    # Accounting over RadSec
+    listen {
+        ipaddr = {{ listen_address | default('*') }}
+        port = {{ listen_port | default(2083) }}
+        type = acct
+        proto = tcp
+        
+        # Use same TLS config as auth
+        tls {
+            private_key_password = {{ private_key_password | default('${ENV::RADIUS_CERT_PASSWORD}') }}
+            private_key_file = {{ private_key_file | default('${certdir}/server-key.pem') }}
+            certificate_file = {{ certificate_file | default('${certdir}/server.pem') }}
+            ca_file = {{ ca_file | default('${certdir}/ca.pem') }}
+            
+            tls_min_version = "{{ tls_min_version | default('1.2') }}"
+            tls_max_version = "{{ tls_max_version | default('1.3') }}"
+            
+            cipher_list = "{{ cipher_list | default('HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4') }}"
+            cipher_server_preference = yes
+            
+            disable_tlsv1 = yes
+            disable_tlsv1_1 = yes
+        }
+        
+        limit {
+            max_connections = {{ max_connections | default(16) }}
+            lifetime = {{ connection_timeout | default(0) }}
+            idle_timeout = {{ idle_timeout | default(30) }}
+        }
+    }
+
+    # Authorization (same logic as default server)
+    authorize {
+        filter_username
+        preprocess
+        
+        # MAC address normalization
+        if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            update request {
+                Stripped-User-Name := "%{tolower:%{User-Name}}"
+            }
+        }
+        
+        files
+
+{% if use_sql %}
+        # SQL module for dynamic user lookups
+        sql {
+            ok = return
+            notfound = noop
+            noop = noop
+        }
+
+        # SQL Counter modules for session time limits
+        sqlcounter.noresetcounter
+        sqlcounter.dailycounter
+        sqlcounter.monthlycounter
+
+{% endif %}
+{% if eap_enabled %}
+        eap {
+            ok = return
+        }
+
+{% endif %}
+        pap
+    }
+
+    # Authentication
+    authenticate {
+        Auth-Type PAP {
+            pap
+        }
+
+{% if eap_enabled %}
+        Auth-Type eap {
+            eap
+        }
+
+{% endif %}
+        # CHAP authentication
+        Auth-Type CHAP {
+            chap
+        }
+
+        # MS-CHAP authentication
+        Auth-Type MS-CHAP {
+            mschap
+        }
+    }
+
+    # Note: SQL module is NOT used in authenticate section
+    # SQL only retrieves credentials in authorize section
+    # PAP/CHAP/MS-CHAP/EAP handle actual authentication
+
+    # Post-authentication
+    post-auth {
+        # Add UDN ID response
+        if (&reply:Cisco-AVPair) {
+            update reply {
+                Reply-Message := "WPN RadSec Authentication Successful"
+            }
+        }
+        
+{% if use_sql %}
+        sql
+
+{% endif %}
+        update {
+            &reply: += &session-state:
+        }
+        
+        Post-Auth-Type REJECT {
+            attr_filter.access_reject
+        }
+        
+        detail
+    }
+
+    # Accounting
+    accounting {
+{% if use_sql %}
+        sql
+
+{% endif %}
+        detail
+        unix
+        attr_filter.accounting_response
+    }
+
+    # Session
+    session {
+    }
+
+    # Pre/Post proxy
+    pre-proxy {
+    }
+
+    post-proxy {
+{% if eap_enabled %}
+        eap
+{% endif %}
+    }
+}
+{% endif %}

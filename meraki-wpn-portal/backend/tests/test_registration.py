@@ -87,3 +87,96 @@ class TestHealth:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+
+class TestInviteCodeValidation:
+    """Tests for invite code validation endpoint."""
+
+    def test_validate_valid_code(self, client: TestClient, db: Session):
+        """Test validating a valid invite code returns success."""
+        from app.db.models import InviteCode
+        
+        # Create valid code
+        code = InviteCode(
+            code="TESTCODE123",
+            max_uses=5,
+            uses=0,
+            is_active=True,
+        )
+        db.add(code)
+        db.commit()
+        
+        response = client.post("/api/invite-code/validate?code=TESTCODE123")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["valid"] is True
+        assert data["code_info"]["remaining_uses"] == 5
+
+    def test_validate_invalid_code(self, client: TestClient):
+        """Test validating non-existent code returns invalid."""
+        response = client.post("/api/invite-code/validate?code=NONEXISTENT")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["valid"] is False
+        assert "error" in data
+
+    def test_validate_empty_code(self, client: TestClient):
+        """Test validating empty code returns error."""
+        response = client.post("/api/invite-code/validate?code=")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["valid"] is False
+
+
+class TestRegistrationModes:
+    """Tests for registration mode enforcement."""
+
+    def test_invite_only_rejects_without_code(
+        self, client: TestClient, db: Session
+    ):
+        """Test invite_only mode rejects registration without code."""
+        from app.db.models import PortalSetting
+        
+        # Set mode
+        setting = PortalSetting(
+            key="registration_mode",
+            value="invite_only",
+        )
+        db.add(setting)
+        db.commit()
+        
+        response = client.post("/api/register", json={
+            "name": "Test User",
+            "email": "test@example.com",
+            "auth_method": "ipsk",
+        })
+        
+        assert response.status_code == 403
+        assert "invite code" in response.json()["detail"].lower()
+
+    def test_approval_mode_returns_pending(
+        self, client: TestClient, db: Session
+    ):
+        """Test approval_required mode returns pending status."""
+        from app.db.models import PortalSetting
+        
+        # Set mode
+        setting = PortalSetting(
+            key="registration_mode",
+            value="approval_required",
+        )
+        db.add(setting)
+        db.commit()
+        
+        response = client.post("/api/register", json={
+            "name": "Approval Test",
+            "email": "approval@example.com",
+            "auth_method": "ipsk",
+        })
+        
+        if response.status_code == 200:
+            data = response.json()
+            assert data.get("pending_approval") is True

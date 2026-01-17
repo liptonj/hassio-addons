@@ -2,13 +2,16 @@ name: "Meraki WPN Portal"
 description: "Self-service WiFi registration portal for Cisco Meraki networks with IPSK management"
 version: "1.0.0"
 slug: "meraki-wpn-portal"
+# Pre-built image from GitHub Container Registry (built by CI/CD)
+# Remove this line to build locally from Dockerfile
+image: "ghcr.io/liptonj/meraki-wpn-portal-{arch}"
 arch:
   - aarch64
   - amd64
   - armv7
-url: "https://github.com/yourusername/meraki-wpn-portal"
-image: "ghcr.io/home-assistant/{arch}-base-python:3.13-alpine3.22"
+url: "https://github.com/liptonj/hassio-addons"
 init: false
+startup: application
 ingress: true
 ingress_port: 8099
 panel_icon: "mdi:wifi-plus"
@@ -20,6 +23,9 @@ ports_description:
 map:
   - config:rw
   - ssl:ro
+# Services to discover (MariaDB auto-discovery)
+services:
+  - mysql:want
 options:
   # Run Mode (when used as add-on, this is always homeassistant)
   run_mode: "homeassistant"
@@ -55,8 +61,10 @@ options:
 
   # Admin Settings
   admin_notification_email: ""
-  admin_username: "admin"
-  admin_password: "admin"
+  # Admin credentials - leave empty to auto-generate secure random password on first start
+  # Generated credentials are saved to /config/.admin_credentials and shown in logs
+  admin_username: ""
+  admin_password: ""
   
   # OAuth/SSO Settings
   enable_oauth: false
@@ -74,6 +82,26 @@ options:
   entra_tenant_id: ""
   
   oauth_callback_url: ""
+  
+  # Database Configuration
+  # Select database type and provide connection details
+  # For SQLite: only db_name is used (as filename in /config/)
+  # For MySQL: if MariaDB add-on is installed, credentials are auto-discovered!
+  #            Just set db_type to "mysql" and leave user/password empty
+  # For PostgreSQL: provide host, port, name, user, password
+  db_type: "sqlite"
+  db_host: ""
+  db_port: 3306
+  db_name: "meraki_wpn_portal"
+  db_user: ""
+  db_password: ""
+  
+  # FreeRADIUS Integration
+  # Leave empty to auto-discover from FreeRADIUS add-on
+  # Or manually configure for external FreeRADIUS server
+  freeradius_enabled: false
+  freeradius_api_url: ""
+  freeradius_api_token: ""
 
 schema:
   run_mode: "list(standalone|homeassistant)?"
@@ -96,8 +124,8 @@ schema:
   default_ipsk_duration_hours: "int(0,8760)"
   passphrase_length: "int(8,32)"
   admin_notification_email: "email?"
-  admin_username: str
-  admin_password: password
+  admin_username: "str?"
+  admin_password: "password?"
   enable_oauth: bool
   oauth_provider: "list(none|duo|entra)?"
   oauth_admin_only: bool
@@ -108,3 +136,12 @@ schema:
   entra_client_secret: "password?"
   entra_tenant_id: "str?"
   oauth_callback_url: "url?"
+  db_type: "list(sqlite|mysql|postgresql)"
+  db_host: "str?"
+  db_port: "int(1,65535)?"
+  db_name: str
+  db_user: "str?"
+  db_password: "password?"
+  freeradius_enabled: bool
+  freeradius_api_url: "url?"
+  freeradius_api_token: "password?"

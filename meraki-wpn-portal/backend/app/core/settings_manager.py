@@ -157,6 +157,11 @@ class SettingsManager:
                 "duo_client_secret",
                 "entra_client_secret",
                 "oauth_client_secret",
+                "radius_shared_secret",
+                "radius_radsec_ca_cert",
+                "radius_radsec_server_cert",
+                "radius_radsec_server_key",
+                "radius_api_token",
             }
             
             config_to_save = {}
@@ -276,6 +281,11 @@ class SettingsManager:
                 "duo_client_secret",
                 "entra_client_secret",
                 "oauth_client_secret",
+                "radius_shared_secret",
+                "radius_radsec_ca_cert",
+                "radius_radsec_server_cert",
+                "radius_radsec_server_key",
+                "radius_api_token",
             }
             
             masked_settings = settings.copy()

@@ -49,6 +49,8 @@ class IPSKResponse(BaseModel):
     ssid_name: str | None = Field(None, description="SSID name")
     status: str = Field(..., description="IPSK status (active, expired, revoked)")
     group_policy_id: str | None = Field(None, description="Group policy ID")
+    group_policy_name: str | None = Field(None, description="Group policy name")
+    psk_group_id: str | None = Field(None, description="WPN/UPN Group ID - unique per iPSK")
     expires_at: datetime | None = Field(None, description="Expiration timestamp")
     created_at: datetime | None = Field(None, description="Creation timestamp")
 

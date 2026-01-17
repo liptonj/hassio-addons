@@ -212,3 +212,39 @@ dmypy.json
 cython_debug/
 
 /.idea/
+
+# Docker Compose files (local development only)
+docker-compose.yml
+docker-compose.yaml
+docker-compose*.yml
+docker-compose*.yaml
+docker-compose.test.yml
+docker-compose.test-db.yml
+
+# Local test databases
+*.db
+*.db-shm
+*.db-wal
+*.db.backup
+
+# Generated secrets/credentials (auto-generated at runtime)
+.admin_credentials
+.secret_key
+.encryption_key
+.api_auth_token
+.freeradius_api_token
+.freeradius_discovery
+
+# Node modules (frontend build dependencies)
+node_modules/
+
+# Frontend build output (rebuilt at container build time)
+frontend/dist/
+
+# Test artifacts
+playwright-report/
+test-results/
+.playwright/
+
+# macOS
+.DS_Store

@@ -1,0 +1,103 @@
+# Status virtual server for monitoring
+# Generated from database
+#
+# Per FreeRADIUS documentation:
+# - Status-Server allows monitoring tools to check if RADIUS is alive
+# - Responds to Status-Server requests with Access-Accept
+# - Useful for load balancers and monitoring systems
+# - Should be restricted to trusted networks/clients
+#
+{% if freeradius_version == 4 %}
+# FreeRADIUS v4 syntax
+server status {
+    namespace = radius
+
+    listen {
+        transport = udp
+        udp {
+            ipaddr = {{ listen_address | default('127.0.0.1') }}
+            port = {{ listen_port | default(18121) }}
+        }
+        type = Status-Server
+    }
+
+    # Receive Status-Server request
+    recv Status-Server {
+        # Always accept status checks
+        ok
+    }
+
+    # Send response
+    send Access-Accept {
+        &reply.Reply-Message := "FreeRADIUS Status: OK"
+    }
+}
+{% else %}
+# FreeRADIUS v3 syntax
+server status {
+    # Listen for Status-Server requests
+    # Bind to localhost by default for security
+    listen {
+        type = status
+        ipaddr = {{ listen_address | default('127.0.0.1') }}
+        port = {{ listen_port | default(18121) }}
+        
+        limit {
+            max_connections = {{ max_connections | default(16) }}
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Client definition for status server
+    # Only allow trusted clients to check status
+{% if status_clients %}
+{% for client in status_clients %}
+    client {{ client.name }} {
+        ipaddr = {{ client.ipaddr }}
+        secret = {{ client.secret }}
+    }
+
+{% endfor %}
+{% else %}
+    # Default: Allow localhost to check status
+    client localhost {
+        ipaddr = 127.0.0.1
+        secret = adminsecret
+    }
+{% endif %}
+
+    # Authorization for Status-Server
+    authorize {
+        # Accept all status requests
+        update control {
+            Auth-Type := Accept
+        }
+    }
+
+    # No authentication needed for Status-Server
+    authenticate {
+    }
+
+    # Post-authentication - return status info
+    post-auth {
+        # Add status information to reply
+        update reply {
+            Reply-Message := "FreeRADIUS Status: OK"
+{% if include_stats %}
+            # Server statistics (if enabled)
+            Reply-Message += "Server uptime: %{control:Server-Uptime}"
+            Reply-Message += "Total requests: %{control:Total-Access-Requests}"
+{% endif %}
+        }
+    }
+
+    # Accounting section (optional, for stats)
+    accounting {
+{% if include_stats %}
+        # Update server statistics
+        detail
+{% endif %}
+    }
+}
+{% endif %}

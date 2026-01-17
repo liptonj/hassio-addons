@@ -1,0 +1,8 @@
+# RADIUS users configuration
+# Managed by radius-manager.py
+# Add users via the portal UI or API
+
+# Example MAC-based authentication with UDN:
+# aa:bb:cc:dd:ee:ff Cleartext-Password := "aa:bb:cc:dd:ee:ff"
+#     Cisco-AVPair += "udn-id=100"
+

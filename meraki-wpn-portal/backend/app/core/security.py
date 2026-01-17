@@ -139,12 +139,12 @@ def verify_token(token: str) -> dict | None:
         return None
 
 
-def generate_passphrase(length: int = 12, simple: bool = True) -> str:
+def generate_passphrase(length: int = 12, simple: bool = False) -> str:
     """Generate a random passphrase.
 
     Args:
-        length: Length hint for the passphrase (default 12)
-        simple: If True, generate easy-to-type word-based passphrase
+        length: Desired length of the passphrase (default 12, min 8, max 32)
+        simple: If True, generate easy-to-type word-based passphrase (ignores length)
 
     Returns:
         Random passphrase string
@@ -162,6 +162,7 @@ def generate_passphrase(length: int = 12, simple: bool = True) -> str:
         num = secrets.randbelow(100)
         return f"{word1}-{word2}-{num:02d}"
 
+    # Enforce length constraints
     if length < 8:
         length = 8
     if length > 32:

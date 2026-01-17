@@ -1,103 +1,125 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Wifi, LayoutDashboard, Key, Ticket, Users, Settings, LogOut } from 'lucide-react'
-import { getPortalOptions } from '../api/client'
+import { useState } from 'react'
+import { Wifi, Menu, ChevronDown } from 'lucide-react'
+import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
 
 interface HeaderProps {
   isAdmin?: boolean
+  onAdminMenuToggle?: () => void
 }
 
-export default function Header({ isAdmin = false }: HeaderProps) {
+export default function Header({ isAdmin = false, onAdminMenuToggle }: HeaderProps) {
   const location = useLocation()
   const { isAuthenticated, logout } = useAuth()
-  
-  const { data: options } = useQuery({
-    queryKey: ['portal-options'],
-    queryFn: getPortalOptions,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-  })
-
-  const propertyName = options?.property_name || 'WiFi Portal'
+  const { propertyName, logoUrl } = useBranding()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const isActive = (path: string) => location.pathname === path
 
   return (
     <header className="header">
       <div className="container header-content">
-        <div className="header-logo">
-          <Wifi size={28} />
-          <Link to={isAdmin ? '/admin' : '/'} className="header-brand">
-            {isAdmin ? 'WPN Admin' : propertyName}
-          </Link>
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <div className="header-logo">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={propertyName}
+                style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
+                onError={(e) => {
+                  // Fallback to WiFi icon if logo fails to load
+                  e.currentTarget.style.display = 'none'
+                  const fallback = e.currentTarget.nextElementSibling
+                  if (fallback) {
+                    (fallback as HTMLElement).style.display = 'block'
+                  }
+                }}
+              />
+            ) : null}
+            {/* Fallback icon - hidden if logo loads successfully */}
+            <Wifi 
+              size={28} 
+              style={{ display: logoUrl ? 'none' : 'block' }}
+            />
+            <Link to={isAdmin ? '/admin' : '/'} className="header-brand">
+              {isAdmin ? 'WPN Admin' : propertyName}
+            </Link>
+          </div>
+
+          {isAdmin && onAdminMenuToggle && (
+            <button
+              onClick={onAdminMenuToggle}
+              className="md:hidden p-2 text-white hover:bg-white/15 rounded-lg transition-colors"
+              aria-label="Toggle menu"
+            >
+              <Menu size={24} />
+            </button>
+          )}
         </div>
 
-        <nav className="header-nav">
-          {isAdmin ? (
-            <>
-              <Link
-                to="/admin"
-                className={`header-nav-link ${isActive('/admin') ? 'active' : ''}`}
-              >
-                <LayoutDashboard size={18} style={{ marginRight: '0.25rem' }} />
-                Dashboard
-              </Link>
-              <Link
-                to="/admin/ipsks"
-                className={`header-nav-link ${isActive('/admin/ipsks') ? 'active' : ''}`}
-              >
-                <Key size={18} style={{ marginRight: '0.25rem' }} />
-                IPSKs
-              </Link>
-              <Link
-                to="/admin/invite-codes"
-                className={`header-nav-link ${isActive('/admin/invite-codes') ? 'active' : ''}`}
-              >
-                <Ticket size={18} style={{ marginRight: '0.25rem' }} />
-                Invite Codes
-              </Link>
-              <Link
-                to="/admin/users"
-                className={`header-nav-link ${isActive('/admin/users') ? 'active' : ''}`}
-              >
-                <Users size={18} style={{ marginRight: '0.25rem' }} />
-                Users
-              </Link>
-              <Link
-                to="/admin/settings"
-                className={`header-nav-link ${isActive('/admin/settings') ? 'active' : ''}`}
-              >
-                <Settings size={18} style={{ marginRight: '0.25rem' }} />
-                Settings
-              </Link>
-              {isAuthenticated && (
+        {!isAdmin && (
+          <nav className="header-nav flex">
+            <Link
+              to="/register"
+              className={`header-nav-link ${isActive('/register') ? 'active' : ''}`}
+            >
+              Register
+            </Link>
+            <Link
+              to="/my-network"
+              className={`header-nav-link ${isActive('/my-network') ? 'active' : ''}`}
+            >
+              My Network
+            </Link>
+          </nav>
+        )}
+        {isAdmin && (
+          <div className="flex items-center gap-3 ml-auto">
+            <Link
+              to="/admin"
+              className={`header-nav-link ${isActive('/admin') ? 'active' : ''}`}
+            >
+              Dashboard
+            </Link>
+            {isAuthenticated && (
+              <div className="relative">
                 <button
-                  onClick={logout}
-                  className="header-nav-link"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  type="button"
+                  onClick={() => setMenuOpen(prev => !prev)}
+                  className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-white text-sm font-semibold"
+                  aria-label="Open admin menu"
                 >
-                  <LogOut size={18} style={{ marginRight: '0.25rem' }} />
-                  Logout
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white text-sm font-bold" style={{ color: 'var(--primary-color)' }}>
+                    AD
+                  </span>
+                  <ChevronDown size={16} />
                 </button>
-              )}
-            </>
-          ) : (
-            <>
-              <Link
-                to="/register"
-                className={`header-nav-link ${isActive('/register') ? 'active' : ''}`}
-              >
-                Register
-              </Link>
-              <Link
-                to="/my-network"
-                className={`header-nav-link ${isActive('/my-network') ? 'active' : ''}`}
-              >
-                My Network
-              </Link>
-            </>
-          )}
-        </nav>
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 dark:bg-gray-800 dark:border-gray-700">
+                    <Link
+                      to="/admin/settings#change-password"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Change Password
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout()
+                        setMenuOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   )

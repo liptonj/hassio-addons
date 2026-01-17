@@ -1,0 +1,110 @@
+# Change of Authorization (CoA) and Disconnect-Message (DM) Virtual Server
+# Handles CoA-Request and Disconnect-Request packets from the RADIUS server
+# to the NAS (Network Access Server) devices
+#
+# Per FreeRADIUS documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0.0/reference/raddb/sites-available/coa.html
+#
+# CoA/DM packets are used to:
+# - Disconnect users from the network (Disconnect-Request)
+# - Change session parameters (CoA-Request)
+# - Apply new policies to active sessions
+#
+# This server listens for incoming CoA/DM requests and can also
+# originate CoA/DM packets to NADs
+
+server coa {
+    # Listen for incoming CoA/DM requests from NAS devices
+    # Default CoA port is 3799 (RFC 5176)
+    listen {
+        type = coa
+        ipaddr = *
+        port = 3799
+        
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Receive CoA-Request section
+    # Process incoming Change of Authorization requests
+    recv CoA-Request {
+        # Log the CoA request
+        %{log.info:CoA-Request received for User-Name=%{User-Name} NAS-IP=%{NAS-IP-Address}}
+        
+        # Validate that we know this user/session
+        # The NAS should provide session identification
+        if (!&Acct-Session-Id && !&User-Name) {
+            reject
+        }
+        
+        # Check that the request comes from a trusted NAS
+        # The client module verifies the shared secret
+        
+        # Process the request - allow it by default
+        ok
+    }
+
+    # Send CoA-ACK section
+    send CoA-ACK {
+        # Log successful CoA
+        %{log.info:CoA-ACK sent for User-Name=%{User-Name}}
+        
+        ok
+    }
+
+    # Send CoA-NAK section
+    send CoA-NAK {
+        # Log failed CoA
+        %{log.warn:CoA-NAK sent for User-Name=%{User-Name} - Error-Cause=%{Error-Cause}}
+        
+        # Add Error-Cause if not already present
+        if (!&reply.Error-Cause) {
+            update reply {
+                &Error-Cause := Invalid-Request
+            }
+        }
+        
+        ok
+    }
+
+    # Receive Disconnect-Request section
+    # Process incoming Disconnect-Message requests
+    recv Disconnect-Request {
+        # Log the disconnect request
+        %{log.info:Disconnect-Request received for User-Name=%{User-Name} NAS-IP=%{NAS-IP-Address}}
+        
+        # Validate session identification
+        if (!&Acct-Session-Id && !&User-Name) {
+            reject
+        }
+        
+        # Process the disconnect - allow it by default
+        ok
+    }
+
+    # Send Disconnect-ACK section
+    send Disconnect-ACK {
+        # Log successful disconnect
+        %{log.info:Disconnect-ACK sent for User-Name=%{User-Name}}
+        
+        ok
+    }
+
+    # Send Disconnect-NAK section
+    send Disconnect-NAK {
+        # Log failed disconnect
+        %{log.warn:Disconnect-NAK sent for User-Name=%{User-Name} - Error-Cause=%{Error-Cause}}
+        
+        # Add Error-Cause if not already present
+        if (!&reply.Error-Cause) {
+            update reply {
+                &Error-Cause := Invalid-Request
+            }
+        }
+        
+        ok
+    }
+}

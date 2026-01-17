@@ -1,0 +1,360 @@
+# ============================================================================
+# MAC Bypass Authentication Policies
+# Generated: {{ timestamp }}
+#
+# Pre-built policies for Meraki WPN authentication scenarios:
+#
+# 1. DEFAULT PSK POLICY - Accept default PSK, return captive portal redirect
+# 2. MAC + PSK VALIDATION - Look up MAC, validate PSK, return full access
+# 3. PSK ONLY VALIDATION - Just validate PSK (IPSK), ignore MAC
+#
+# Authentication Flow:
+# 1. New device connects with default SSID PSK
+# 2. Server applies guest profile with captive portal URL
+# 3. User registers through portal (creates MAC + PSK association)
+# 4. Next connection: MAC lookup finds PSK, validates, full access granted
+#
+# Per FreeRADIUS documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0.0/reference/unlang/index.html
+# ============================================================================
+
+{% if freeradius_version == 4 %}
+# ===========================================================================
+# FreeRADIUS v4 SYNTAX
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# POLICY 1: DEFAULT PSK - Accept default SSID PSK, return captive portal
+# ---------------------------------------------------------------------------
+# This policy handles new/unregistered devices connecting with the default
+# SSID passphrase. They get redirected to the captive portal for registration.
+
+if (&User-Password) {
+    # Check if this is the default SSID PSK
+    if (&User-Password == "{{ default_psk | default('changeme') }}") {
+        # Accept with captive portal redirect
+        &reply.Reply-Message := "Welcome - Please complete registration"
+{% if guest_profile %}
+{% if guest_profile.splash_url %}
+        &reply.Cisco-AVPair += "url-redirect={{ guest_profile.splash_url }}"
+{% endif %}
+{% if guest_profile.url_redirect_acl %}
+        &reply.Cisco-AVPair += "url-redirect-acl={{ guest_profile.url_redirect_acl }}"
+{% endif %}
+{% if guest_profile.filter_id %}
+        &reply.Filter-Id := "{{ guest_profile.filter_id }}"
+{% endif %}
+{% if guest_profile.vlan_id %}
+        &reply.Tunnel-Type := VLAN
+        &reply.Tunnel-Medium-Type := IEEE-802
+        &reply.Tunnel-Private-Group-Id := {{ guest_profile.vlan_id }}
+{% endif %}
+{% if guest_profile.session_timeout %}
+        &reply.Session-Timeout := {{ guest_profile.session_timeout }}
+{% endif %}
+{% if guest_profile.sgt_value %}
+        &reply.Cisco-AVPair += "cts:security-group-tag={{ '%04x' % guest_profile.sgt_value }}-00"
+{% endif %}
+{% else %}
+        &reply.Cisco-AVPair += "url-redirect={{ portal_url | default('https://portal.example.com/register') }}"
+        &reply.Cisco-AVPair += "url-redirect-acl={{ redirect_acl | default('CAPTIVE_PORTAL_REDIRECT') }}"
+        &reply.Filter-Id := "{{ guest_group_policy | default('Guest-Access') }}"
+        &reply.Session-Timeout := {{ guest_session_timeout | default(3600) }}
+{% endif %}
+        ok
+    }
+}
+
+# ---------------------------------------------------------------------------
+# POLICY 2: MAC + PSK VALIDATION - Look up MAC, validate PSK
+# ---------------------------------------------------------------------------
+# For registered devices: Look up the MAC address to find the associated PSK,
+# then validate that the client provided the correct PSK.
+
+if (&Calling-Station-Id) {
+    # Normalize MAC address (lowercase, colon-separated)
+    string mac_normalized
+    string stored_psk
+    uint32 udn_id
+    string user_profile
+
+    # Normalize MAC: remove dashes/dots, lowercase, add colons
+    mac_normalized := "%{tolower:%{Calling-Station-Id}}"
+
+    # Look up PSK associated with this MAC address
+    stored_psk := %sql("SELECT psk FROM {{ mac_psk_table | default('device_registrations') }} 
+                        WHERE mac_address = '%{mac_normalized}' 
+                        AND is_active = 1 
+                        LIMIT 1")
+
+    if (&stored_psk) {
+        # MAC found - validate PSK matches
+        if (&User-Password == &stored_psk) {
+            # PSK matches - authenticated!
+            &reply.Reply-Message := "MAC Authenticated - Welcome back"
+
+            # Look up UDN for network segmentation
+            udn_id := %sql("SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} 
+                            WHERE mac_address = '%{mac_normalized}' 
+                            AND is_active = 1 
+                            LIMIT 1")
+
+            if (&udn_id) {
+                &reply.Cisco-AVPair += "udn:private-group-id=%{udn_id}"
+            }
+
+            # Look up user's authorization profile
+            user_profile := %sql("SELECT profile_name FROM {{ mac_psk_table | default('device_registrations') }} 
+                                  WHERE mac_address = '%{mac_normalized}' 
+                                  LIMIT 1")
+
+{% if registered_profile %}
+            # Apply registered user profile
+{% if registered_profile.filter_id %}
+            &reply.Filter-Id := "{{ registered_profile.filter_id }}"
+{% endif %}
+{% if registered_profile.vlan_id %}
+            &reply.Tunnel-Type := VLAN
+            &reply.Tunnel-Medium-Type := IEEE-802
+            &reply.Tunnel-Private-Group-Id := {{ registered_profile.vlan_id }}
+{% endif %}
+{% if registered_profile.sgt_value %}
+            &reply.Cisco-AVPair += "cts:security-group-tag={{ '%04x' % registered_profile.sgt_value }}-00"
+{% endif %}
+{% if registered_profile.session_timeout %}
+            &reply.Session-Timeout := {{ registered_profile.session_timeout }}
+{% endif %}
+{% if registered_profile.bandwidth_limit_down %}
+            &reply.Cisco-AVPair += "subscriber:sub-qos-policy-out={{ registered_profile.bandwidth_limit_down }}"
+{% endif %}
+{% endif %}
+            ok
+
+        } else {
+            # PSK mismatch - reject
+            &reply.Reply-Message := "Authentication Failed - Invalid PSK for this device"
+            reject
+        }
+
+    }
+    # If MAC not found, fall through to next policy (PSK-only or default)
+}
+
+# ---------------------------------------------------------------------------
+# POLICY 3: PSK ONLY (IPSK) VALIDATION - Validate PSK, ignore MAC
+# ---------------------------------------------------------------------------
+# For IPSK authentication: The User-Name contains the IPSK ID,
+# look it up and validate the passphrase.
+
+if (&User-Name) {
+    string ipsk_passphrase
+    uint32 ipsk_udn
+    string ipsk_profile
+
+    # Look up IPSK by username (IPSK ID)
+    ipsk_passphrase := %sql("SELECT passphrase FROM {{ ipsk_table | default('ipsk_registrations') }} 
+                             WHERE ipsk_id = '%{User-Name}' 
+                             AND is_active = 1 
+                             LIMIT 1")
+
+    if (&ipsk_passphrase) {
+        # IPSK found - set for PAP/CHAP validation
+        &control.Cleartext-Password := &ipsk_passphrase
+
+        # Look up UDN assignment
+        ipsk_udn := %sql("SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} 
+                          WHERE ipsk_id = '%{User-Name}' 
+                          AND is_active = 1 
+                          LIMIT 1")
+
+        if (&ipsk_udn) {
+            &reply.Cisco-AVPair += "udn:private-group-id=%{ipsk_udn}"
+        }
+
+        # Look up profile for this IPSK
+        ipsk_profile := %sql("SELECT profile_name FROM {{ ipsk_table | default('ipsk_registrations') }} 
+                              WHERE ipsk_id = '%{User-Name}' 
+                              LIMIT 1")
+
+{% if registered_profile %}
+        # Apply registered IPSK profile
+        &reply.Reply-Message := "IPSK Authentication Successful"
+{% if registered_profile.filter_id %}
+        &reply.Filter-Id := "{{ registered_profile.filter_id }}"
+{% endif %}
+{% if registered_profile.vlan_id %}
+        &reply.Tunnel-Type := VLAN
+        &reply.Tunnel-Medium-Type := IEEE-802
+        &reply.Tunnel-Private-Group-Id := {{ registered_profile.vlan_id }}
+{% endif %}
+{% if registered_profile.sgt_value %}
+        &reply.Cisco-AVPair += "cts:security-group-tag={{ '%04x' % registered_profile.sgt_value }}-00"
+{% endif %}
+{% endif %}
+        ok
+
+    } else {
+        # IPSK not found - check if it's the default PSK for captive portal
+        # (handled by Policy 1)
+        noop
+    }
+}
+
+{% else %}
+# ===========================================================================
+# FreeRADIUS v3 SYNTAX
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# POLICY 1: DEFAULT PSK - Accept default SSID PSK, return captive portal
+# ---------------------------------------------------------------------------
+if ("%{User-Password}" != "") {
+    if ("%{User-Password}" == "{{ default_psk | default('changeme') }}") {
+        # Accept with captive portal redirect
+        update reply {
+            Reply-Message := "Welcome - Please complete registration"
+{% if guest_profile %}
+{% if guest_profile.splash_url %}
+            Cisco-AVPair += "url-redirect={{ guest_profile.splash_url }}"
+{% endif %}
+{% if guest_profile.url_redirect_acl %}
+            Cisco-AVPair += "url-redirect-acl={{ guest_profile.url_redirect_acl }}"
+{% endif %}
+{% if guest_profile.filter_id %}
+            Filter-Id := "{{ guest_profile.filter_id }}"
+{% endif %}
+{% if guest_profile.vlan_id %}
+            Tunnel-Type := VLAN
+            Tunnel-Medium-Type := IEEE-802
+            Tunnel-Private-Group-Id := {{ guest_profile.vlan_id }}
+{% endif %}
+{% if guest_profile.session_timeout %}
+            Session-Timeout := {{ guest_profile.session_timeout }}
+{% endif %}
+{% if guest_profile.sgt_value %}
+            Cisco-AVPair += "cts:security-group-tag={{ '%04x' % guest_profile.sgt_value }}-00"
+{% endif %}
+{% else %}
+            Cisco-AVPair += "url-redirect={{ portal_url | default('https://portal.example.com/register') }}"
+            Cisco-AVPair += "url-redirect-acl={{ redirect_acl | default('CAPTIVE_PORTAL_REDIRECT') }}"
+            Filter-Id := "{{ guest_group_policy | default('Guest-Access') }}"
+            Session-Timeout := {{ guest_session_timeout | default(3600) }}
+{% endif %}
+        }
+        ok
+    }
+}
+
+# ---------------------------------------------------------------------------
+# POLICY 2: MAC + PSK VALIDATION - Look up MAC, validate PSK
+# ---------------------------------------------------------------------------
+if ("%{Calling-Station-Id}" != "") {
+    # Look up PSK for this MAC
+    if ("%{sql:SELECT psk FROM {{ mac_psk_table | default('device_registrations') }} WHERE mac_address = '%{tolower:%{Calling-Station-Id}}' AND is_active = 1 LIMIT 1}" != "") {
+
+        # Validate PSK matches stored value
+        if ("%{User-Password}" == "%{sql:SELECT psk FROM {{ mac_psk_table | default('device_registrations') }} WHERE mac_address = '%{tolower:%{Calling-Station-Id}}' AND is_active = 1 LIMIT 1}") {
+
+            # PSK matches - authenticated!
+            update reply {
+                Reply-Message := "MAC Authenticated - Welcome back"
+            }
+
+            # Add UDN if exists
+            if ("%{sql:SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE mac_address = '%{tolower:%{Calling-Station-Id}}' AND is_active = 1 LIMIT 1}" != "") {
+                update reply {
+                    Cisco-AVPair += "udn:private-group-id=%{sql:SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE mac_address = '%{tolower:%{Calling-Station-Id}}' AND is_active = 1 LIMIT 1}"
+                }
+            }
+
+{% if registered_profile %}
+            # Apply registered profile
+            update reply {
+{% if registered_profile.filter_id %}
+                Filter-Id := "{{ registered_profile.filter_id }}"
+{% endif %}
+{% if registered_profile.vlan_id %}
+                Tunnel-Type := VLAN
+                Tunnel-Medium-Type := IEEE-802
+                Tunnel-Private-Group-Id := {{ registered_profile.vlan_id }}
+{% endif %}
+{% if registered_profile.sgt_value %}
+                Cisco-AVPair += "cts:security-group-tag={{ '%04x' % registered_profile.sgt_value }}-00"
+{% endif %}
+{% if registered_profile.session_timeout %}
+                Session-Timeout := {{ registered_profile.session_timeout }}
+{% endif %}
+            }
+{% endif %}
+            ok
+
+        } else {
+            # PSK mismatch
+            update reply {
+                Reply-Message := "Authentication Failed - Invalid PSK for this device"
+            }
+            reject
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# POLICY 3: PSK ONLY (IPSK) VALIDATION
+# ---------------------------------------------------------------------------
+if ("%{User-Name}" != "") {
+    # Look up IPSK
+    if ("%{sql:SELECT passphrase FROM {{ ipsk_table | default('ipsk_registrations') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}" != "") {
+
+        # Set password for validation
+        update control {
+            Cleartext-Password := "%{sql:SELECT passphrase FROM {{ ipsk_table | default('ipsk_registrations') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}"
+        }
+
+        # Add UDN if exists
+        if ("%{sql:SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}" != "") {
+            update reply {
+                Cisco-AVPair += "udn:private-group-id=%{sql:SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}"
+            }
+        }
+
+{% if registered_profile %}
+        # Apply IPSK profile
+        update reply {
+            Reply-Message := "IPSK Authentication Successful"
+{% if registered_profile.filter_id %}
+            Filter-Id := "{{ registered_profile.filter_id }}"
+{% endif %}
+{% if registered_profile.vlan_id %}
+            Tunnel-Type := VLAN
+            Tunnel-Medium-Type := IEEE-802
+            Tunnel-Private-Group-Id := {{ registered_profile.vlan_id }}
+{% endif %}
+{% if registered_profile.sgt_value %}
+            Cisco-AVPair += "cts:security-group-tag={{ '%04x' % registered_profile.sgt_value }}-00"
+{% endif %}
+        }
+{% endif %}
+        ok
+    }
+}
+
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# FALLBACK: No match - reject or continue
+# ---------------------------------------------------------------------------
+{% if reject_unknown %}
+# Reject unknown devices
+{% if freeradius_version == 4 %}
+&reply.Reply-Message := "Access Denied - Device not registered"
+reject
+{% else %}
+update reply {
+    Reply-Message := "Access Denied - Device not registered"
+}
+reject
+{% endif %}
+{% else %}
+# Continue to next authorization method
+noop
+{% endif %}

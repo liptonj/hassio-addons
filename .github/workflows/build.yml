@@ -1,0 +1,256 @@
+name: Build and Publish Add-ons
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'meraki-wpn-portal/**'
+      - 'freeradius/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches:
+      - main
+      - master
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      addon:
+        description: 'Add-on to build (leave empty for all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - meraki-wpn-portal
+          - freeradius
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # Detect which add-ons have changed
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      addons: ${{ steps.filter.outputs.changes }}
+      meraki-wpn-portal: ${{ steps.filter.outputs.meraki-wpn-portal }}
+      freeradius: ${{ steps.filter.outputs.freeradius }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed add-ons
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            meraki-wpn-portal:
+              - 'meraki-wpn-portal/**'
+            freeradius:
+              - 'freeradius/**'
+
+  # Build Meraki WPN Portal
+  build-meraki-wpn-portal:
+    name: Build Meraki WPN Portal
+    needs: changes
+    if: |
+      needs.changes.outputs.meraki-wpn-portal == 'true' ||
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        arch: [aarch64, amd64, armv7]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get add-on version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'version:\s*"\K[^"]+' meraki-wpn-portal/config.yaml)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Add-on version: ${VERSION}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get build args
+        id: build-args
+        run: |
+          case "${{ matrix.arch }}" in
+            aarch64)
+              PLATFORM="linux/arm64"
+              BUILD_FROM="ghcr.io/home-assistant/aarch64-base-python:3.13-alpine3.22"
+              ;;
+            amd64)
+              PLATFORM="linux/amd64"
+              BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22"
+              ;;
+            armv7)
+              PLATFORM="linux/arm/v7"
+              BUILD_FROM="ghcr.io/home-assistant/armv7-base-python:3.13-alpine3.22"
+              ;;
+          esac
+          echo "platform=${PLATFORM}" >> $GITHUB_OUTPUT
+          echo "build_from=${BUILD_FROM}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./meraki-wpn-portal
+          file: ./meraki-wpn-portal/Dockerfile
+          platforms: ${{ steps.build-args.outputs.platform }}
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            BUILD_FROM=${{ steps.build-args.outputs.build_from }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/meraki-wpn-portal-${{ matrix.arch }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/meraki-wpn-portal-${{ matrix.arch }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            io.hass.name=Meraki WPN Portal
+            io.hass.description=Self-service WiFi registration portal for Cisco Meraki networks
+            io.hass.type=addon
+            io.hass.version=${{ steps.version.outputs.version }}
+            io.hass.arch=${{ matrix.arch }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  # Build FreeRADIUS
+  build-freeradius:
+    name: Build FreeRADIUS
+    needs: changes
+    if: |
+      needs.changes.outputs.freeradius == 'true' ||
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        arch: [aarch64, amd64, armv7]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get add-on version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'version:\s*"\K[^"]+' freeradius/config.yaml)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Add-on version: ${VERSION}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get build args
+        id: build-args
+        run: |
+          case "${{ matrix.arch }}" in
+            aarch64)
+              PLATFORM="linux/arm64"
+              BUILD_FROM="ghcr.io/home-assistant/aarch64-base-python:3.13-alpine3.22"
+              ;;
+            amd64)
+              PLATFORM="linux/amd64"
+              BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22"
+              ;;
+            armv7)
+              PLATFORM="linux/arm/v7"
+              BUILD_FROM="ghcr.io/home-assistant/armv7-base-python:3.13-alpine3.22"
+              ;;
+          esac
+          echo "platform=${PLATFORM}" >> $GITHUB_OUTPUT
+          echo "build_from=${BUILD_FROM}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./freeradius
+          file: ./freeradius/Dockerfile
+          platforms: ${{ steps.build-args.outputs.platform }}
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            BUILD_FROM=${{ steps.build-args.outputs.build_from }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/freeradius-server-${{ matrix.arch }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/freeradius-server-${{ matrix.arch }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            io.hass.name=FreeRADIUS Server
+            io.hass.description=FreeRADIUS server with RadSec support
+            io.hass.type=addon
+            io.hass.version=${{ steps.version.outputs.version }}
+            io.hass.arch=${{ matrix.arch }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  # Update config.yaml with image references after successful build
+  update-config:
+    name: Update Config with Image References
+    needs: [build-meraki-wpn-portal, build-freeradius]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Update meraki-wpn-portal config.yaml
+        run: |
+          # Add image reference if not present
+          if ! grep -q "^image:" meraki-wpn-portal/config.yaml; then
+            sed -i '/^slug:/a image: ghcr.io/${{ github.repository_owner }}/meraki-wpn-portal-{arch}' meraki-wpn-portal/config.yaml
+          else
+            sed -i "s|^image:.*|image: ghcr.io/${{ github.repository_owner }}/meraki-wpn-portal-{arch}|" meraki-wpn-portal/config.yaml
+          fi
+
+      - name: Update freeradius config.yaml
+        run: |
+          # Add image reference if not present
+          if ! grep -q "^image:" freeradius/config.yaml; then
+            sed -i '/^slug:/a image: ghcr.io/${{ github.repository_owner }}/freeradius-server-{arch}' freeradius/config.yaml
+          else
+            sed -i "s|^image:.*|image: ghcr.io/${{ github.repository_owner }}/freeradius-server-{arch}|" freeradius/config.yaml
+          fi
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update image references for release"
+          file_pattern: "*/config.yaml"

@@ -23,87 +23,34 @@ export default function Login() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #00c6ff 0%, var(--meraki-blue) 50%, #0056b3 100%)',
-        padding: '1.5rem',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '440px',
-          width: '100%',
-          background: 'white',
-          borderRadius: '16px',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-          padding: '3rem 2.5rem',
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div
-            style={{
-              width: '72px',
-              height: '72px',
-              background: 'linear-gradient(135deg, var(--meraki-blue), #0056b3)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.5rem',
-              boxShadow: '0 8px 20px rgba(0, 164, 228, 0.3)',
-            }}
-          >
-            <LogIn size={36} color="white" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-400 via-meraki-blue to-blue-700 p-6">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-12">
+        <div className="text-center mb-10">
+          <div className="w-18 h-18 bg-primary-gradient rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <LogIn size={36} className="text-white" />
           </div>
-          <h1 style={{ 
-            marginBottom: '0.5rem', 
-            fontSize: '1.75rem',
-            color: 'var(--gray-900)',
-            fontWeight: 600,
-          }}>
+          <h1 className="mb-2 text-3xl text-gray-900 dark:text-gray-100 font-semibold">
             Admin Portal
           </h1>
-          <p style={{ 
-            color: 'var(--gray-600)',
-            fontSize: '0.95rem',
-            marginBottom: 0,
-          }}>
+          <p className="text-gray-600 dark:text-gray-400 text-base mb-0">
             Sign in to manage your network
           </p>
         </div>
 
         {error && (
-          <div
-            style={{
-              background: '#FEE2E2',
-              border: '1px solid #FCA5A5',
-              borderRadius: '8px',
-              padding: '1rem',
-              marginBottom: '1.5rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
-              <AlertCircle size={20} style={{ color: '#DC2626', flexShrink: 0, marginTop: '2px' }} />
-              <p style={{ marginBottom: 0, color: '#991B1B', fontSize: '0.9rem' }}>{error}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="mb-0 text-red-900 dark:text-red-200 text-sm">{error}</p>
             </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div className="mb-6">
             <label 
               htmlFor="username" 
-              style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: 'var(--gray-700)',
-                marginBottom: '0.5rem',
-              }}
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               Username
             </label>
@@ -112,24 +59,7 @@ export default function Login() {
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                fontSize: '1rem',
-                border: '2px solid var(--gray-300)',
-                borderRadius: '8px',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-                backgroundColor: 'white',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--meraki-blue)'
-                e.target.style.boxShadow = '0 0 0 3px rgba(0, 164, 228, 0.1)'
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--gray-300)'
-                e.target.style.boxShadow = 'none'
-              }}
+              className="input"
               placeholder="Enter your username"
               required
               autoFocus
@@ -137,16 +67,10 @@ export default function Login() {
             />
           </div>
 
-          <div style={{ marginBottom: '2rem' }}>
+          <div className="mb-8">
             <label 
               htmlFor="password"
-              style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: 'var(--gray-700)',
-                marginBottom: '0.5rem',
-              }}
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               Password
             </label>
@@ -155,24 +79,7 @@ export default function Login() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                fontSize: '1rem',
-                border: '2px solid var(--gray-300)',
-                borderRadius: '8px',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-                backgroundColor: 'white',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--meraki-blue)'
-                e.target.style.boxShadow = '0 0 0 3px rgba(0, 164, 228, 0.1)'
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--gray-300)'
-                e.target.style.boxShadow = 'none'
-              }}
+              className="input"
               placeholder="Enter your password"
               required
               disabled={isLoading}
@@ -181,36 +88,12 @@ export default function Login() {
 
           <button
             type="submit"
-            style={{
-              width: '100%',
-              padding: '0.875rem 1.5rem',
-              fontSize: '1rem',
-              fontWeight: 600,
-              color: 'white',
-              background: isLoading 
-                ? 'var(--gray-400)' 
-                : 'linear-gradient(135deg, var(--meraki-blue), #0056b3)',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 12px rgba(0, 164, 228, 0.3)',
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.transform = 'translateY(-1px)'
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 164, 228, 0.4)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 164, 228, 0.3)'
-            }}
+            className={`btn btn-primary btn-full btn-lg ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={isLoading}
           >
             {isLoading ? (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                <span className="loading-spinner" style={{ width: '16px', height: '16px' }} />
+              <span className="flex items-center justify-center gap-2">
+                <span className="loading-spinner w-4 h-4" />
                 Signing in...
               </span>
             ) : (
@@ -219,29 +102,10 @@ export default function Login() {
           </button>
         </form>
 
-        <div
-          style={{
-            marginTop: '2rem',
-            paddingTop: '1.5rem',
-            borderTop: '1px solid var(--gray-200)',
-            textAlign: 'center',
-          }}
-        >
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
           <a
             href="/"
-            style={{
-              color: 'var(--meraki-blue)',
-              textDecoration: 'none',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              transition: 'color 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#0056b3'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--meraki-blue)'
-            }}
+            className="text-meraki-blue dark:text-meraki-blue-light no-underline text-sm font-medium hover:text-meraki-blue-dark transition-colors"
           >
             ← Back to Public Portal
           </a>

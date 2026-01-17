@@ -1,0 +1,114 @@
+# Default virtual server for RADIUS authentication and accounting
+
+server default {
+    # Listen on authentication port
+    listen {
+        type = auth
+        ipaddr = *
+        port = 1812
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Listen on accounting port
+    listen {
+        type = acct
+        ipaddr = *
+        port = 1813
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Authorization section
+    authorize {
+        # Filter username
+        filter_username
+
+        # Preprocess attributes
+        preprocess
+
+        # Check for valid username format (MAC addresses)
+        if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            # MAC address format - normalize it
+            update request {
+                Stripped-User-Name := "%{tolower:%{User-Name}}"
+                Stripped-User-Name := "%{string:%{Stripped-User-Name}}"
+            }
+        }
+
+        # Read users file for authorization
+        files
+
+        # EAP authentication
+        eap {
+            ok = return
+        }
+
+        # PAP authentication
+        pap
+    }
+
+    # Authentication section
+    authenticate {
+        # PAP authentication
+        Auth-Type PAP {
+            pap
+        }
+
+        # EAP authentication
+        Auth-Type eap {
+            eap
+        }
+    }
+
+    # Post-authentication section
+    post-auth {
+        # Log successful authentications
+        if (&reply:Cisco-AVPair) {
+            update reply {
+                Reply-Message := "WPN Authentication Successful"
+            }
+        }
+
+        # Update accounting
+        update {
+            &reply: += &session-state:
+        }
+
+        # Remove sensitive attributes from reply
+        Post-Auth-Type REJECT {
+            attr_filter.access_reject
+        }
+
+        # Log to detail file
+        detail
+    }
+
+    # Accounting section
+    accounting {
+        detail
+        unix
+        
+        # Log accounting to file
+        attr_filter.accounting_response
+    }
+
+    # Session section
+    session {
+    }
+
+    # Pre-proxy section
+    pre-proxy {
+    }
+
+    # Post-proxy section
+    post-proxy {
+        eap
+    }
+}

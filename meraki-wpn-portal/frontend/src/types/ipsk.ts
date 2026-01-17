@@ -6,8 +6,10 @@ export interface IPSK {
   ssid_name?: string
   status: 'active' | 'expired' | 'revoked'
   group_policy_id?: string
+  group_policy_name?: string  // Human-readable group policy name
   groupPolicyId?: string  // Meraki API field name
-  pskGroupId?: string  // WPN Group ID - unique per iPSK when WPN enabled
+  psk_group_id?: string  // WPN/UPN Group ID - unique per iPSK when WPN enabled
+  pskGroupId?: string  // Meraki API field name
   expires_at?: string
   expiresAt?: string  // Meraki API field name
   created_at?: string

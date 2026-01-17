@@ -3,22 +3,26 @@
 import base64
 import io
 import logging
+import json
 from datetime import datetime, timezone
 
 import qrcode
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession, HAClient
 from app.config import get_settings
+from app.core.certificate_manager import CertificateManager
 from app.core.invite_codes import InviteCodeManager
 from app.core.security import (
     decrypt_passphrase,
     encrypt_passphrase,
     generate_passphrase,
 )
+from app.core.udn_manager import UdnManager
 from app.db.database import get_session_local
-from app.db.models import Registration, SplashAccess, User
+from app.db.models import DeviceRegistration, PortalSetting, Registration, SplashAccess, User
 from app.schemas.registration import (
     MyNetworkResponse,
     RegistrationRequest,
@@ -28,6 +32,172 @@ from app.schemas.registration import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ============================================================================
+# Invite Code Validation
+# ============================================================================
+
+
+@router.post("/invite-code/validate")
+async def validate_invite_code(
+    code: str,
+    db: DbSession,
+) -> dict:
+    """Validate an invite code without using it.
+    
+    This endpoint allows the frontend to check if a code is valid
+    before showing the registration form.
+    
+    Args:
+        code: The invite code to validate
+        db: Database session
+        
+    Returns:
+        Validation result with code info if valid
+    """
+    if not code or not code.strip():
+        return {
+            "valid": False,
+            "error": "Invite code is required",
+        }
+    
+    invite_manager = InviteCodeManager(db)
+    is_valid, error = invite_manager.validate_code(code.strip())
+    
+    if not is_valid:
+        return {
+            "valid": False,
+            "error": error,
+        }
+    
+    # Get code info for display
+    from app.db.models import InviteCode
+    invite_code = db.query(InviteCode).filter(
+        InviteCode.code == code.strip().upper()
+    ).first()
+    
+    code_info = None
+    if invite_code:
+        code_info = {
+            "max_uses": invite_code.max_uses,
+            "uses": invite_code.uses,
+            "remaining_uses": invite_code.max_uses - invite_code.uses,
+            "expires_at": invite_code.expires_at.isoformat() if invite_code.expires_at else None,
+            "note": invite_code.note,
+        }
+    
+    return {
+        "valid": True,
+        "code_info": code_info,
+    }
+
+
+def parse_device_info(user_agent: str) -> dict[str, str]:
+    """Parse User-Agent string for device information.
+    
+    Args:
+        user_agent: Browser User-Agent string
+        
+    Returns:
+        Dictionary with device type, OS, model, browser info
+    """
+    try:
+        from user_agents import parse  # type: ignore[import-untyped]
+        
+        ua = parse(user_agent)
+        
+        # Determine device type
+        if ua.is_mobile:
+            device_type = "phone"
+        elif ua.is_tablet:
+            device_type = "tablet"
+        elif ua.is_pc:
+            device_type = "laptop" if "macintosh" in ua.os.family.lower() else "desktop"
+        else:
+            device_type = "other"
+        
+        return {
+            "device_type": device_type,
+            "device_os": ua.os.family,
+            "device_os_version": ua.os.version_string,
+            "device_model": f"{ua.device.brand or ''} {ua.device.model or ''}".strip() or "Unknown",
+            "device_vendor": ua.device.brand or "Unknown",
+            "browser_name": ua.browser.family,
+            "browser_version": ua.browser.version_string,
+        }
+    except Exception as e:
+        logger.warning(f"Failed to parse User-Agent: {e}")
+        return {
+            "device_type": "other",
+            "device_os": "Unknown",
+            "device_os_version": "",
+            "device_model": "Unknown",
+            "device_vendor": "Unknown",
+            "browser_name": "Unknown",
+            "browser_version": "",
+        }
+
+
+def register_device_for_user(
+    db: Session,
+    user_id: int,
+    mac_address: str | None,
+    user_agent: str | None,
+) -> DeviceRegistration | None:
+    """Register a device for a user.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        mac_address: Device MAC address
+        user_agent: Browser User-Agent string
+        
+    Returns:
+        DeviceRegistration object or None if no MAC/UA
+    """
+    if not mac_address:
+        return None
+    
+    # Check if device already registered
+    existing = db.query(DeviceRegistration).filter(
+        DeviceRegistration.user_id == user_id,
+        DeviceRegistration.mac_address == mac_address,
+    ).first()
+    
+    if existing:
+        # Update last seen
+        existing.last_seen_at = datetime.now(timezone.utc)
+        existing.is_active = True
+        if user_agent:
+            existing.user_agent = user_agent
+        db.commit()
+        logger.info(f"Updated device registration for MAC {mac_address}")
+        return existing
+    
+    # Parse device info
+    device_info = parse_device_info(user_agent or "")
+    
+    # Create new device registration
+    device = DeviceRegistration(
+        user_id=user_id,
+        mac_address=mac_address,
+        device_type=device_info["device_type"],
+        device_os=device_info["device_os"],
+        device_os_version=device_info["device_os_version"],
+        device_model=device_info["device_model"],
+        device_vendor=device_info["device_vendor"],
+        browser_name=device_info["browser_name"],
+        browser_version=device_info["browser_version"],
+        user_agent=user_agent or "",
+        registered_at=datetime.now(timezone.utc),
+        last_seen_at=datetime.now(timezone.utc),
+        is_active=True,
+    )
+    db.add(device)
+    db.commit()
+    logger.info(f"Registered device {mac_address} for user {user_id}")
+    return device
 
 
 @router.get("/splash")
@@ -349,8 +519,18 @@ async def register_for_wifi(
 ) -> RegistrationResponse:
     """Register for WiFi access and receive credentials.
 
-    This endpoint creates a new IPSK for the registrant and returns
-    their WiFi credentials including a QR code for easy connection.
+    This endpoint creates authentication credentials based on the selected method:
+    - IPSK: Individual Pre-Shared Key for WPA2-PSK
+    - EAP-TLS: Certificate-based authentication for WPA2-Enterprise
+    - Both: Provides both IPSK and certificate for maximum flexibility
+    
+    Supports:
+    - Custom passphrases
+    - AUP acceptance
+    - Custom registration fields
+    - Invite code reuse for existing users
+    - Device registration
+    - Authentication method selection
 
     Args:
         request: FastAPI request object
@@ -365,6 +545,103 @@ async def register_for_wifi(
         HTTPException: If registration fails
     """
     settings = get_settings()
+    
+    # ========================================
+    # REGISTRATION MODE ENFORCEMENT
+    # ========================================
+    registration_mode = settings.registration_mode.lower()
+    
+    # Get registration mode from database if available (overrides config)
+    mode_setting = db.query(PortalSetting).filter(
+        PortalSetting.key == "registration_mode"
+    ).first()
+    if mode_setting and mode_setting.value:
+        registration_mode = mode_setting.value.lower()
+    
+    # Enforce invite_only mode
+    if registration_mode == "invite_only":
+        if not data.invite_code:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Registration requires an invite code. Please enter your code.",
+            )
+    
+    # Note: approval_required mode is handled later in the flow
+    # (user is created with approval_status="pending", no IPSK is generated)
+    
+    # Validate authentication method
+    auth_method = data.auth_method.lower()
+    if auth_method not in ("ipsk", "eap-tls", "both"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid authentication method. Must be 'ipsk', 'eap-tls', or 'both'.",
+        )
+    
+    # Check if requested auth methods are enabled in portal settings
+    ipsk_enabled = db.query(PortalSetting).filter(
+        PortalSetting.key == "ipsk_enabled"
+    ).first()
+    eap_enabled = db.query(PortalSetting).filter(
+        PortalSetting.key == "eap_tls_enabled"
+    ).first()
+    
+    ipsk_allowed = (
+        str(ipsk_enabled.value).strip().lower() == "true" if ipsk_enabled else True
+    )
+    eap_allowed = (
+        str(eap_enabled.value).strip().lower() == "true" if eap_enabled else False
+    )
+    
+    if auth_method in ("ipsk", "both") and not ipsk_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="IPSK authentication is currently disabled.",
+        )
+    
+    if auth_method in ("eap-tls", "both") and not eap_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="EAP-TLS authentication is currently disabled.",
+        )
+    
+    # For EAP-TLS, certificate password is required
+    if auth_method in ("eap-tls", "both"):
+        if not data.certificate_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Certificate password is required for EAP-TLS authentication.",
+            )
+        if len(data.certificate_password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Certificate password must be at least 8 characters.",
+            )
+    
+    # Validate AUP acceptance if enabled
+    if settings.aup_enabled:
+        if not data.accept_aup:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You must accept the Acceptable Use Policy to continue.",
+            )
+    
+    # Validate custom PSK if provided
+    if data.custom_passphrase:
+        if not settings.allow_custom_psk:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Custom passphrases are not allowed.",
+            )
+        if len(data.custom_passphrase) < settings.psk_min_length:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Passphrase must be at least {settings.psk_min_length} characters.",
+            )
+        if len(data.custom_passphrase) > settings.psk_max_length:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Passphrase must be no more than {settings.psk_max_length} characters.",
+            )
 
     # Check if self-registration is enabled
     if not settings.auth_self_registration:
@@ -375,6 +652,7 @@ async def register_for_wifi(
             )
 
     # Validate invite code if provided or required
+    invite_valid = False
     if data.invite_code or settings.auth_invite_codes:
         if data.invite_code:
             invite_manager = InviteCodeManager(db)
@@ -384,38 +662,81 @@ async def register_for_wifi(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=error,
                 )
+            invite_valid = True
 
-    # Check if email already registered - return existing credentials instead of error
+    # Check if email already registered
     existing_user = db.query(User).filter(User.email == data.email).first()
-    if existing_user and existing_user.ipsk_id:
-        logger.info(f"User {data.email} already registered, returning existing credentials")
-
-        # Try to get the stored passphrase from our database
-        passphrase = ""
+    
+    # INVITE CODE REUSE LOGIC
+    # If user exists AND has credentials AND is reusing the SAME invite code
+    # -> Return existing credentials + register new device
+    if existing_user and (existing_user.ipsk_id or existing_user.certificate_id) and data.invite_code and invite_valid:
+        logger.info(f"User {data.email} reusing invite code, returning existing credentials")
+        
+        # Get existing passphrase (if IPSK exists)
+        passphrase = None
         if existing_user.ipsk_passphrase_encrypted:
             try:
                 passphrase = decrypt_passphrase(existing_user.ipsk_passphrase_encrypted)
             except Exception as e:
                 logger.warning(f"Could not decrypt passphrase for {data.email}: {e}")
-
+        
+        ssid_name = existing_user.ssid_name or settings.standalone_ssid_name or "WiFi"
+        
+        # Register the new device
+        device_info_dict = None
+        user_agent = data.user_agent or request.headers.get("user-agent", "")
+        device_registration = register_device_for_user(
+            db=db,
+            user_id=existing_user.id,
+            mac_address=data.mac_address,
+            user_agent=user_agent,
+        )
+        
+        if device_registration:
+            device_info_dict = {
+                "device_type": device_registration.device_type or "unknown",
+                "device_os": device_registration.device_os or "unknown",
+                "device_model": device_registration.device_model or "unknown",
+            }
+        
+        # Generate QR code if IPSK exists
+        qr_code = None
+        wifi_config_string = None
         if passphrase:
-            ssid_name = existing_user.ssid_name or settings.standalone_ssid_name or "WiFi"
-
-            # Generate QR code for existing credentials
             qr_code = generate_wifi_qr_code(ssid_name, passphrase)
             wifi_config_string = f"WIFI:T:WPA;S:{ssid_name};P:{passphrase};;"
-
-            return RegistrationResponse(
-                success=True,
-                ipsk_id=existing_user.ipsk_id,
-                ipsk_name=existing_user.ipsk_name or "",
-                ssid_name=ssid_name,
-                passphrase=passphrase,
-                qr_code=qr_code,
-                wifi_config_string=wifi_config_string,
-            )
-
-        # If we couldn't decrypt, direct to My Network page
+        
+        # Mobileconfig URL
+        mobileconfig_url = None
+        if existing_user.ipsk_id:
+            mobileconfig_url = f"/api/wifi-config/{existing_user.ipsk_id}/mobileconfig"
+        elif existing_user.certificate_id:
+            mobileconfig_url = f"/api/user/certificates/{existing_user.certificate_id}/mobileconfig"
+        
+        # Certificate download URL
+        certificate_download_url = None
+        if existing_user.certificate_id:
+            certificate_download_url = f"/api/user/certificates/{existing_user.certificate_id}/download"
+        
+        return RegistrationResponse(
+            success=True,
+            ipsk_id=existing_user.ipsk_id,
+            ipsk_name=existing_user.ipsk_name or "",
+            ssid_name=ssid_name,
+            passphrase=passphrase,
+            qr_code=qr_code,
+            wifi_config_string=wifi_config_string,
+            is_returning_user=True,
+            device_info=device_info_dict,
+            mobileconfig_url=mobileconfig_url,
+            auth_method=existing_user.preferred_auth_method or "ipsk",
+            certificate_id=existing_user.certificate_id,
+            certificate_download_url=certificate_download_url,
+        )
+    
+    # If user exists without invite code reuse, it's an error
+    if existing_user and (existing_user.ipsk_id or existing_user.certificate_id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered. Use 'My Network' to retrieve your credentials.",
@@ -438,90 +759,298 @@ async def register_for_wifi(
         invite_code=data.invite_code,
         status="pending",
         ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent", "")[:500],
+        user_agent=data.user_agent or request.headers.get("user-agent", "")[:500],
     )
     db.add(registration)
     db.commit()
 
     try:
-        # Generate IPSK name
-        sanitized_name = sanitize_name_for_ipsk(data.name)
-        if data.unit:
-            ipsk_name = f"Unit-{data.unit}-{sanitized_name}"
-        elif data.area_id:
-            ipsk_name = f"Area-{data.area_id}-{sanitized_name}"
-        else:
-            ipsk_name = f"User-{sanitized_name}"
+        # Initialize variables
+        ipsk_result = None
+        ipsk_name = None
+        passphrase = None
+        ssid_name = settings.standalone_ssid_name or "Enterprise-WiFi"
+        qr_code = None
+        wifi_config_string = None
+        encrypted_passphrase = None
+        certificate_id = None
+        certificate_download_url = None
+        pending_approval = registration_mode == "approval_required"
+        
+        # Store custom fields as JSON if provided
+        custom_fields_json = None
+        if data.custom_fields:
+            custom_fields_json = json.dumps(data.custom_fields)
+        
+        # ========================================
+        # APPROVAL MODE: Skip credential creation
+        # ========================================
+        if pending_approval:
+            logger.info(f"Registration pending approval for {data.email} (approval_required mode)")
+            
+            # Create user with pending approval status
+            user = User(
+                name=data.name,
+                email=data.email,
+                unit=data.unit,
+                area_id=data.area_id,
+                preferred_auth_method=auth_method,
+                approval_status="pending",
+                custom_fields=custom_fields_json,
+                accept_aup_at=datetime.now(timezone.utc) if data.accept_aup and settings.aup_enabled else None,
+                aup_version=settings.aup_version if data.accept_aup and settings.aup_enabled else None,
+            )
+            db.add(user)
+            
+            # Update registration status
+            registration.status = "pending_approval"
+            db.commit()
+            
+            # Mark invite code as used
+            if data.invite_code:
+                invite_manager = InviteCodeManager(db)
+                invite_manager.use_code(data.invite_code)
+            
+            logger.info(f"Registration pending approval for {data.email}")
+            
+            return RegistrationResponse(
+                success=True,
+                ipsk_id=None,
+                ipsk_name=None,
+                ssid_name=ssid_name,
+                passphrase=None,
+                qr_code=None,
+                wifi_config_string=None,
+                is_returning_user=False,
+                device_info=None,
+                mobileconfig_url=None,
+                auth_method=auth_method,
+                certificate_id=None,
+                certificate_download_url=None,
+                pending_approval=True,
+                pending_message="Your registration is pending admin approval. You will receive your WiFi credentials once approved.",
+            )
+        
+        # ========================================
+        # IPSK Creation (if requested)
+        # ========================================
+        if auth_method in ("ipsk", "both"):
+            # Generate IPSK name
+            sanitized_name = sanitize_name_for_ipsk(data.name)
+            if data.unit:
+                ipsk_name = f"Unit-{data.unit}-{sanitized_name}"
+            elif data.area_id:
+                ipsk_name = f"Area-{data.area_id}-{sanitized_name}"
+            else:
+                ipsk_name = f"User-{sanitized_name}"
 
-        # Generate passphrase
-        passphrase = generate_passphrase(settings.passphrase_length)
+            # Generate or use custom passphrase
+            if data.custom_passphrase:
+                passphrase = data.custom_passphrase
+                logger.info(f"Using custom passphrase for {data.email}")
+            else:
+                passphrase = generate_passphrase(settings.passphrase_length)
 
-        # Create IPSK via Home Assistant
-        ipsk_result = await ha_client.create_ipsk(
-            name=ipsk_name,
-            network_id=settings.default_network_id,
-            ssid_number=settings.default_ssid_number,
-            passphrase=passphrase,
-            duration_hours=settings.default_ipsk_duration_hours or None,
-            group_policy_id=settings.default_group_policy_id or None,
-            associated_user=data.name,
-            associated_unit=data.unit,
-            associated_area_id=data.area_id,
-        )
+            # Create IPSK via Home Assistant
+            ipsk_result = await ha_client.create_ipsk(
+                name=ipsk_name,
+                network_id=settings.default_network_id,
+                ssid_number=settings.default_ssid_number,
+                passphrase=passphrase,
+                duration_hours=settings.default_ipsk_duration_hours or None,
+                group_policy_id=settings.default_group_policy_id or None,
+                associated_user=data.name,
+                associated_unit=data.unit,
+                associated_area_id=data.area_id,
+            )
 
-        # Get SSID name from result or use default
-        ssid_name = ipsk_result.get("ssid_name", "Resident-WiFi")
+            # Get SSID name from result or use default
+            ssid_name = ipsk_result.get("ssid_name", "Resident-WiFi")
 
-        # Generate QR code
-        qr_code = generate_wifi_qr_code(ssid_name, passphrase)
-        wifi_config_string = f"WIFI:T:WPA;S:{ssid_name};P:{passphrase};;"
+            # Generate QR code
+            qr_code = generate_wifi_qr_code(ssid_name, passphrase)
+            wifi_config_string = f"WIFI:T:WPA;S:{ssid_name};P:{passphrase};;"
 
+            # Encrypt passphrase for storage (Meraki API doesn't return it later)
+            encrypted_passphrase = encrypt_passphrase(passphrase)
+            
+            logger.info(f"Created IPSK for {data.email}: {ipsk_name}")
+        
+        # ========================================
+        # Certificate Issuance (if requested)
+        # ========================================
+        if auth_method in ("eap-tls", "both"):
+            try:
+                cert_manager = CertificateManager(db)
+                
+                # Request certificate
+                cert_result = await cert_manager.request_user_certificate(
+                    user_email=data.email,
+                    common_name=data.name,
+                    passphrase=data.certificate_password,  # type: ignore[arg-type]
+                )
+                
+                certificate_id = cert_result["certificate_id"]
+                certificate_download_url = f"/api/user/certificates/{certificate_id}/download"
+                
+                logger.info(f"Issued certificate {certificate_id} for {data.email}")
+                
+            except Exception as cert_err:
+                logger.error(f"Failed to issue certificate for {data.email}: {cert_err}")
+                # If IPSK was created, continue with IPSK-only
+                if auth_method == "eap-tls":
+                    # EAP-TLS was the only method requested, fail hard
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to issue certificate. Please try again or contact support.",
+                    ) from cert_err
+                else:
+                    # "both" was requested, log warning and continue with IPSK
+                    logger.warning(f"Falling back to IPSK-only for {data.email}")
+        
         # Update registration as completed
         registration.status = "completed"
-        registration.ipsk_id = ipsk_result.get("id")
+        if ipsk_result:
+            registration.ipsk_id = ipsk_result.get("id")
         registration.completed_at = datetime.now(timezone.utc)
         db.commit()
 
-        # Encrypt passphrase for storage (Meraki API doesn't return it later)
-        encrypted_passphrase = encrypt_passphrase(passphrase)
-
         # Create or update user record
         if existing_user:
-            existing_user.ipsk_id = ipsk_result.get("id")
-            existing_user.ipsk_name = ipsk_name
-            existing_user.ipsk_passphrase_encrypted = encrypted_passphrase
-            existing_user.ssid_name = ssid_name
+            if ipsk_result:
+                existing_user.ipsk_id = ipsk_result.get("id")
+                existing_user.ipsk_name = ipsk_name
+                existing_user.ipsk_passphrase_encrypted = encrypted_passphrase
+                existing_user.ssid_name = ssid_name
             existing_user.unit = data.unit
             existing_user.area_id = data.area_id
+            existing_user.preferred_auth_method = auth_method
+            if certificate_id:
+                existing_user.certificate_id = certificate_id
+                existing_user.eap_enabled = True
+            if data.accept_aup and settings.aup_enabled:
+                existing_user.accept_aup_at = datetime.now(timezone.utc)
+                existing_user.aup_version = settings.aup_version
+            if custom_fields_json:
+                existing_user.custom_fields = custom_fields_json
+            user_id = existing_user.id
         else:
             user = User(
                 name=data.name,
                 email=data.email,
                 unit=data.unit,
                 area_id=data.area_id,
-                ipsk_id=ipsk_result.get("id"),
+                ipsk_id=ipsk_result.get("id") if ipsk_result else None,
                 ipsk_name=ipsk_name,
                 ipsk_passphrase_encrypted=encrypted_passphrase,
                 ssid_name=ssid_name,
+                preferred_auth_method=auth_method,
+                certificate_id=certificate_id,
+                eap_enabled=certificate_id is not None,
+                accept_aup_at=datetime.now(timezone.utc) if data.accept_aup and settings.aup_enabled else None,
+                aup_version=settings.aup_version if data.accept_aup and settings.aup_enabled else None,
+                custom_fields=custom_fields_json,
             )
             db.add(user)
+            db.commit()
+            user_id = user.id
         db.commit()
+        
+        # Register device
+        device_info_dict = None
+        user_agent = data.user_agent or request.headers.get("user-agent", "")
+        device_registration = register_device_for_user(
+            db=db,
+            user_id=user_id,
+            mac_address=data.mac_address,
+            user_agent=user_agent,
+        )
+        
+        if device_registration:
+            # Update device with auth method and certificate
+            device_registration.auth_method = auth_method
+            if certificate_id:
+                device_registration.certificate_id = certificate_id
+                device_registration.supports_eap = True
+            db.commit()
+            
+            device_info_dict = {
+                "device_type": device_registration.device_type or "unknown",
+                "device_os": device_registration.device_os or "unknown",
+                "device_model": device_registration.device_model or "unknown",
+            }
+
+        # Assign UDN ID to USER (not MAC) if RADIUS is enabled
+        # Relationship: USER → PSK → UDN
+        udn_id = None
+        if settings.radius_enabled:
+            try:
+                udn_manager = UdnManager(db)
+                # UDN is assigned to USER, MAC is optional (for tracking)
+                assignment = udn_manager.assign_udn_id(
+                    user_id=user.id,  # Required - UDN assigned to user
+                    mac_address=data.mac_address,  # Optional - for tracking only
+                    ipsk_id=ipsk_result.get("id") if ipsk_result else None,
+                    user_email=data.email,
+                    user_name=user.name,
+                    unit=data.unit,
+                )
+                udn_id = assignment.udn_id
+                mac_str = f"MAC {data.mac_address}" if data.mac_address else "no MAC"
+                logger.info(f"Assigned UDN ID {udn_id} to User {user.id} ({mac_str})")
+                
+                # Trigger FreeRADIUS sync
+                try:
+                    import httpx
+                    radius_api_url = f"http://{settings.radius_server_host}:8000"
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        headers = {}
+                        if settings.radius_shared_secret:
+                            headers["Authorization"] = f"Bearer {settings.radius_shared_secret}"
+                        
+                        await client.post(
+                            f"{radius_api_url}/api/sync",
+                            json={"sync_clients": False, "sync_users": True, "reload_radius": True},
+                            headers=headers,
+                        )
+                    logger.info("Triggered FreeRADIUS sync after UDN assignment")
+                except Exception as sync_err:
+                    logger.warning(f"Failed to trigger FreeRADIUS sync: {sync_err}")
+                    # Don't fail registration if sync fails
+                    
+            except Exception as udn_err:
+                logger.warning(f"Failed to assign UDN ID: {udn_err}")
+                # Don't fail registration if UDN assignment fails
 
         # Mark invite code as used
         if data.invite_code:
             invite_manager = InviteCodeManager(db)
             invite_manager.use_code(data.invite_code)
 
-        logger.info(f"Registration completed for {data.email} (IPSK: {ipsk_name})")
+        # Mobileconfig URL
+        mobileconfig_url = None
+        if ipsk_result:
+            mobileconfig_url = f"/api/wifi-config/{ipsk_result.get('id')}/mobileconfig"
+        elif certificate_id:
+            # For EAP-TLS, the mobileconfig includes the certificate
+            mobileconfig_url = f"/api/user/certificates/{certificate_id}/mobileconfig"
+
+        logger.info(f"Registration completed for {data.email} (method: {auth_method})")
 
         return RegistrationResponse(
             success=True,
-            ipsk_id=ipsk_result.get("id"),
+            ipsk_id=ipsk_result.get("id") if ipsk_result else None,
             ipsk_name=ipsk_name,
             ssid_name=ssid_name,
             passphrase=passphrase,
             qr_code=qr_code,
             wifi_config_string=wifi_config_string,
+            is_returning_user=False,
+            device_info=device_info_dict,
+            mobileconfig_url=mobileconfig_url,
+            auth_method=auth_method,
+            certificate_id=certificate_id,
+            certificate_download_url=certificate_download_url,
         )
 
     except Exception as e:

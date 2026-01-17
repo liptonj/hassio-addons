@@ -1,0 +1,162 @@
+# ============================================================================
+# IPSK (Identity PSK) Authentication Policy
+# Generated: {{ timestamp }}
+#
+# This policy handles Meraki WPN IPSK authentication:
+# 1. Check if User-Name (IPSK ID) exists in the database
+# 2. If found, validate the PSK and apply authorization profile
+# 3. If not found, apply guest/unregistered profile or reject
+#
+# Per FreeRADIUS documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0.0/reference/unlang/index.html
+# ============================================================================
+
+{% if freeradius_version == 4 %}
+# FreeRADIUS v4 syntax with local variables
+
+# IPSK Authentication Policy
+if (&User-Name) {
+    # Declare local variables (v4 feature)
+    string ipsk_lookup_result
+    uint32 udn_id
+    string group_policy
+    uint32 sgt_tag
+
+    # Look up IPSK in database
+    # This query checks if the IPSK ID exists and is active
+    ipsk_lookup_result := %sql("SELECT passphrase FROM {{ ipsk_table | default('ipsk_registrations') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1")
+
+    if (&ipsk_lookup_result) {
+        # IPSK found - validate password
+        &control.Cleartext-Password := &ipsk_lookup_result
+
+        # Look up UDN assignment
+        udn_id := %sql("SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1")
+
+        if (&udn_id) {
+            # Add UDN to reply
+            &reply.Cisco-AVPair += "udn:private-group-id=%{udn_id}"
+        }
+
+{% if default_profile %}
+        # Apply default authorization profile
+        &reply.Reply-Message := "IPSK Authentication Successful"
+{% if default_profile.vlan_id %}
+        &reply.Tunnel-Type := VLAN
+        &reply.Tunnel-Medium-Type := IEEE-802
+        &reply.Tunnel-Private-Group-Id := {{ default_profile.vlan_id }}
+{% endif %}
+{% if default_profile.filter_id %}
+        &reply.Filter-Id := "{{ default_profile.filter_id }}"
+{% endif %}
+{% if default_profile.sgt_value %}
+        &reply.Cisco-AVPair += "cts:security-group-tag={{ '%04x' % default_profile.sgt_value }}-00"
+{% endif %}
+{% if default_profile.session_timeout %}
+        &reply.Session-Timeout := {{ default_profile.session_timeout }}
+{% endif %}
+{% endif %}
+
+        # Log successful authentication
+        ok
+
+    } else {
+        # IPSK not found in database
+{% if guest_profile %}
+        # Apply guest/unregistered profile
+        &reply.Reply-Message := "Guest Access - Please register your device"
+{% if guest_profile.splash_url %}
+        &reply.Cisco-AVPair += "url-redirect={{ guest_profile.splash_url }}"
+{% endif %}
+{% if guest_profile.url_redirect_acl %}
+        &reply.Cisco-AVPair += "url-redirect-acl={{ guest_profile.url_redirect_acl }}"
+{% endif %}
+{% if guest_profile.filter_id %}
+        &reply.Filter-Id := "{{ guest_profile.filter_id }}"
+{% endif %}
+{% if guest_profile.session_timeout %}
+        &reply.Session-Timeout := {{ guest_profile.session_timeout }}
+{% endif %}
+        ok
+{% else %}
+        # No guest profile - reject
+        &reply.Reply-Message := "Access Denied - Unknown IPSK"
+        reject
+{% endif %}
+    }
+}
+
+{% else %}
+# FreeRADIUS v3 syntax
+
+# IPSK Authentication Policy
+if ("%{User-Name}" != "") {
+
+    # Look up IPSK in database
+    if ("%{sql:SELECT passphrase FROM {{ ipsk_table | default('ipsk_registrations') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}" != "") {
+
+        # IPSK found - set password for validation
+        update control {
+            Cleartext-Password := "%{sql:SELECT passphrase FROM {{ ipsk_table | default('ipsk_registrations') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}"
+        }
+
+        # Look up and add UDN if exists
+        if ("%{sql:SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}" != "") {
+            update reply {
+                Cisco-AVPair += "udn:private-group-id=%{sql:SELECT udn_id FROM {{ udn_table | default('udn_assignments') }} WHERE ipsk_id = '%{User-Name}' AND is_active = 1 LIMIT 1}"
+            }
+        }
+
+{% if default_profile %}
+        # Apply default authorization profile
+        update reply {
+            Reply-Message := "IPSK Authentication Successful"
+{% if default_profile.vlan_id %}
+            Tunnel-Type := VLAN
+            Tunnel-Medium-Type := IEEE-802
+            Tunnel-Private-Group-Id := {{ default_profile.vlan_id }}
+{% endif %}
+{% if default_profile.filter_id %}
+            Filter-Id := "{{ default_profile.filter_id }}"
+{% endif %}
+{% if default_profile.sgt_value %}
+            Cisco-AVPair += "cts:security-group-tag={{ '%04x' % default_profile.sgt_value }}-00"
+{% endif %}
+{% if default_profile.session_timeout %}
+            Session-Timeout := {{ default_profile.session_timeout }}
+{% endif %}
+        }
+{% endif %}
+
+        ok
+
+    } else {
+        # IPSK not found in database
+{% if guest_profile %}
+        # Apply guest/unregistered profile
+        update reply {
+            Reply-Message := "Guest Access - Please register your device"
+{% if guest_profile.splash_url %}
+            Cisco-AVPair += "url-redirect={{ guest_profile.splash_url }}"
+{% endif %}
+{% if guest_profile.url_redirect_acl %}
+            Cisco-AVPair += "url-redirect-acl={{ guest_profile.url_redirect_acl }}"
+{% endif %}
+{% if guest_profile.filter_id %}
+            Filter-Id := "{{ guest_profile.filter_id }}"
+{% endif %}
+{% if guest_profile.session_timeout %}
+            Session-Timeout := {{ guest_profile.session_timeout }}
+{% endif %}
+        }
+        ok
+{% else %}
+        # No guest profile - reject
+        update reply {
+            Reply-Message := "Access Denied - Unknown IPSK"
+        }
+        reject
+{% endif %}
+    }
+}
+{% endif %}

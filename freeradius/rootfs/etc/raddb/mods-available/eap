@@ -1,0 +1,87 @@
+# EAP configuration for FreeRADIUS
+# Supports RadSec (RADIUS over TLS)
+
+eap {
+    default_eap_type = tls
+    timer_expire = 60
+    ignore_unknown_eap_types = no
+    cisco_accounting_username_bug = no
+    max_sessions = ${max_requests}
+
+    # TLS configuration for RadSec
+    tls-config tls-common {
+        # Private key password (empty for unencrypted keys)
+        # For FreeRADIUS 3.x, this must be a literal value
+        private_key_password = ""
+        
+        # Use explicit paths to /config/certs for certificates
+        private_key_file = /config/certs/server-key.pem
+        certificate_file = /config/certs/server.pem
+        ca_file = /config/certs/ca.pem
+        
+        # DH params are optional - generate if needed
+        # dh_file = /config/certs/dh
+        random_file = /dev/urandom
+        
+        # TLS version and cipher requirements
+        # Use tls_min_version instead of disable_tlsv1
+        tls_min_version = "1.2"
+        tls_max_version = "1.3"
+        
+        # Strong cipher suites only (per security policy)
+        cipher_list = "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4"
+        cipher_server_preference = yes
+        
+        # OCSP and CRL checking (optional)
+        check_crl = no
+        check_cert_cn = %{User-Name}
+        
+        # Cache settings
+        cache {
+            enable = yes
+            lifetime = 24
+            max_entries = 255
+        }
+        
+        # OCSP configuration (disabled)
+        ocsp {
+            enable = no
+        }
+    }
+
+    # TLS method for EAP
+    tls {
+        tls = tls-common
+        
+        # Certificate verification
+        include_length = yes
+        
+        # Virtual server for inner tunnel
+        virtual_server = inner-tunnel
+    }
+
+    # TTLS method
+    ttls {
+        tls = tls-common
+        default_eap_type = mschapv2
+        copy_request_to_tunnel = no
+        use_tunneled_reply = no
+        virtual_server = "inner-tunnel"
+    }
+
+    # PEAP method
+    peap {
+        tls = tls-common
+        default_eap_type = mschapv2
+        copy_request_to_tunnel = no
+        use_tunneled_reply = no
+        virtual_server = "inner-tunnel"
+    }
+
+    # MSCHAPv2 method
+    mschapv2 {
+    }
+
+    # MD5 method removed - banned algorithm per security policy (codeguard-1-crypto-algorithms)
+    # MD5 is cryptographically broken and must not be used
+}

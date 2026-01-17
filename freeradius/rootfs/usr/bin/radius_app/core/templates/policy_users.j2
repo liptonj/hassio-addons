@@ -1,0 +1,147 @@
+# ============================================================================
+# Auto-generated RADIUS Authentication & Authorization Configuration
+# Generated from shared database
+# Timestamp: {{ timestamp }}
+# DO NOT EDIT MANUALLY - Changes will be overwritten
+# ============================================================================
+#
+# Supported Cisco AVPairs for Captive Portal / Group Policy / SGT:
+# -----------------------------------------------------------------
+# Captive Portal:
+# - url-redirect=<URL>              : Captive portal redirect URL
+# - url-redirect-acl=<ACL-Name>     : ACL for redirect filtering
+#
+# Group Policy:
+# - Filter-Id=<GroupPolicy>         : Meraki group policy name
+# - air-group-policy-name=<Name>    : Cisco AireOS group policy
+# - ACS:CiscoSecure-Group-Id=<ID>   : Cisco ISE group ID
+# - ACS:CiscoSecure-Defined-ACL     : Cisco ISE downloadable ACL
+# - Aruba-User-Role=<Role>          : Aruba user role
+#
+# TrustSec / Adaptive Policy:
+# - cts:security-group-tag=XXXX-00  : Security Group Tag (hex, e.g., 0fa0-00)
+#
+# User Network Segmentation:
+# - udn:private-group-id=<UDN>      : User Device Network identifier
+#
+# ============================================================================
+
+{# Macro to format check items #}
+{% macro format_check_item(attribute, operator, value) -%}
+{% if operator == "=~" -%}
+{{ attribute }} {{ operator }} "{{ value }}"
+{%- else -%}
+{{ attribute }} {{ operator }} {{ value }}
+{%- endif %}
+{%- endmacro %}
+
+{# Macro to format reply items #}
+{% macro format_reply_item(attribute, operator, value) -%}
+{% set numeric_attributes = ["Tunnel-Private-Group-Id", "Session-Timeout", "Idle-Timeout", "Tunnel-Type", "Tunnel-Medium-Type"] -%}
+{% if attribute.startswith("#") -%}
+    # {{ value }}
+{%- elif attribute in ["Tunnel-Type", "Tunnel-Medium-Type"] -%}
+    {{ attribute }} {{ operator }} {{ value }}
+{%- elif attribute in numeric_attributes or value is number or (value is string and value.isdigit()) -%}
+    {{ attribute }} {{ operator }} {{ value }}
+{%- else -%}
+    {{ attribute }} {{ operator }} "{{ value }}"
+{%- endif %}
+{%- endmacro %}
+
+# ----------------------------------------------------------------------------
+# MAC BYPASS CONFIGURATIONS
+# ----------------------------------------------------------------------------
+# MAC addresses that bypass normal authentication
+
+{% if mac_bypass_configs %}
+{% for config in mac_bypass_configs %}
+# Configuration: {{ config.name }}
+{% if config.description %}
+# Description: {{ config.description }}
+{% endif %}
+# Bypass Mode: {{ config.bypass_mode }}
+# Require Registration: {{ config.require_registration }}
+{% if config.mac_addresses %}
+# MAC Addresses ({{ config.mac_addresses | length }}):
+{% for mac in config.mac_addresses %}
+#   - {{ mac }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% else %}
+# No active MAC bypass configurations
+
+{% endif %}
+# ----------------------------------------------------------------------------
+# EAP AUTHENTICATION METHODS
+# ----------------------------------------------------------------------------
+# Enabled EAP methods for 802.1X authentication
+
+{% if eap_config %}
+# EAP Configuration: {{ eap_config.name }}
+{% if eap_config.description %}
+# Description: {{ eap_config.description }}
+{% endif %}
+# Default EAP Type: {{ eap_config.default_eap_type }}
+# TLS Version: {{ eap_config.tls_min_version }} - {{ eap_config.tls_max_version }}
+# Enabled Methods: {{ eap_config.enabled_methods | join(', ') if eap_config.enabled_methods else 'None' }}
+
+{% if eap_methods %}
+# EAP Method Details:
+{% for method in eap_methods %}
+#   - {{ method.method_name | upper }}: {{ 'ENABLED' if method.is_enabled else 'DISABLED' }}
+{% if method.auth_attempts > 0 %}
+{% set success_rate = (method.auth_successes / method.auth_attempts * 100) | round(1) if method.auth_attempts > 0 else 0.0 %}
+#     Attempts: {{ method.auth_attempts }}, Successes: {{ method.auth_successes }}, Failures: {{ method.auth_failures }}, Success Rate: {{ success_rate }}%
+{% endif %}
+{% endfor %}
+
+{% else %}
+# No EAP methods configured
+
+{% endif %}
+{% else %}
+# No active EAP configuration
+
+{% endif %}
+# ----------------------------------------------------------------------------
+# AUTHORIZATION POLICIES
+# ----------------------------------------------------------------------------
+# Total Policies: {{ policies | length }}
+# Policies are evaluated in priority order (0 = highest priority)
+# First matching policy is applied
+
+{% for policy in policies %}
+# Policy: {{ policy.name }} (Priority: {{ policy.priority }})
+{% if policy.description %}
+# Description: {{ policy.description }}
+{% endif %}
+{% if policy.group_name %}
+# Group: {{ policy.group_name }}
+{% endif %}
+{% if policy.policy_type %}
+# Type: {{ policy.policy_type }}
+{% endif %}
+{% if policy.include_udn %}
+# Note: UDN will be added dynamically based on USER->PSK->UDN lookup
+{% endif %}
+{% if policy.check_items %}
+DEFAULT {{ policy.check_items | join(', ') }}
+{% else %}
+DEFAULT Auth-Type := Accept
+{% endif %}
+{% for reply_item in policy.reply_items %}
+{% if loop.last %}
+{{ reply_item }}
+{% else %}
+{{ reply_item }},
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+# Fallback: Accept all other requests
+# (Remove or modify this based on your security requirements)
+DEFAULT Auth-Type := Accept
+    Reply-Message := "Access granted"

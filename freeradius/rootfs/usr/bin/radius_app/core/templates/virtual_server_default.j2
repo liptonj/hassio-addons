@@ -1,0 +1,306 @@
+# Default virtual server for RADIUS authentication and accounting
+# Generated from database
+#
+# Architecture:
+# 1. Authorization Profiles (RadiusAuthorizationProfile) - WHAT to return
+# 2. Unlang Policies (RadiusUnlangPolicy) - WHEN/IF to authorize
+#
+# Per FreeRADIUS documentation:
+# - SQL module queries radcheck/radreply for user attributes
+# - Custom policies in policy.d/ handle IPSK and MAC bypass authentication
+# - https://www.freeradius.org/documentation/freeradius-server/4.0.0/reference/unlang/index.html
+#
+{% if freeradius_version == 4 %}
+# FreeRADIUS v4 syntax
+server default {
+    namespace = radius
+
+    # Listen on authentication port
+    listen {
+        transport = udp
+        udp {
+            ipaddr = {{ listen_address | default('*') }}
+            port = {{ auth_port | default(1812) }}
+        }
+        type = Access-Request
+        limit {
+            max_clients = {{ max_connections | default(16) }}
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Listen on accounting port
+    listen {
+        transport = udp
+        udp {
+            ipaddr = {{ listen_address | default('*') }}
+            port = {{ acct_port | default(1813) }}
+        }
+        type = Accounting-Request
+        limit {
+            max_clients = {{ max_connections | default(16) }}
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Receive Access-Request (v4 syntax)
+    recv Access-Request {
+        filter_username
+
+        # MAC address normalization
+        if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            &Stripped-User-Name := "%{tolower:%{User-Name}}"
+        }
+
+{% if use_mac_bypass_policies %}
+        # =======================================================================
+        # MAC BYPASS POLICIES (pre-built authentication logic)
+        # =======================================================================
+        # These policies handle Meraki WPN authentication:
+        # 1. Default PSK -> Captive Portal redirect
+        # 2. MAC + PSK validation -> Full access
+        # 3. IPSK validation -> Full access
+        #
+        # Policy files are in policy.d/ directory
+        $INCLUDE ${confdir}/policy.d/mac_bypass
+
+{% endif %}
+{% if use_custom_policies %}
+        # =======================================================================
+        # CUSTOM UNLANG POLICIES (from database)
+        # =======================================================================
+        # Generated from RadiusUnlangPolicy table
+        $INCLUDE ${confdir}/policy.d/authorize_custom
+
+{% endif %}
+        files
+
+{% if use_sql %}
+        # SQL module for dynamic user lookups
+        sql {
+            ok = return
+            notfound = noop
+            noop = noop
+        }
+
+        # SQL Counter modules
+        sqlcounter.noresetcounter
+        sqlcounter.dailycounter
+        sqlcounter.monthlycounter
+
+{% endif %}
+{% if eap_enabled %}
+        eap {
+            ok = return
+        }
+
+{% endif %}
+        pap
+    }
+
+    # Send Access-Accept (v4 syntax)
+    send Access-Accept {
+        if (&reply.Cisco-AVPair) {
+            &reply.Reply-Message := "WPN Authentication Successful"
+        }
+
+{% if use_sql %}
+        sql
+{% endif %}
+        detail
+    }
+
+    # Send Access-Reject (v4 syntax)
+    send Access-Reject {
+        attr_filter.access_reject
+    }
+
+    # Receive Accounting-Request (v4 syntax)
+    recv Accounting-Request {
+{% if use_sql %}
+        sql
+{% endif %}
+        detail
+        unix
+        attr_filter.accounting_response
+    }
+}
+{% else %}
+# FreeRADIUS v3 syntax
+server default {
+
+    # Listen on authentication port
+    listen {
+        type = auth
+        ipaddr = {{ listen_address | default('*') }}
+        port = {{ auth_port | default(1812) }}
+        limit {
+            max_connections = {{ max_connections | default(16) }}
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Listen on accounting port
+    listen {
+        type = acct
+        ipaddr = {{ listen_address | default('*') }}
+        port = {{ acct_port | default(1813) }}
+        limit {
+            max_connections = {{ max_connections | default(16) }}
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Authorization section
+    authorize {
+        # Filter username
+        filter_username
+
+        # Preprocess attributes
+        preprocess
+
+        # Check for valid username format (MAC addresses)
+        if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            # MAC address format - normalize it
+            update request {
+                Stripped-User-Name := "%{tolower:%{User-Name}}"
+                Stripped-User-Name := "%{string:%{Stripped-User-Name}}"
+            }
+        }
+
+{% if use_mac_bypass_policies %}
+        # =======================================================================
+        # MAC BYPASS POLICIES (pre-built authentication logic)
+        # =======================================================================
+        # These policies handle Meraki WPN authentication:
+        # 1. Default PSK -> Captive Portal redirect
+        # 2. MAC + PSK validation -> Full access  
+        # 3. IPSK validation -> Full access
+        #
+        # Policy files are in policy.d/ directory
+        $INCLUDE ${confdir}/policy.d/mac_bypass
+
+{% endif %}
+{% if use_custom_policies %}
+        # =======================================================================
+        # CUSTOM UNLANG POLICIES (from database)
+        # =======================================================================
+        # Generated from RadiusUnlangPolicy table
+        $INCLUDE ${confdir}/policy.d/authorize_custom
+
+{% endif %}
+        # Read users file for authorization (static config)
+        files
+
+{% if use_sql %}
+        # SQL module for dynamic user lookups
+        # Queries radcheck/radreply tables for user attributes
+        # For PSK authentication: radcheck contains Cleartext-Password
+        # Returns Cisco-AVPair with UDN from radreply
+        -sql
+
+{% endif %}
+{% if eap_enabled %}
+        # EAP authentication
+        eap {
+            ok = return
+        }
+
+{% endif %}
+        # PAP authentication
+        pap
+    }
+
+    # Authentication section
+    authenticate {
+        # PAP authentication
+        Auth-Type PAP {
+            pap
+        }
+
+{% if eap_enabled %}
+        # EAP authentication
+        Auth-Type eap {
+            eap
+        }
+
+{% endif %}
+        # CHAP authentication
+        Auth-Type CHAP {
+            chap
+        }
+
+        # MS-CHAP authentication
+        Auth-Type MS-CHAP {
+            mschap
+        }
+    }
+
+    # Note: SQL module is NOT used in authenticate section
+    # SQL only retrieves credentials in authorize section
+    # PAP/CHAP/MS-CHAP/EAP handle actual authentication
+
+    # Post-authentication section
+    post-auth {
+        # Log successful authentications
+        if (&reply:Cisco-AVPair) {
+            update reply {
+                Reply-Message := "WPN Authentication Successful"
+            }
+        }
+
+{% if use_sql %}
+        # SQL module post-authentication logging
+        # Per FreeRADIUS SQL docs: logs to radpostauth table
+        sql
+
+{% endif %}
+        # Update accounting
+        update {
+            &reply: += &session-state:
+        }
+
+        # Remove sensitive attributes from reply
+        Post-Auth-Type REJECT {
+            attr_filter.access_reject
+        }
+
+        # Log to detail file
+        detail
+    }
+
+    # Accounting section
+    accounting {
+{% if use_sql %}
+        # SQL module accounting
+        # Per FreeRADIUS SQL docs: logs to radacct table
+        sql
+
+{% endif %}
+        detail
+        unix
+
+        # Log accounting to file
+        attr_filter.accounting_response
+    }
+
+    # Session section
+    session {
+    }
+
+    # Pre-proxy section
+    pre-proxy {
+    }
+
+    # Post-proxy section
+    post-proxy {
+{% if eap_enabled %}
+        eap
+{% endif %}
+    }
+}
+{% endif %}

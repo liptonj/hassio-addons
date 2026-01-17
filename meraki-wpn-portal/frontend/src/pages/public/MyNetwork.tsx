@@ -1,13 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Search, Wifi, Copy, Check } from 'lucide-react'
+import { Search, Wifi } from 'lucide-react'
 import { getMyNetwork } from '../../api/client'
-import QRCode from '../../components/QRCode'
+import QRCodeActions from '../../components/QRCodeActions'
+import { isCaptivePortal, getCaptivePortalInstructions } from '../../utils/captivePortal'
 
 export default function MyNetwork() {
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const state = location.state as { email?: string } | null
+  const prefillEmail = state?.email || searchParams.get('email') || ''
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false)
+  const inCaptivePortal = isCaptivePortal()
+  const captivePortalInstructions = getCaptivePortalInstructions()
 
   const mutation = useMutation({
     mutationFn: () => getMyNetwork(email),
@@ -33,18 +41,21 @@ export default function MyNetwork() {
     mutation.mutate()
   }
 
-  const handleCopy = async (field: string, value: string) => {
-    await navigator.clipboard.writeText(value)
-    setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 2000)
-  }
-
   const data = mutation.data
 
+  useEffect(() => {
+    if (!prefillEmail || hasAutoSubmitted || mutation.isPending) {
+      return
+    }
+    setEmail(prefillEmail)
+    setHasAutoSubmitted(true)
+    mutation.mutate()
+  }, [prefillEmail, hasAutoSubmitted, mutation])
+
   return (
-    <div className="animate-slide-up" style={{ maxWidth: '480px', margin: '0 auto' }}>
+    <div className="animate-slide-up max-w-[480px] mx-auto">
       <div className="text-center mb-6">
-        <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>My Network</h1>
+        <h1 className="text-[1.75rem] mb-2">My Network</h1>
         <p className="text-muted">
           Enter your registered email to retrieve your WiFi credentials
         </p>
@@ -54,14 +65,7 @@ export default function MyNetwork() {
       {!data && (
         <form onSubmit={handleSubmit} className="card mb-6">
           {error && (
-            <div
-              className="mb-4 p-4"
-              style={{
-                background: 'var(--error-light)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--error)',
-              }}
-            >
+            <div className="mb-4 p-4 bg-error-light rounded-lg text-error">
               {error}
             </div>
           )}
@@ -103,68 +107,41 @@ export default function MyNetwork() {
       {data && (
         <div className="card animate-fade-in">
           <div className="flex items-center gap-2 mb-4">
-            <Wifi size={24} style={{ color: 'var(--meraki-blue)' }} />
-            <h3 style={{ margin: 0 }}>{data.ipsk_name}</h3>
+            <Wifi size={24} className="text-meraki-blue" />
+            <h3 className="m-0">{data.ipsk_name}</h3>
             <span className={`badge badge-${data.status === 'active' ? 'success' : 'warning'}`}>
               {data.status}
             </span>
           </div>
 
-          {/* Network Name */}
-          <div className="form-group">
-            <label className="form-label">Network Name (SSID)</label>
-            <div className="credential-box">
-              <span className="credential-value">{data.ssid_name}</span>
-              <button
-                onClick={() => handleCopy('ssid', data.ssid_name)}
-                className="credential-copy"
-                title="Copy"
-              >
-                {copiedField === 'ssid' ? (
-                  <Check size={16} color="var(--success)" />
-                ) : (
-                  <Copy size={16} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Password */}
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <div className="credential-box">
-              <span className="credential-value">{data.passphrase}</span>
-              <button
-                onClick={() => handleCopy('password', data.passphrase)}
-                className="credential-copy"
-                title="Copy"
-              >
-                {copiedField === 'password' ? (
-                  <Check size={16} color="var(--success)" />
-                ) : (
-                  <Copy size={16} />
-                )}
-              </button>
-            </div>
-          </div>
-
           {/* Stats */}
           {data.connected_devices > 0 && (
-            <p className="text-sm text-muted mt-4">
+            <p className="text-sm text-muted mb-4">
               Currently {data.connected_devices} device(s) connected
             </p>
           )}
 
-          {/* QR Code */}
+          {/* QR Code with Actions */}
           {data.qr_code && (
-            <div className="mt-6">
-              <QRCode
-                dataUrl={data.qr_code}
-                size={180}
-                hint="Scan to connect"
-              />
-            </div>
+            <QRCodeActions
+              qrCodeDataUrl={data.qr_code}
+              ssid={data.ssid_name}
+              passphrase={data.passphrase}
+            />
           )}
+
+          {/* Account Link */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800 mb-2">
+              <strong>Have an account?</strong>
+            </p>
+            <p className="text-sm text-blue-700 mb-3">
+              Sign in to manage your devices, change your password, and more.
+            </p>
+            <a href="/user-auth" className="btn btn-secondary btn-sm">
+              Sign In to Your Account
+            </a>
+          </div>
 
           {/* Back Button */}
           <button
@@ -173,6 +150,15 @@ export default function MyNetwork() {
           >
             Look Up Another Email
           </button>
+        </div>
+      )}
+
+      {/* Captive Portal Footer */}
+      {inCaptivePortal && captivePortalInstructions && data && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200 text-center">
+          <p className="text-sm text-blue-800 font-medium">
+            {captivePortalInstructions}
+          </p>
         </div>
       )}
 

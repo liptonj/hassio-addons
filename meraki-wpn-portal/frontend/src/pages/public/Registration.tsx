@@ -4,6 +4,12 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Wifi, User, Mail, Building2, Ticket, Smartphone } from 'lucide-react'
 import { register, getPortalOptions, getPublicAreas } from '../../api/client'
 import type { RegistrationRequest } from '../../types/user'
+import AcceptableUseAgreement from '../../components/AcceptableUseAgreement'
+import PSKCustomizer from '../../components/PSKCustomizer'
+import CustomFieldRenderer from '../../components/CustomFieldRenderer'
+import AuthMethodSelector from '../../components/AuthMethodSelector'
+import { getUserAgent } from '../../utils/deviceDetection'
+import { validatePSK } from '../../utils/pskValidation'
 
 export default function Registration() {
   const navigate = useNavigate()
@@ -15,15 +21,29 @@ export default function Registration() {
   const loginUrl = searchParams.get('login_url')
   const grantUrl = searchParams.get('grant_url')
   const continueUrl = searchParams.get('continue_url')
+  const inviteCodeFromQuery = searchParams.get('code') || searchParams.get('invite_code') || ''
+  const emailFromQuery = searchParams.get('email') || ''
+  const prefillEmail = searchParams.get('prefill_email') || ''
+  const prefillName = searchParams.get('prefill_name') || ''
+  const prefillUnit = searchParams.get('prefill_unit') || ''
+  const resolvedEmail = emailFromQuery || prefillEmail
 
   const [formData, setFormData] = useState<RegistrationRequest>({
-    name: '',
-    email: '',
-    unit: '',
+    name: prefillName,
+    email: resolvedEmail,
+    unit: prefillUnit,
     area_id: '',
-    invite_code: '',
+    invite_code: inviteCodeFromQuery.toUpperCase(),
+    mac_address: clientMac || undefined,
+    custom_passphrase: '',
+    accept_aup: false,
+    custom_fields: {},
+    user_agent: getUserAgent(),
+    auth_method: 'ipsk', // Default to IPSK
+    certificate_password: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({})
 
   // Log splash params for debugging
   useEffect(() => {
@@ -42,6 +62,35 @@ export default function Registration() {
     queryFn: getPublicAreas,
     enabled: options?.unit_source === 'ha_areas',
   })
+
+  useEffect(() => {
+    if (!options) {
+      return
+    }
+    const ipskEnabled = options.auth_ipsk_enabled !== false
+    const eapEnabled = options.auth_eap_enabled === true
+    const allowedMethods: Array<'ipsk' | 'eap-tls'> = []
+    if (ipskEnabled) {
+      allowedMethods.push('ipsk')
+    }
+    if (eapEnabled) {
+      allowedMethods.push('eap-tls')
+    }
+    if (allowedMethods.length === 0) {
+      return
+    }
+    const currentMethod = formData.auth_method || 'ipsk'
+    const isBothAllowed = ipskEnabled && eapEnabled
+    const isCurrentAllowed =
+      allowedMethods.includes(currentMethod as 'ipsk' | 'eap-tls') ||
+      (currentMethod === 'both' && isBothAllowed)
+    if (!isCurrentAllowed) {
+      setFormData((prev) => ({
+        ...prev,
+        auth_method: allowedMethods[0],
+      }))
+    }
+  }, [options, formData.auth_method])
 
   const mutation = useMutation({
     mutationFn: register,
@@ -93,8 +142,43 @@ export default function Registration() {
       }
     }
 
+    // Validate AUP if enabled
+    if (options?.aup_enabled && !formData.accept_aup) {
+      newErrors.aup = 'You must accept the Acceptable Use Policy to continue'
+    }
+
+    // Validate custom PSK if provided
+    if (options?.allow_custom_psk && formData.custom_passphrase) {
+      const pskValidation = validatePSK(
+        formData.custom_passphrase,
+        options.psk_requirements.min_length,
+        options.psk_requirements.max_length
+      )
+      if (!pskValidation.valid) {
+        newErrors.custom_passphrase = pskValidation.errors[0]
+      }
+    }
+
+    // Validate certificate password if EAP-TLS is selected
+    if (formData.auth_method === 'eap-tls' || formData.auth_method === 'both') {
+      if (!formData.certificate_password || formData.certificate_password.length < 8) {
+        newErrors.certificate_password = 'Certificate password must be at least 8 characters'
+      }
+    }
+
+    // Validate custom fields
+    const fieldErrors: Record<string, string> = {}
+    if (options?.custom_fields && options.custom_fields.length > 0) {
+      options.custom_fields.forEach((field) => {
+        if (field.required && !formData.custom_fields?.[field.id]?.trim()) {
+          fieldErrors[field.id] = `${field.label} is required`
+        }
+      })
+    }
+
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setCustomFieldErrors(fieldErrors)
+    return Object.keys(newErrors).length === 0 && Object.keys(fieldErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -112,17 +196,17 @@ export default function Registration() {
   }
 
   return (
-    <div className="animate-slide-up" style={{ maxWidth: '480px', margin: '0 auto' }}>
+    <div className="animate-slide-up max-w-[480px] mx-auto">
       {/* Property Logo/Title */}
       <div className="text-center mb-8">
         {options?.logo_url && (
           <img
             src={options.logo_url}
             alt={options.property_name}
-            style={{ maxWidth: '200px', height: 'auto', margin: '0 auto 1rem' }}
+            className="max-w-[200px] h-auto mx-auto mb-4"
           />
         )}
-        <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+        <h1 className="text-2xl mb-2">
           {options?.property_name || 'Welcome'}
         </h1>
         <p className="text-muted">
@@ -134,15 +218,8 @@ export default function Registration() {
       <form onSubmit={handleSubmit} className="card">
         {/* Show device info if coming from splash page */}
         {clientMac && (
-          <div
-            className="mb-4 p-4 flex items-center gap-3"
-            style={{
-              background: 'rgba(0, 164, 228, 0.1)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid rgba(0, 164, 228, 0.3)',
-            }}
-          >
-            <Smartphone size={20} style={{ color: 'var(--meraki-blue)' }} />
+          <div className="mb-4 p-4 flex items-center gap-3 bg-meraki-blue/10 rounded-lg border border-meraki-blue/30">
+            <Smartphone size={20} className="text-meraki-blue" />
             <div>
               <div className="text-sm font-medium">Registering This Device</div>
               <div className="text-xs opacity-70">MAC: {clientMac}</div>
@@ -151,14 +228,7 @@ export default function Registration() {
         )}
 
         {errors.form && (
-          <div
-            className="mb-4 p-4"
-            style={{
-              background: 'var(--error-light)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--error)',
-            }}
-          >
+          <div className="mb-4 p-4 bg-error-light rounded-lg text-error">
             {errors.form}
           </div>
         )}
@@ -274,7 +344,7 @@ export default function Registration() {
               <span className="form-label-icon">
                 <Ticket size={16} /> Invitation Code
                 {options.auth_methods.self_registration && (
-                  <span className="text-muted" style={{ fontWeight: 'normal' }}>
+                  <span className="text-muted font-normal">
                     {' '}(if provided)
                   </span>
                 )}
@@ -282,15 +352,92 @@ export default function Registration() {
             </label>
             <input
               type="text"
-              className={`form-input ${errors.invite_code ? 'error' : ''}`}
+              className={`form-input uppercase ${errors.invite_code ? 'error' : ''}`}
               placeholder="WELCOME2026"
               value={formData.invite_code}
               onChange={(e) => handleChange('invite_code', e.target.value.toUpperCase())}
               disabled={mutation.isPending}
-              style={{ textTransform: 'uppercase' }}
             />
             {errors.invite_code && <p className="form-error">{errors.invite_code}</p>}
           </div>
+        )}
+
+        {/* Authentication Method Selector */}
+        {options && (
+          <AuthMethodSelector
+            ipskEnabled={options.auth_ipsk_enabled !== false}
+            eapEnabled={options.auth_eap_enabled === true}
+            selectedMethod={formData.auth_method as 'ipsk' | 'eap-tls' | 'both'}
+            onMethodChange={(method) => {
+              setFormData({ ...formData, auth_method: method })
+              if (errors.auth_method) {
+                setErrors({ ...errors, auth_method: '' })
+              }
+            }}
+            certificatePassword={formData.certificate_password || ''}
+            onCertificatePasswordChange={(password) => {
+              setFormData({ ...formData, certificate_password: password })
+              if (errors.certificate_password) {
+                setErrors({ ...errors, certificate_password: '' })
+              }
+            }}
+            errors={{
+              auth_method: errors.auth_method,
+              certificate_password: errors.certificate_password,
+            }}
+          />
+        )}
+
+        {/* Custom Fields */}
+        {options?.custom_fields && options.custom_fields.length > 0 && (
+          <CustomFieldRenderer
+            fields={options.custom_fields}
+            values={formData.custom_fields || {}}
+            onChange={(fieldId, value) => {
+              setFormData({
+                ...formData,
+                custom_fields: { ...formData.custom_fields, [fieldId]: value }
+              })
+              if (customFieldErrors[fieldId]) {
+                setCustomFieldErrors({ ...customFieldErrors, [fieldId]: '' })
+              }
+            }}
+            errors={customFieldErrors}
+          />
+        )}
+
+        {/* PSK Customizer */}
+        {options?.allow_custom_psk && (
+          <PSKCustomizer
+            enabled={true}
+            minLength={options.psk_requirements.min_length}
+            maxLength={options.psk_requirements.max_length}
+            value={formData.custom_passphrase || ''}
+            onChange={(value) => {
+              setFormData({ ...formData, custom_passphrase: value })
+              if (errors.custom_passphrase) {
+                setErrors({ ...errors, custom_passphrase: '' })
+              }
+            }}
+            error={errors.custom_passphrase}
+          />
+        )}
+
+        {/* Acceptable Use Agreement */}
+        {options?.aup_enabled && (
+          <AcceptableUseAgreement
+            enabled={true}
+            text={options.aup_text}
+            url={options.aup_url}
+            accepted={formData.accept_aup || false}
+            onAcceptChange={(accepted) => {
+              setFormData({ ...formData, accept_aup: accepted })
+              if (errors.aup) {
+                setErrors({ ...errors, aup: '' })
+              }
+            }}
+            error={errors.aup}
+          />
         )}
 
         {/* Submit Button */}

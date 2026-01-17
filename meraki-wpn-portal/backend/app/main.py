@@ -1,6 +1,7 @@
 """FastAPI main application entry point."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from pathlib import Path
@@ -8,10 +9,26 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.orm import Session
 
-from app.api import admin, auth, devices, ipsk, registration
+from app.api import (
+    admin,
+    auth,
+    auth_config,
+    devices,
+    email,
+    ipsk,
+    ipsk_admin,
+    qr_codes,
+    radius,
+    registration,
+    user_account,
+    user_certificates,
+)
+from app.api.deps import DbSession
 from app.config import get_settings, reload_settings
-from app.db.database import init_db
+from app.db.init_schema import init_db
+from app.db.models import PortalSetting
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +43,14 @@ def get_client_for_mode(settings):
     
     - Standalone mode: Direct Meraki Dashboard API integration
     - Home Assistant mode: HA WebSocket API with meraki_ha integration
+    - Test mode: Mock client (no real API calls)
     """
+    # Use mock client in test mode
+    if settings.run_mode == "test" or os.getenv("USE_MOCK_MERAKI") == "true":
+        from app.core.mock_meraki_client import MockMerakiDashboardClient
+        logger.info("Running in TEST mode - using Mock Meraki client")
+        return MockMerakiDashboardClient(api_key="test-api-key")
+    
     if settings.is_standalone:
         if settings.meraki_api_key:
             from app.core.meraki_client import MerakiDashboardClient
@@ -118,10 +142,20 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("Some features may not be available until HA connection is established")
 
+    # Start iPSK expiration monitoring
+    logger.info("Starting iPSK expiration monitor...")
+    from app.core.ipsk_monitor import ipsk_monitor
+    await ipsk_monitor.start()
+
     yield
 
     # Shutdown
     logger.info("Shutting down Meraki WPN Portal...")
+    
+    # Stop iPSK monitor
+    await ipsk_monitor.stop()
+    
+    # Disconnect client
     if hasattr(app.state, "ha_client") and app.state.ha_client:
         await app.state.ha_client.disconnect()
 
@@ -134,10 +168,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
+# Configure CORS with configurable origins
+_settings = get_settings()
+_cors_origins = (
+    _settings.cors_origins.split(",")
+    if _settings.cors_origins and _settings.cors_origins != "*"
+    else ["*"]
+)
+logger.info(f"CORS origins configured: {_cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -146,9 +188,16 @@ app.add_middleware(
 # Include API routers
 app.include_router(auth.router, prefix="/api", tags=["Authentication"])
 app.include_router(registration.router, prefix="/api", tags=["Registration"])
+app.include_router(user_account.router, prefix="/api", tags=["User Account"])
+app.include_router(user_certificates.router, prefix="/api", tags=["User Certificates"])
+app.include_router(qr_codes.router, prefix="/api", tags=["QR Codes"])
 app.include_router(ipsk.router, prefix="/api/admin", tags=["IPSK Management"])
-app.include_router(devices.router, prefix="/api/admin", tags=["Device Management"])
+app.include_router(ipsk_admin.router, prefix="/api", tags=["iPSK Admin"])
+app.include_router(devices.router, prefix="/api", tags=["Device Management"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(auth_config.router, prefix="/api/admin", tags=["Auth Config"])
+app.include_router(radius.router, prefix="/api/admin/radius", tags=["RADIUS"])
+app.include_router(email.router, prefix="/api", tags=["Email"])
 
 
 @app.get("/health")
@@ -157,16 +206,36 @@ async def health_check() -> dict:
     return {"status": "healthy", "service": "meraki-wpn-portal"}
 
 
+def get_portal_setting_bool(db: Session, key: str, default: bool) -> bool:
+    """Read a boolean portal setting with a safe default."""
+    setting = db.query(PortalSetting).filter(PortalSetting.key == key).first()
+    if not setting or setting.value is None:
+        return default
+    return str(setting.value).strip().lower() == "true"
+
+
 @app.get("/api/options")
-async def get_portal_options() -> dict:
+async def get_portal_options(db: DbSession) -> dict:
     """Get public portal configuration options."""
     settings = get_settings()
 
     # Determine units based on source
     units = []
     if settings.unit_source == "manual_list":
-        units = settings.get_manual_units_list()
+        units = [
+            {"area_id": unit, "name": unit}
+            for unit in settings.get_manual_units_list()
+        ]
     # For ha_areas, units will be fetched from HA via separate endpoint
+    
+    # Parse custom fields from JSON string
+    import json
+    custom_fields = []
+    try:
+        if settings.custom_registration_fields:
+            custom_fields = json.loads(settings.custom_registration_fields)
+    except Exception:
+        pass
 
     return {
         "property_name": settings.property_name,
@@ -176,10 +245,41 @@ async def get_portal_options() -> dict:
         "units": units,
         "require_unit_number": settings.require_unit_number,
         "auth_methods": {
+            # New registration modes
+            "open_registration": getattr(settings, 'auth_open_registration', settings.auth_self_registration),
+            "open_registration_approval": getattr(settings, 'auth_open_registration_approval', False),
+            "account_only": getattr(settings, 'auth_account_only', False),
+            "invite_code_account": getattr(settings, 'auth_invite_code_account', settings.auth_invite_codes),
+            "invite_code_only": getattr(settings, 'auth_invite_code_only', False),
+            # Legacy fields (for backwards compatibility)
             "self_registration": settings.auth_self_registration,
             "invite_codes": settings.auth_invite_codes,
+            # Verification & Login Methods
             "email_verification": settings.auth_email_verification,
+            "local": settings.auth_method_local,
+            "oauth": settings.auth_method_oauth,
         },
+        "auth_ipsk_enabled": get_portal_setting_bool(db, "ipsk_enabled", True),
+        "auth_eap_enabled": get_portal_setting_bool(db, "eap_tls_enabled", False),
+        # AUP Settings
+        "aup_enabled": settings.aup_enabled,
+        "aup_text": settings.aup_text,
+        "aup_url": settings.aup_url,
+        "aup_version": settings.aup_version,
+        # Custom Fields
+        "custom_fields": custom_fields,
+        # PSK Customization
+        "allow_custom_psk": settings.allow_custom_psk,
+        "psk_requirements": {
+            "min_length": settings.psk_min_length,
+            "max_length": settings.psk_max_length,
+        },
+        # Invite Code Settings
+        "invite_code_email_restriction": settings.invite_code_email_restriction,
+        "invite_code_single_use": settings.invite_code_single_use,
+        # Universal Login
+        "universal_login_enabled": settings.universal_login_enabled,
+        "show_login_method_selector": settings.show_login_method_selector,
     }
 
 

@@ -1,0 +1,152 @@
+# SQL Counter module configuration - Generated from database
+# Do not edit manually - changes will be overwritten
+#
+# Per FreeRADIUS SQL Counter documentation:
+# https://www.freeradius.org/documentation/freeradius-server/4.0~alpha1/howto/modules/sqlcounter/index.html
+# - SQL Counter tracks usage from radacct accounting table
+# - Enforces limits via Max-All-Session, Max-Daily-Session, Max-Monthly-Session
+# - Requires SQL module to be configured and accounting via SQL
+#
+# Usage:
+#   - Add counter names to authorize section: noresetcounter, dailycounter, monthlycounter
+#   - Set limits in radcheck/radgroupcheck: Max-All-Session := <seconds>
+#
+
+# Total session time counter (never resets)
+# Per SQL Counter docs: tracks cumulative session time across all sessions
+sqlcounter noresetcounter {
+    sql_module_instance = {{ sql_module_instance }}
+    counter_name = Max-All-Session-Time
+    check_name = Max-All-Session
+    reply_name = Session-Timeout
+    key = User-Name
+    reset = never
+
+{% if db_type == "mysql" or db_type == "mariadb" %}
+    query = "SELECT SUM(AcctSessionTime) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}'"
+{% elif db_type == "postgresql" %}
+    query = "SELECT SUM(AcctSessionTime) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}'"
+{% else %}
+    query = "SELECT SUM(AcctSessionTime) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}'"
+{% endif %}
+}
+
+# Daily session time counter (resets daily)
+# Per SQL Counter docs: tracks session time within current day
+sqlcounter dailycounter {
+    sql_module_instance = {{ sql_module_instance }}
+    counter_name = Daily-Session-Time
+    check_name = Max-Daily-Session
+    reply_name = Session-Timeout
+    key = User-Name
+    reset = daily
+
+{% if db_type == "mysql" or db_type == "mariadb" %}
+    query = "SELECT SUM(AcctSessionTime - GREATEST((%b - UNIX_TIMESTAMP(AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND UNIX_TIMESTAMP(AcctStartTime) + AcctSessionTime > '%b'"
+{% elif db_type == "postgresql" %}
+    query = "SELECT SUM(AcctSessionTime - GREATEST((%b - EXTRACT(epoch FROM AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND EXTRACT(epoch FROM AcctStartTime) + AcctSessionTime > '%b'"
+{% else %}
+    query = "SELECT SUM(AcctSessionTime - MAX((%b - strftime('%%s', AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND strftime('%%s', AcctStartTime) + AcctSessionTime > '%b'"
+{% endif %}
+}
+
+# Monthly session time counter (resets monthly)
+# Per SQL Counter docs: tracks session time within current month
+sqlcounter monthlycounter {
+    sql_module_instance = {{ sql_module_instance }}
+    counter_name = Monthly-Session-Time
+    check_name = Max-Monthly-Session
+    reply_name = Session-Timeout
+    key = User-Name
+    reset = monthly
+
+{% if db_type == "mysql" or db_type == "mariadb" %}
+    query = "SELECT SUM(AcctSessionTime - GREATEST((%b - UNIX_TIMESTAMP(AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND UNIX_TIMESTAMP(AcctStartTime) + AcctSessionTime > '%b'"
+{% elif db_type == "postgresql" %}
+    query = "SELECT SUM(AcctSessionTime - GREATEST((%b - EXTRACT(epoch FROM AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND EXTRACT(epoch FROM AcctStartTime) + AcctSessionTime > '%b'"
+{% else %}
+    query = "SELECT SUM(AcctSessionTime - MAX((%b - strftime('%%s', AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND strftime('%%s', AcctStartTime) + AcctSessionTime > '%b'"
+{% endif %}
+}
+
+{% if include_weekly | default(false) %}
+# Weekly session time counter (resets weekly)
+sqlcounter weeklycounter {
+    sql_module_instance = {{ sql_module_instance }}
+    counter_name = Weekly-Session-Time
+    check_name = Max-Weekly-Session
+    reply_name = Session-Timeout
+    key = User-Name
+    reset = weekly
+
+{% if db_type == "mysql" or db_type == "mariadb" %}
+    query = "SELECT SUM(AcctSessionTime - GREATEST((%b - UNIX_TIMESTAMP(AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND UNIX_TIMESTAMP(AcctStartTime) + AcctSessionTime > '%b'"
+{% elif db_type == "postgresql" %}
+    query = "SELECT SUM(AcctSessionTime - GREATEST((%b - EXTRACT(epoch FROM AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND EXTRACT(epoch FROM AcctStartTime) + AcctSessionTime > '%b'"
+{% else %}
+    query = "SELECT SUM(AcctSessionTime - MAX((%b - strftime('%%s', AcctStartTime)), 0)) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND strftime('%%s', AcctStartTime) + AcctSessionTime > '%b'"
+{% endif %}
+}
+
+{% endif %}
+{% if include_data_counters | default(false) %}
+# Data usage counter (bytes, never resets)
+sqlcounter datausagecounter {
+    sql_module_instance = {{ sql_module_instance }}
+    counter_name = Max-Data-Usage
+    check_name = Max-Data
+    reply_name = Session-Timeout
+    key = User-Name
+    reset = never
+
+{% if db_type == "mysql" or db_type == "mariadb" %}
+    query = "SELECT SUM(AcctInputOctets + AcctOutputOctets) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}'"
+{% elif db_type == "postgresql" %}
+    query = "SELECT SUM(AcctInputOctets + AcctOutputOctets) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}'"
+{% else %}
+    query = "SELECT SUM(AcctInputOctets + AcctOutputOctets) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}'"
+{% endif %}
+}
+
+# Monthly data usage counter (bytes, resets monthly)
+sqlcounter monthlydatacounter {
+    sql_module_instance = {{ sql_module_instance }}
+    counter_name = Monthly-Data-Usage
+    check_name = Max-Monthly-Data
+    reply_name = Session-Timeout
+    key = User-Name
+    reset = monthly
+
+{% if db_type == "mysql" or db_type == "mariadb" %}
+    query = "SELECT SUM(AcctInputOctets + AcctOutputOctets) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND UNIX_TIMESTAMP(AcctStartTime) > '%b'"
+{% elif db_type == "postgresql" %}
+    query = "SELECT SUM(AcctInputOctets + AcctOutputOctets) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND EXTRACT(epoch FROM AcctStartTime) > '%b'"
+{% else %}
+    query = "SELECT SUM(AcctInputOctets + AcctOutputOctets) FROM {{ acct_table }} WHERE UserName='%{{ '{' }}%k}' AND strftime('%%s', AcctStartTime) > '%b'"
+{% endif %}
+}
+
+{% endif %}
+# Usage Notes:
+#
+# 1. Add counter names to authorize section:
+#    authorize {
+#        ...
+#        noresetcounter
+#        dailycounter
+#        monthlycounter
+#        ...
+#    }
+#
+# 2. Set limits in radcheck or radgroupcheck:
+#    INSERT INTO radcheck (username, attribute, op, value)
+#    VALUES ('user1', 'Max-All-Session', ':=', '54000');  -- 15 hours total
+#
+#    INSERT INTO radcheck (username, attribute, op, value)
+#    VALUES ('user2', 'Max-Daily-Session', ':=', '10800');  -- 3 hours per day
+#
+#    INSERT INTO radcheck (username, attribute, op, value)
+#    VALUES ('user3', 'Max-Monthly-Session', ':=', '324000');  -- 90 hours per month
+#
+# 3. Accounting must be done via SQL module for counters to work
+#

@@ -1,0 +1,63 @@
+# Auto-generated RadSec (RADIUS over TLS) configuration
+# Generated from shared database
+# Timestamp: {{ timestamp }}
+# Total configurations: {{ configs | length }}
+# DO NOT EDIT MANUALLY - Changes will be overwritten
+
+{% if not configs %}
+# No active RadSec configurations
+{% else %}
+{% for config in configs %}
+# RadSec Configuration: {{ config.name }}
+{% if config.description %}
+# Description: {{ config.description }}
+{% endif %}
+listen {
+    type = auth+acct
+    ipaddr = {{ config.listen_address }}
+    port = {{ config.listen_port }}
+    proto = tcp
+
+    tls {
+        # Certificate files
+        certificate_file = {{ config.certificate_file }}
+        private_key_file = {{ config.private_key_file }}
+        ca_file = {{ config.ca_certificate_file }}
+
+        # TLS version requirements
+        tls_min_version = "{{ config.tls_min_version }}"
+        tls_max_version = "{{ config.tls_max_version }}"
+
+        # Cipher suites (modern, secure)
+        cipher_list = "{{ config.cipher_list }}"
+
+        # Client certificate validation
+        require_client_cert = {{ 'yes' if config.require_client_cert else 'no' }}
+        verify_client_cert = {{ 'yes' if config.verify_client_cert else 'no' }}
+        verify_depth = {{ config.verify_depth }}
+
+{% if config.check_crl and config.crl_file %}
+        # Certificate revocation
+        check_crl = yes
+        crl_file = {{ config.crl_file }}
+
+{% endif %}
+{% if config.ocsp_enable and config.ocsp_url %}
+        # OCSP (Online Certificate Status Protocol)
+        ocsp {
+            enable = yes
+            override_cert_url = yes
+            url = "{{ config.ocsp_url }}"
+        }
+
+{% endif %}
+    }
+
+    # Connection limits
+    max_connections = {{ config.max_connections }}
+    lifetime = {{ config.connection_timeout }}
+    idle_timeout = {{ config.connection_timeout }}
+}
+
+{% endfor %}
+{% endif %}

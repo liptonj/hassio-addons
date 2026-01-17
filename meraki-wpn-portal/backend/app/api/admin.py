@@ -60,6 +60,7 @@ async def get_all_settings(admin: AdminUser) -> AllSettings:
         is_standalone=settings.is_standalone,
         editable_settings=settings.editable_settings,
         meraki_api_key="***" if settings.meraki_api_key else "",
+        meraki_org_id=settings.meraki_org_id,
         ha_url=settings.ha_url,
         ha_token="***" if settings.ha_token else "",
         property_name=settings.property_name,
@@ -68,7 +69,12 @@ async def get_all_settings(admin: AdminUser) -> AllSettings:
         default_network_id=settings.default_network_id,
         default_ssid_number=settings.default_ssid_number,
         default_group_policy_id=settings.default_group_policy_id,
+        default_group_policy_name=settings.default_group_policy_name,
+        default_guest_group_policy_id=settings.default_guest_group_policy_id,
+        default_guest_group_policy_name=settings.default_guest_group_policy_name,
+        default_ssid_psk=settings.default_ssid_psk,  # Decrypted PSK for display
         standalone_ssid_name=settings.standalone_ssid_name,
+        splash_page_url=settings.splash_page_url,
         auth_self_registration=settings.auth_self_registration,
         auth_invite_codes=settings.auth_invite_codes,
         auth_email_verification=settings.auth_email_verification,
@@ -106,6 +112,25 @@ async def get_all_settings(admin: AdminUser) -> AllSettings:
         cloudflare_zone_name=settings.cloudflare_zone_name,
         cloudflare_hostname=settings.cloudflare_hostname,
         cloudflare_local_url=settings.cloudflare_local_url,
+        # CORS
+        cors_origins=settings.cors_origins,
+        # RADIUS Settings
+        radius_enabled=settings.radius_enabled,
+        radius_server_host=settings.radius_server_host,
+        radius_hostname=settings.radius_hostname,
+        radius_auth_port=settings.radius_auth_port,
+        radius_acct_port=settings.radius_acct_port,
+        radius_coa_port=settings.radius_coa_port,
+        radius_radsec_enabled=settings.radius_radsec_enabled,
+        radius_radsec_port=settings.radius_radsec_port,
+        radius_shared_secret="***" if settings.radius_shared_secret else "",
+        radius_radsec_ca_cert=settings.radius_radsec_ca_cert,
+        radius_radsec_server_cert=settings.radius_radsec_server_cert,
+        radius_radsec_server_key=settings.radius_radsec_server_key,
+        radius_radsec_auto_generate=settings.radius_radsec_auto_generate,
+        radius_cert_source=settings.radius_cert_source,
+        radius_api_url=settings.radius_api_url,
+        radius_api_token=settings.radius_api_token,
     )
 
 
@@ -185,7 +210,14 @@ async def update_all_settings(
     updated_settings = db_mgr.get_all_settings(db)
     
     # Mask secrets in response
-    for secret_key in ["meraki_api_key", "admin_password_hash", "secret_key", "duo_client_secret", "entra_client_secret"]:
+    for secret_key in [
+        "meraki_api_key",
+        "admin_password_hash",
+        "secret_key",
+        "duo_client_secret",
+        "entra_client_secret",
+        "cloudflare_api_token",  # Add Cloudflare token to secrets
+    ]:
         if secret_key in updated_settings and updated_settings[secret_key]:
             updated_settings[secret_key] = "***"
     
@@ -302,6 +334,98 @@ async def test_connection_settings(
             }
     
     return results
+
+
+@router.get("/ipsk-options")
+async def get_ipsk_options(
+    admin: AdminUser,
+    ha_client: HAClient,
+) -> dict:
+    """Get Meraki configuration options for IPSK/WPN setup.
+    
+    Returns organizations, networks, SSIDs, and group policies if Meraki is configured.
+    
+    Args:
+        admin: Authenticated admin user
+        ha_client: HA client (provides Meraki access)
+        
+    Returns:
+        Configuration options including organizations, networks, SSIDs, group policies
+    """
+    _ = admin  # Unused but required for auth
+    settings = get_settings()
+    
+    result = {
+        "organizations": [],
+        "networks": [],
+        "ssids": [],
+        "group_policies": [],
+    }
+    
+    # Return empty if no API key configured
+    if not settings.meraki_api_key:
+        return result
+    
+    try:
+        # Get organizations
+        if hasattr(ha_client, "get_organizations"):
+            orgs = await ha_client.get_organizations()
+            result["organizations"] = [
+                {"id": org["id"], "name": org["name"]}
+                for org in orgs
+            ]
+        
+        # Get networks if org is configured
+        if settings.meraki_org_id and hasattr(ha_client, "get_networks"):
+            networks = await ha_client.get_networks(settings.meraki_org_id)
+            result["networks"] = [
+                {"id": net["id"], "name": net["name"]}
+                for net in networks
+            ]
+        
+        # Get SSIDs if network is configured
+        if settings.default_network_id and hasattr(ha_client, "get_ssids"):
+            ssids = await ha_client.get_ssids(settings.default_network_id)
+            result["ssids"] = [
+                {"number": ssid["number"], "name": ssid["name"]}
+                for ssid in ssids
+                if ssid.get("enabled", True)  # Only include enabled SSIDs
+            ]
+        
+        # Get group policies if network is configured
+        if settings.default_network_id and hasattr(ha_client, "get_group_policies"):
+            try:
+                policies = await ha_client.get_group_policies(settings.default_network_id)
+                result["group_policies"] = [
+                    {"id": str(policy.get("groupPolicyId", policy.get("id", ""))), "name": policy.get("name", "")}
+                    for policy in policies
+                ]
+                logger.debug(f"Loaded {len(result['group_policies'])} group policies from Meraki")
+            except Exception as gp_err:
+                logger.warning(f"Failed to load group policies: {gp_err}")
+    
+    except Exception as e:
+        logger.warning(f"Failed to load Meraki options: {e}")
+        # Return partial data - don't fail if some calls don't work
+    
+    # Always include currently saved group policies if available (even if Meraki fetch failed)
+    if not result["group_policies"]:
+        saved_policies = []
+        if settings.default_group_policy_id and settings.default_group_policy_name:
+            saved_policies.append({
+                "id": str(settings.default_group_policy_id),
+                "name": settings.default_group_policy_name
+            })
+        if settings.default_guest_group_policy_id and settings.default_guest_group_policy_name:
+            saved_policies.append({
+                "id": str(settings.default_guest_group_policy_id),
+                "name": settings.default_guest_group_policy_name
+            })
+        if saved_policies:
+            result["group_policies"] = saved_policies
+            logger.debug(f"Using {len(saved_policies)} saved group policies from database")
+    
+    return result
 
 
 @router.post("/settings/reset")
@@ -480,6 +604,7 @@ async def update_oauth_settings(admin: AdminUser, oauth_settings: OAuthSettings)
 @router.post("/change-password")
 async def change_admin_password(
     admin: AdminUser,
+    db: DbSession,
     current_password: str,
     new_password: str,
 ) -> dict:
@@ -487,6 +612,7 @@ async def change_admin_password(
     
     Args:
         admin: Authenticated admin user
+        db: Database session
         current_password: Current password for verification
         new_password: New password to set
         
@@ -522,17 +648,28 @@ async def change_admin_password(
     # Hash new password
     new_password_hash = hash_password(new_password)
     
-    # In a real implementation, you would:
-    # 1. Save the new password hash to config
-    # 2. Update environment or config file
+    # Save the new password hash to database
+    db_mgr = get_db_settings_manager()
+    success = db_mgr.bulk_update_settings(
+        db=db,
+        settings_dict={"admin_password_hash": new_password_hash},
+        updated_by=admin.get("sub"),
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save password to database",
+        )
+    
+    # Reload settings to apply the new password hash
+    reload_settings()
     
     logger.info(f"Password changed for admin user: {admin.get('sub')}")
     
     return {
         "success": True,
-        "message": "Password changed successfully",
-        "new_password_hash": new_password_hash,
-        "instruction": "Save this hash to ADMIN_PASSWORD_HASH environment variable",
+        "message": "Password changed successfully. The new password is now active.",
     }
 
 
@@ -746,6 +883,9 @@ async def get_dashboard_stats(
         Dashboard data with stats and recent activity
     """
     # Get IPSK stats
+    meraki_api_status = "unknown"
+    meraki_error_message = None
+    
     try:
         ipsks = await ha_client.list_ipsks()
         total_ipsks = len(ipsks)
@@ -753,9 +893,12 @@ async def get_dashboard_stats(
         expired_ipsks = sum(1 for i in ipsks if i.get("status") == "expired")
         revoked_ipsks = sum(1 for i in ipsks if i.get("status") == "revoked")
         online_now = sum(1 for i in ipsks if i.get("connected_clients", 0) > 0)
+        meraki_api_status = "online"
     except Exception as e:
         logger.warning(f"Failed to fetch IPSK stats: {e}")
         total_ipsks = active_ipsks = expired_ipsks = revoked_ipsks = online_now = 0
+        meraki_api_status = "offline"
+        meraki_error_message = str(e)
 
     # Get registration stats
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -781,6 +924,10 @@ async def get_dashboard_stats(
             "revoked_ipsks": revoked_ipsks,
             "online_now": online_now,
             "registrations_today": registrations_today,
+        },
+        "meraki_status": {
+            "status": meraki_api_status,
+            "error": meraki_error_message,
         },
         "recent_activity": [
             {
@@ -813,8 +960,10 @@ async def get_ssid_wpn_status(
     - auth_mode: str
     - ipsk_configured: bool
     - wpn_enabled: bool
-    - wpn_ready: bool (all checks pass)
-    - issues: list of issues if not ready
+    - configuration_complete: bool (all API-configurable items done)
+    - wpn_ready: bool (all checks pass including manual WPN enable)
+    - issues: list of critical issues
+    - warnings: list of warnings (e.g., WPN not enabled)
     - message: str
     """
     _ = admin
@@ -834,13 +983,26 @@ async def get_ssid_wpn_status(
                 settings.default_ssid_number,
             )
             is_ready = ssid_status.get("ready_for_wpn", False)
+            config_complete = ssid_status.get("configuration_complete", False)
             issues = ssid_status.get("issues", [])
+            warnings = ssid_status.get("warnings", [])
             
+            # Determine overall_status for frontend display
+            # - "ready": Fully configured (iPSK + WPN enabled)
+            # - "config_complete": All API-configurable settings done, WPN needs manual enable
+            # - "needs_wpn": Same as config_complete, just needs manual WPN enable
+            # - "needs_config": Missing iPSK configuration
             if is_ready:
+                overall_status = "ready"
                 message = "✓ SSID is fully configured for WPN (iPSK + WPN enabled)"
+            elif config_complete:
+                overall_status = "config_complete"
+                message = "✓ Configuration complete - WPN must be enabled manually in Dashboard"
             elif issues:
+                overall_status = "needs_config"
                 message = "Issues: " + "; ".join(issues)
             else:
+                overall_status = "needs_config"
                 message = "SSID needs configuration"
             
             return {
@@ -850,8 +1012,11 @@ async def get_ssid_wpn_status(
                 "auth_mode": ssid_status.get("auth_mode", ""),
                 "ipsk_configured": ssid_status.get("is_ipsk_configured", False),
                 "wpn_enabled": ssid_status.get("wpn_enabled", False),
+                "configuration_complete": config_complete,
                 "wpn_ready": is_ready,
+                "overall_status": overall_status,  # For frontend status display
                 "issues": issues,
+                "warnings": warnings,
                 "message": message,
             }
         else:
@@ -869,21 +1034,245 @@ async def get_ssid_wpn_status(
         ) from e
 
 
+@router.get("/wpn/validate")
+async def validate_wpn_setup(
+    admin: AdminUser,
+    ha_client: HAClient,
+) -> dict:
+    """Validate full WPN setup including SSID, splash page, and group policy.
+    
+    Performs comprehensive validation:
+    1. SSID is configured for Identity PSK
+    2. Splash page is configured with correct URL
+    3. Group policy exists with splash bypass
+    4. WPN is enabled (if detectable via API)
+    
+    Returns validation results with pass/fail for each component.
+    """
+    _ = admin
+    settings = get_settings()
+    
+    validation = {
+        "valid": True,
+        "checks": [],
+        "issues": [],
+        "summary": "",
+    }
+    
+    if not settings.default_network_id:
+        validation["valid"] = False
+        validation["issues"].append("No network configured")
+        validation["summary"] = "Network not configured"
+        return validation
+    
+    try:
+        # Check 1: SSID Configuration
+        if hasattr(ha_client, "get_ssid"):
+            try:
+                ssid = await ha_client.get_ssid(
+                    settings.default_network_id,
+                    settings.default_ssid_number,
+                )
+                
+                ssid_enabled = ssid.get("enabled", False)
+                auth_mode = ssid.get("authMode", "")
+                is_ipsk = "ipsk" in auth_mode.lower()
+                splash_page = ssid.get("splashPage", "")
+                has_splash = splash_page and splash_page != "None"
+                
+                validation["checks"].append({
+                    "name": "SSID Enabled",
+                    "passed": ssid_enabled,
+                    "value": "Yes" if ssid_enabled else "No",
+                })
+                
+                validation["checks"].append({
+                    "name": "Identity PSK Mode",
+                    "passed": is_ipsk,
+                    "value": auth_mode or "Not set",
+                })
+                
+                validation["checks"].append({
+                    "name": "Splash Page Type",
+                    "passed": has_splash,
+                    "value": splash_page or "None",
+                })
+                
+                if not ssid_enabled:
+                    validation["valid"] = False
+                    validation["issues"].append("SSID is disabled")
+                if not is_ipsk:
+                    validation["valid"] = False
+                    validation["issues"].append("SSID is not configured for Identity PSK")
+                if not has_splash:
+                    validation["valid"] = False
+                    validation["issues"].append("No splash page configured")
+                    
+            except Exception as e:
+                validation["checks"].append({
+                    "name": "SSID Configuration",
+                    "passed": False,
+                    "value": f"Error: {str(e)}",
+                })
+                validation["valid"] = False
+                validation["issues"].append(f"Could not check SSID: {str(e)}")
+        
+        # Check 2: Splash Page Settings
+        if hasattr(ha_client, "get_splash_settings"):
+            try:
+                splash_settings = await ha_client.get_splash_settings(
+                    settings.default_network_id,
+                    settings.default_ssid_number,
+                )
+                
+                splash_url = splash_settings.get("splashUrl", "")
+                expected_url = settings.splash_page_url or ""
+                
+                # Check if splash URL is configured
+                has_splash_url = bool(splash_url)
+                url_matches = expected_url and splash_url == expected_url
+                
+                validation["checks"].append({
+                    "name": "Splash URL Configured",
+                    "passed": has_splash_url,
+                    "value": splash_url or "Not set",
+                })
+                
+                if settings.splash_page_url:
+                    validation["checks"].append({
+                        "name": "Splash URL Matches Settings",
+                        "passed": url_matches,
+                        "value": f"Expected: {expected_url}",
+                    })
+                    if not url_matches:
+                        validation["issues"].append(
+                            f"Splash URL mismatch: {splash_url} vs {expected_url}"
+                        )
+                
+            except Exception as e:
+                logger.debug(f"Could not check splash settings: {e}")
+        
+        # Check 3: Group Policy
+        if hasattr(ha_client, "get_group_policies"):
+            try:
+                policies = await ha_client.get_group_policies(settings.default_network_id)
+                
+                configured_policy_id = settings.default_group_policy_id
+                configured_policy_name = settings.default_group_policy_name
+                
+                # Find the configured policy
+                configured_policy = None
+                for policy in policies:
+                    policy_id = str(policy.get("groupPolicyId", policy.get("id", "")))
+                    if policy_id == configured_policy_id:
+                        configured_policy = policy
+                        break
+                    if policy.get("name") == configured_policy_name:
+                        configured_policy = policy
+                        break
+                
+                has_policy = configured_policy is not None
+                has_splash_bypass = False
+                
+                if configured_policy:
+                    splash_auth = configured_policy.get("splashAuthSettings", "")
+                    has_splash_bypass = splash_auth.lower() == "bypass"
+                
+                validation["checks"].append({
+                    "name": "Group Policy Exists",
+                    "passed": has_policy,
+                    "value": configured_policy.get("name") if configured_policy else "Not found",
+                })
+                
+                validation["checks"].append({
+                    "name": "Splash Bypass Enabled",
+                    "passed": has_splash_bypass,
+                    "value": "Yes" if has_splash_bypass else "No",
+                })
+                
+                if not has_policy:
+                    validation["valid"] = False
+                    validation["issues"].append(
+                        f"Group policy '{configured_policy_name}' not found"
+                    )
+                elif not has_splash_bypass:
+                    validation["issues"].append(
+                        "Group policy does not have splash bypass enabled"
+                    )
+                
+            except Exception as e:
+                logger.debug(f"Could not check group policies: {e}")
+        
+        # Check 4: WPN Status (if available)
+        if hasattr(ha_client, "get_ssid_wpn_status"):
+            try:
+                wpn_status = await ha_client.get_ssid_wpn_status(
+                    settings.default_network_id,
+                    settings.default_ssid_number,
+                )
+                
+                wpn_enabled = wpn_status.get("wpn_enabled", False)
+                
+                validation["checks"].append({
+                    "name": "WPN Enabled",
+                    "passed": wpn_enabled,
+                    "value": "Yes" if wpn_enabled else "No (manual enable required)",
+                })
+                
+                if not wpn_enabled:
+                    validation["issues"].append(
+                        "WPN not enabled - must be enabled manually in Meraki Dashboard"
+                    )
+                
+            except Exception as e:
+                logger.debug(f"Could not check WPN status: {e}")
+        
+        # Generate summary
+        passed_checks = sum(1 for c in validation["checks"] if c["passed"])
+        total_checks = len(validation["checks"])
+        
+        if validation["valid"] and not validation["issues"]:
+            validation["summary"] = f"✓ All {total_checks} checks passed"
+        elif validation["valid"]:
+            validation["summary"] = (
+                f"⚠ {passed_checks}/{total_checks} checks passed with warnings"
+            )
+        else:
+            validation["summary"] = (
+                f"✗ {passed_checks}/{total_checks} checks passed - "
+                f"{len(validation['issues'])} issue(s) found"
+            )
+        
+        return validation
+        
+    except Exception as e:
+        logger.error(f"WPN validation failed: {e}")
+        return {
+            "valid": False,
+            "checks": [],
+            "issues": [f"Validation error: {str(e)}"],
+            "summary": "Validation failed",
+        }
+
+
 @router.post("/wpn/configure-ssid")
 async def configure_ssid_for_wpn(
     request: Request,
     admin: AdminUser,
     ha_client: HAClient,
+    db: DbSession,
     ssid_name: str | None = None,
     group_policy_name: str | None = None,
+    guest_group_policy_name: str | None = None,
     splash_url: str | None = None,
     default_psk: str | None = None,
 ) -> dict:
     """Configure the default SSID for Identity PSK + WPN with splash page.
 
     This will:
-    1. Create a group policy with splash bypass for registered users
-    2. Enable the SSID with:
+    1. Create/update a group policy with splash bypass for registered users
+    2. Create/update a guest group policy (optional) for default PSK users
+    3. Enable the SSID with:
        - Auth Mode: Identity PSK without RADIUS
        - WPA2 encryption
        - Bridge mode (required for WPN)
@@ -928,10 +1317,80 @@ async def configure_ssid_for_wpn(
         if settings.default_ssid_psk:
             default_psk = settings.default_ssid_psk
         else:
-            default_psk = generate_passphrase(12)
-            logger.info("Generated new default PSK for SSID")
+            default_psk = generate_passphrase(12, simple=True)
+            logger.info("Generated new simple default PSK for SSID")
 
     try:
+        # Track whether we updated or created the group policies
+        policy_action = "created"
+        guest_policy_action = None
+        policy_details = {}
+        guest_policy_id = None
+        
+        # In standalone mode, ensure the group policy has splash bypass enabled
+        if hasattr(ha_client, "get_group_policies") and hasattr(ha_client, "update_group_policy"):
+            # Get existing policies to check if ours exists
+            policies = await ha_client.get_group_policies(settings.default_network_id)
+            
+            # Find the registered users policy by ID or name
+            existing_policy = None
+            if settings.default_group_policy_id:
+                for policy in policies:
+                    policy_id = str(policy.get("groupPolicyId", policy.get("id", "")))
+                    if policy_id == settings.default_group_policy_id:
+                        existing_policy = policy
+                        break
+            
+            # If policy exists, update it to ensure splash bypass is enabled
+            if existing_policy:
+                policy_id = str(existing_policy.get("groupPolicyId", existing_policy.get("id", "")))
+                logger.info(f"Updating existing group policy {policy_id} to enable splash bypass")
+                policy_details = await ha_client.update_group_policy(
+                    settings.default_network_id,
+                    policy_id,
+                    bypass_splash=True,
+                )
+                policy_action = "updated"
+
+            # Handle guest/default group policy if name provided
+            # IMPORTANT: Create/update this BEFORE creating the default iPSK
+            if guest_group_policy_name:
+                logger.info(f"Processing guest group policy '{guest_group_policy_name}'")
+                existing_guest_policy = None
+                if settings.default_guest_group_policy_id:
+                    for policy in policies:
+                        policy_id = str(policy.get("groupPolicyId", policy.get("id", "")))
+                        if policy_id == settings.default_guest_group_policy_id:
+                            existing_guest_policy = policy
+                            logger.info(f"Found existing guest policy with ID: {policy_id}")
+                            break
+                
+                if existing_guest_policy:
+                    # Update existing guest policy (NO splash bypass - they should see splash)
+                    guest_policy_id = str(existing_guest_policy.get("groupPolicyId", existing_guest_policy.get("id", "")))
+                    logger.info(f"Updating existing guest group policy ID: {guest_policy_id}, Name: '{guest_group_policy_name}'")
+                    await ha_client.update_group_policy(
+                        settings.default_network_id,
+                        guest_policy_id,
+                        name=guest_group_policy_name,
+                        bypass_splash=False,  # Guests see splash page
+                    )
+                    guest_policy_action = "updated"
+                    logger.info(f"✓ Guest policy updated. ID: {guest_policy_id}")
+                else:
+                    # Create new guest policy (NO splash bypass)
+                    logger.info(f"Creating NEW guest group policy '{guest_group_policy_name}' (splash bypass: DISABLED)")
+                    guest_policy = await ha_client.create_group_policy(
+                        settings.default_network_id,
+                        guest_group_policy_name,
+                        bypass_splash=False,  # Guests see splash page
+                    )
+                    guest_policy_id = str(guest_policy.get("groupPolicyId", guest_policy.get("id", "")))
+                    guest_policy_action = "created"
+                    logger.info(f"✓ Guest policy created successfully! ID: {guest_policy_id}, Name: '{guest_group_policy_name}'")
+            else:
+                logger.info("No guest group policy specified - default iPSK will use splash page only (no group policy)")
+        
         if hasattr(ha_client, "configure_ssid_for_wpn"):
             result = await ha_client.configure_ssid_for_wpn(
                 network_id=settings.default_network_id,
@@ -946,30 +1405,102 @@ async def configure_ssid_for_wpn(
             updates = {
                 "default_ssid_psk": default_psk,
                 "default_group_policy_name": group_policy_name,
+                "splash_page_url": splash_url,  # Save splash URL for UI display
             }
             if result.get("group_policy_id"):
                 updates["default_group_policy_id"] = result["group_policy_id"]
+            if guest_policy_id:
+                updates["default_guest_group_policy_id"] = guest_policy_id
+                logger.info(f"Saving guest policy ID to database: {guest_policy_id}")
+            if guest_group_policy_name:
+                updates["default_guest_group_policy_name"] = guest_group_policy_name
             if ssid_name:
                 updates["standalone_ssid_name"] = ssid_name
 
-            db_mgr.bulk_update_settings(updates)
+            db_mgr.bulk_update_settings(
+                db=db,
+                settings_dict=updates,
+                updated_by=admin.get("sub"),
+            )
             reload_settings()
+            
+            logger.info(
+                f"Saved WPN settings: group_policy={group_policy_name}, "
+                f"policy_id={result.get('group_policy_id')}, "
+                f"guest_policy={guest_group_policy_name}, guest_policy_id={guest_policy_id}, "
+                f"splash_url={splash_url}"
+            )
 
             logger.info(
                 f"Configured SSID {settings.default_ssid_number} for WPN "
                 f"with splash page by {admin.get('sub')}"
             )
 
+            # Create the default/guest iPSK in Meraki with guest group policy (or NO policy)
+            # MUST happen AFTER guest policy is created and saved
+            default_ipsk_name = "Guest-Default-Access"
+            default_ipsk_created = False
+            try:
+                # Check if default iPSK already exists
+                existing_ipsks = await ha_client.list_ipsks()
+                default_ipsk_exists = any(
+                    ipsk.get("name") == default_ipsk_name 
+                    for ipsk in existing_ipsks
+                )
+                
+                if not default_ipsk_exists:
+                    logger.info(f"Creating default guest iPSK '{default_ipsk_name}' with passphrase: {default_psk}")
+                    if guest_policy_id:
+                        logger.info(f"Assigning guest policy ID: {guest_policy_id} to default iPSK")
+                    else:
+                        logger.info("No guest policy - default iPSK will use splash page only")
+                    
+                    # Create iPSK with guest group policy (if configured) or NO policy (uses splash)
+                    created_ipsk = await ha_client.create_ipsk(
+                        name=default_ipsk_name,
+                        network_id=settings.default_network_id,
+                        ssid_number=settings.default_ssid_number,  # Required parameter!
+                        passphrase=default_psk,
+                        group_policy_id=guest_policy_id,  # Use guest policy if configured, None otherwise
+                    )
+                    default_ipsk_created = True
+                    
+                    if guest_policy_id:
+                        logger.info(
+                            f"✓ Created default guest iPSK '{default_ipsk_name}' successfully! "
+                            f"PSK: {default_psk}, Group Policy ID: {guest_policy_id}"
+                        )
+                    else:
+                        logger.info(
+                            f"✓ Created default guest iPSK '{default_ipsk_name}' successfully! "
+                            f"PSK: {default_psk}, No group policy (uses splash page)"
+                        )
+                else:
+                    logger.info(f"Default guest iPSK '{default_ipsk_name}' already exists, skipping creation")
+            except Exception as e:
+                logger.error(f"❌ Failed to create default iPSK in Meraki: {e}", exc_info=True)
+                # Don't fail the whole configuration if iPSK creation fails
+
+            # Build success message
+            success_msg = f"SSID configured successfully! Group policy '{group_policy_name}' {policy_action} with splash bypass enabled. "
+            if guest_policy_action:
+                success_msg += f"Guest policy '{guest_group_policy_name}' {guest_policy_action}. "
+            success_msg += f"Default PSK {'created' if default_ipsk_created else 'ready'} for guest access."
+
             return {
                 "success": True,
-                "message": (
-                    "SSID configured for Identity PSK with splash page. "
-                    f"Group policy '{group_policy_name}' bypasses splash."
-                ),
+                "message": success_msg,
                 "result": result,
                 "splash_url": splash_url,
+                "ssid_name": result["ssid"]["name"],  # Return the actual SSID name from Meraki
                 "default_psk": default_psk,
+                "default_ipsk_created": default_ipsk_created,
                 "group_policy_name": group_policy_name,
+                "group_policy_action": policy_action,  # "created" or "updated"
+                "guest_group_policy_name": guest_group_policy_name,
+                "guest_group_policy_id": guest_policy_id,  # The actual ID from Meraki
+                "guest_group_policy_action": guest_policy_action,  # "created", "updated", or None
+                "splash_bypass_enabled": True,
             }
         else:
             raise HTTPException(
@@ -1041,11 +1572,13 @@ async def create_group_policy(
     
     try:
         if hasattr(ha_client, "create_group_policy"):
+            # Create group policy with splash bypass enabled
             policy = await ha_client.create_group_policy(
                 settings.default_network_id,
                 name,
+                bypass_splash=True,  # Enable splash bypass for WPN users
             )
-            logger.info(f"Created group policy '{name}' by {admin.get('sub')}")
+            logger.info(f"Created group policy '{name}' with splash bypass by {admin.get('sub')}")
             return {
                 "success": True,
                 "message": f"Group policy '{name}' created successfully",
@@ -1067,45 +1600,55 @@ async def create_group_policy(
 
 
 # =============================================================================
-# NAC Authorization Policies (RADIUS-based WPN)
+# NAC Authorization Policies (FreeRADIUS-based)
 # =============================================================================
 
 @router.get("/nac/policies")
 async def get_nac_policies(
     admin: AdminUser,
-    ha_client: HAClient,
 ) -> dict:
-    """Get all NAC authorization policies.
+    """Get all NAC authorization policies from FreeRADIUS.
     
-    NAC policies can assign iPSK + Group Policy for RADIUS-based WPN.
-    See: https://developer.cisco.com/meraki/api-v1/get-organization-nac-authorization-policies/
+    NAC policies are managed on FreeRADIUS for RADIUS-based WPN.
+    This proxies to the FreeRADIUS policy API.
     """
-    _ = admin
+    import httpx
+    
+    settings = get_settings()
+    radius_api_url = settings.radius_api_url or "http://freeradius:8000"
     
     try:
-        if hasattr(ha_client, "get_nac_policies"):
-            # Get organization ID first
-            orgs = await ha_client.get_organizations()
-            if not orgs:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {"Content-Type": "application/json"}
+            if settings.radius_api_token:
+                headers["Authorization"] = f"Bearer {settings.radius_api_token}"
+            
+            response = await client.get(
+                f"{radius_api_url}/api/policies",
+                headers=headers,
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "policies": data.get("items", []),
+                    "total": data.get("total", 0),
+                }
+            else:
                 return {
                     "success": False,
-                    "error": "No organizations found",
+                    "error": f"FreeRADIUS returned {response.status_code}",
                     "policies": [],
                 }
-            
-            org_id = orgs[0]["id"]
-            policies = await ha_client.get_nac_policies(org_id)
-            return {
-                "success": True,
-                "organization_id": org_id,
-                "policies": policies,
-            }
-        else:
-            return {
-                "success": False,
-                "error": "NAC policies not available in this mode",
-                "policies": [],
-            }
+                
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to get FreeRADIUS policies: {e}")
+        return {
+            "success": False,
+            "error": f"Cannot connect to FreeRADIUS: {str(e)}",
+            "policies": [],
+        }
     except Exception as e:
         logger.error(f"Failed to get NAC policies: {e}")
         return {
@@ -1115,48 +1658,62 @@ async def get_nac_policies(
         }
 
 
+class NACPolicyCreateRequest(BaseModel):
+    """NAC Policy creation request for FreeRADIUS."""
+    name: str
+    group_name: str
+    policy_type: str = "user"
+    priority: int = 100
+    vlan_id: int | None = None
+    attributes: dict | None = None
+
+
 @router.post("/nac/policies")
 async def create_nac_policy(
     admin: AdminUser,
-    ha_client: HAClient,
-    name: str,
-    ipsk_passphrase: str,
-    group_policy_name: str,
+    policy_data: NACPolicyCreateRequest,
 ) -> dict:
-    """Create a NAC authorization policy for RADIUS-based WPN.
+    """Create a NAC authorization policy on FreeRADIUS.
     
-    This creates a policy that assigns an iPSK and Group Policy
-    for RADIUS-based authentication with WPN.
+    This creates a policy for RADIUS-based authentication.
     """
+    import httpx
+    
+    settings = get_settings()
+    radius_api_url = settings.radius_api_url or "http://freeradius:8000"
+    
     try:
-        if hasattr(ha_client, "create_nac_policy"):
-            # Get organization ID
-            orgs = await ha_client.get_organizations()
-            if not orgs:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {"Content-Type": "application/json"}
+            if settings.radius_api_token:
+                headers["Authorization"] = f"Bearer {settings.radius_api_token}"
+            
+            response = await client.post(
+                f"{radius_api_url}/api/policies",
+                json=policy_data.model_dump(exclude_none=True),
+                headers=headers,
+            )
+            
+            if response.status_code in (200, 201):
+                policy = response.json()
+                logger.info(f"Created NAC policy '{policy_data.name}' by {admin.get('sub')}")
+                return {
+                    "success": True,
+                    "message": f"NAC policy '{policy_data.name}' created",
+                    "policy": policy,
+                }
+            else:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No organizations found",
+                    status_code=response.status_code,
+                    detail=f"FreeRADIUS error: {response.text}",
                 )
-            
-            org_id = orgs[0]["id"]
-            policy = await ha_client.create_nac_policy(
-                organization_id=org_id,
-                name=name,
-                ipsk_passphrase=ipsk_passphrase,
-                group_policy_name=group_policy_name,
-            )
-            
-            logger.info(f"Created NAC policy '{name}' by {admin.get('sub')}")
-            return {
-                "success": True,
-                "message": f"NAC policy '{name}' created for RADIUS-based WPN",
-                "policy": policy,
-            }
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="NAC policy creation not available in this mode",
-            )
+                
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to create policy on FreeRADIUS: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Cannot connect to FreeRADIUS: {str(e)}",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -1200,15 +1757,52 @@ async def test_cloudflare_connection(
     """
     from app.core.cloudflare_client import CloudflareClient
 
-    client = CloudflareClient(request.api_token, request.account_id)
+    settings = get_settings()
+    
+    # Use provided token or fall back to saved settings
+    # Empty string or '***' means use saved token
+    token = request.api_token if request.api_token and request.api_token != '***' else settings.cloudflare_api_token
+    account_id = request.account_id or settings.cloudflare_account_id
+    
+    if not token:
+        return {
+            "success": False,
+            "error": "No Cloudflare API token configured",
+        }
+
+    client = CloudflareClient(token, account_id)
     try:
-        result = await client.verify_token()
-        accounts = await client.get_accounts()
+        # Try to verify token (requires User:API Tokens:Read permission)
+        # If this fails, we'll fall back to just fetching accounts
+        token_status = "active"
+        try:
+            result = await client.verify_token()
+            token_status = result.get("status", "active")
+        except Exception as verify_err:
+            logger.debug(f"Token verification not available: {verify_err}")
+            # This is OK - token might not have User:API Tokens:Read permission
+            # We'll verify by fetching accounts instead
+        
+        # If account_id was provided, verify that specific account
+        # Otherwise, fetch a limited list of available accounts
+        if account_id:
+            account = await client.get_account(account_id)
+            accounts = [account]
+            message = f"Connected to Cloudflare account: {account['name']}"
+        else:
+            accounts = await client.get_accounts(limit=5)
+            if not accounts:
+                return {
+                    "success": False,
+                    "error": "No Cloudflare accounts found. Token may not have correct permissions.",
+                }
+            message = f"Connected to Cloudflare API ({len(accounts)} account(s) found)"
+        
         logger.info(f"Cloudflare connection tested by {admin.get('sub')}")
         return {
             "success": True,
-            "message": "Connected to Cloudflare API",
-            "token_status": result.get("status", "active"),
+            "message": message,
+            "token_status": token_status,
             "accounts": [
                 {"id": a.get("id"), "name": a.get("name")}
                 for a in accounts
@@ -1858,6 +2452,237 @@ async def toggle_user_admin(
 
 
 # ============================================================================
+# User Approval Workflow
+# ============================================================================
+
+
+@router.get("/users/pending")
+async def get_pending_users(
+    admin: AdminUser,
+    db: DbSession,
+) -> dict:
+    """Get users pending approval (admin only).
+    
+    Args:
+        admin: Authenticated admin
+        db: Database session
+        
+    Returns:
+        List of users with approval_status="pending"
+    """
+    _ = admin
+    
+    pending_users = db.query(User).filter(
+        User.approval_status == "pending"
+    ).order_by(User.created_at.desc()).all()
+    
+    return {
+        "total": len(pending_users),
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "name": u.name,
+                "unit": u.unit,
+                "area_id": u.area_id,
+                "preferred_auth_method": u.preferred_auth_method,
+                "approval_status": u.approval_status,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in pending_users
+        ],
+    }
+
+
+class ApprovalRequest(BaseModel):
+    """Approval/rejection request."""
+
+    notes: str | None = None
+
+
+@router.post("/users/{user_id}/approve")
+async def approve_user(
+    user_id: int,
+    admin: AdminUser,
+    db: DbSession,
+    ha_client: HAClient,
+    data: ApprovalRequest | None = None,
+) -> dict:
+    """Approve a pending user and create their credentials.
+    
+    Args:
+        user_id: User ID to approve
+        admin: Authenticated admin
+        db: Database session
+        ha_client: Home Assistant client for IPSK creation
+        data: Optional approval notes
+        
+    Returns:
+        Success message with user info
+    """
+    from app.core.security import encrypt_passphrase, generate_passphrase
+    
+    user = db.get(User, user_id)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    if user.approval_status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User is not pending approval. Current status: {user.approval_status}",
+        )
+    
+    settings = get_settings()
+    admin_email = admin.get("sub", "admin")
+    
+    # Create credentials based on preferred auth method
+    auth_method = user.preferred_auth_method or "ipsk"
+    ipsk_result = None
+    passphrase = None
+    # Note: certificate_id not used - certificates require user password input
+    
+    try:
+        # Create IPSK if requested
+        if auth_method in ("ipsk", "both"):
+            # Generate IPSK name
+            sanitized_name = "".join(c for c in user.name.split()[0] if c.isalnum())[:20]
+            if user.unit:
+                ipsk_name = f"Unit-{user.unit}-{sanitized_name}"
+            elif user.area_id:
+                ipsk_name = f"Area-{user.area_id}-{sanitized_name}"
+            else:
+                ipsk_name = f"User-{sanitized_name}"
+            
+            # Generate passphrase
+            passphrase = generate_passphrase(settings.passphrase_length)
+            
+            # Create IPSK via Home Assistant
+            ipsk_result = await ha_client.create_ipsk(
+                name=ipsk_name,
+                network_id=settings.default_network_id,
+                ssid_number=settings.default_ssid_number,
+                passphrase=passphrase,
+                duration_hours=settings.default_ipsk_duration_hours or None,
+                group_policy_id=settings.default_group_policy_id or None,
+                associated_user=user.name,
+                associated_unit=user.unit,
+                associated_area_id=user.area_id,
+            )
+            
+            # Update user with IPSK info
+            user.ipsk_id = ipsk_result.get("id")
+            user.ipsk_name = ipsk_name
+            user.ipsk_passphrase_encrypted = encrypt_passphrase(passphrase)
+            user.ssid_name = ipsk_result.get("ssid_name", settings.standalone_ssid_name)
+            
+            logger.info(f"Created IPSK for approved user {user.email}: {ipsk_name}")
+        
+        # Note: Certificate creation on approval would require the user's password
+        # which we don't have. They'll need to request a certificate separately.
+        
+        # Update approval status
+        user.approval_status = "approved"
+        user.approved_at = datetime.now(timezone.utc)
+        user.approved_by = admin_email
+        if data and data.notes:
+            user.approval_notes = data.notes
+        
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"Admin {admin_email} approved user {user.email}")
+        
+        return {
+            "success": True,
+            "message": f"User {user.email} has been approved",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "approval_status": user.approval_status,
+                "approved_at": user.approved_at.isoformat() if user.approved_at else None,
+                "approved_by": user.approved_by,
+                "ipsk_name": user.ipsk_name,
+                "ssid_name": user.ssid_name,
+            },
+            "credentials": {
+                "passphrase": passphrase,
+                "ssid_name": user.ssid_name,
+                "ipsk_name": user.ipsk_name,
+            } if passphrase else None,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to approve user {user.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create credentials: {str(e)}",
+        ) from e
+
+
+@router.post("/users/{user_id}/reject")
+async def reject_user(
+    user_id: int,
+    admin: AdminUser,
+    db: DbSession,
+    data: ApprovalRequest | None = None,
+) -> dict:
+    """Reject a pending user.
+    
+    Args:
+        user_id: User ID to reject
+        admin: Authenticated admin
+        db: Database session
+        data: Optional rejection notes
+        
+    Returns:
+        Success message
+    """
+    user = db.get(User, user_id)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    if user.approval_status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User is not pending approval. Current status: {user.approval_status}",
+        )
+    
+    admin_email = admin.get("sub", "admin")
+    
+    # Update rejection status
+    user.approval_status = "rejected"
+    user.approved_at = datetime.now(timezone.utc)  # Using same field for rejection timestamp
+    user.approved_by = admin_email
+    if data and data.notes:
+        user.approval_notes = data.notes
+    
+    db.commit()
+    
+    logger.info(f"Admin {admin_email} rejected user {user.email}: {data.notes if data else 'No notes'}")
+    
+    return {
+        "success": True,
+        "message": f"User {user.email} has been rejected",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "approval_status": user.approval_status,
+            "approval_notes": user.approval_notes,
+        },
+    }
+
+
+# ============================================================================
 # Splash Access Logs
 # ============================================================================
 
@@ -2009,3 +2834,202 @@ async def get_splash_stats(
             "conversion_rate": round(registered_count / total * 100, 1) if total > 0 else 0,
         },
     }
+
+
+# ============================================================================
+# User Device Management
+# ============================================================================
+
+@router.get("/users/{user_id}/devices")
+async def get_user_devices(
+    user_id: int,
+    admin: AdminUser,
+    db: DbSession,
+) -> dict:
+    """Get devices registered to a specific user (admin only).
+
+    Args:
+        user_id: User ID
+        admin: Authenticated admin
+        db: Database session
+
+    Returns:
+        List of user's devices
+    """
+    _ = admin
+    from sqlalchemy import select
+    from app.db.models import DeviceRegistration
+
+    # Verify user exists
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Get devices
+    devices = db.execute(
+        select(DeviceRegistration)
+        .where(DeviceRegistration.user_id == user_id)
+        .where(DeviceRegistration.is_active.is_(True))
+        .order_by(DeviceRegistration.registered_at.desc())
+    ).scalars().all()
+
+    return {
+        "success": True,
+        "total": len(devices),
+        "devices": [
+            {
+                "id": d.id,
+                "mac_address": d.mac_address,
+                "device_type": d.device_type,
+                "device_os": d.device_os,
+                "device_model": d.device_model or "",
+                "device_name": d.device_name,
+                "registered_at": d.registered_at.isoformat() if d.registered_at else None,
+                "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else None,
+                "is_active": d.is_active,
+            }
+            for d in devices
+        ],
+    }
+
+
+@router.put("/users/{user_id}/ipsk")
+async def update_user_ipsk(
+    user_id: int,
+    new_passphrase: str,
+    admin: AdminUser,
+    db: DbSession,
+    ha_client: HAClient,
+) -> dict:
+    """Update a user's IPSK passphrase (admin only).
+
+    Args:
+        user_id: User ID
+        new_passphrase: New passphrase to set
+        admin: Authenticated admin
+        db: Database session
+        ha_client: Home Assistant client
+
+    Returns:
+        Success message
+    """
+    # Verify user exists and has an IPSK
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if not user.ipsk_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User does not have an IPSK assigned",
+        )
+
+    try:
+        # Update IPSK passphrase via Meraki
+        await ha_client.update_ipsk(
+            ipsk_id=user.ipsk_id,
+            passphrase=new_passphrase,
+        )
+
+        logger.info(f"Admin {admin.get('sub')} updated IPSK for user: {user.email}")
+
+        return {
+            "success": True,
+            "message": f"IPSK passphrase updated for {user.email}",
+        }
+    except Exception as e:
+        logger.error(f"Failed to update IPSK: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update IPSK: {str(e)}",
+        ) from e
+
+
+@router.post("/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    new_password: str,
+    admin: AdminUser,
+    db: DbSession,
+) -> dict:
+    """Reset a user's password (admin only).
+
+    Args:
+        user_id: User ID
+        new_password: New password to set
+        admin: Authenticated admin
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    from app.core.security import hash_password
+
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Hash and update password
+    user.password_hash = hash_password(new_password)
+    db.commit()
+
+    logger.info(f"Admin {admin.get('sub')} reset password for user: {user.email}")
+
+    return {
+        "success": True,
+        "message": f"Password reset successfully for {user.email}",
+    }
+
+
+# ============================================================================
+# Meraki Network Devices
+# ============================================================================
+
+@router.get("/meraki/networks/{network_id}/devices")
+async def get_network_devices(
+    network_id: str,
+    admin: AdminUser,
+    ha_client: HAClient,
+) -> dict:
+    """Get all devices in a Meraki network (APs, switches, MXs, etc).
+
+    Args:
+        network_id: Meraki network ID
+        admin: Authenticated admin
+        ha_client: Home Assistant client
+
+    Returns:
+        List of network devices
+    """
+    _ = admin
+    
+    try:
+        # Get devices from Meraki
+        if hasattr(ha_client, "get_network_devices"):
+            devices = await ha_client.get_network_devices(network_id)
+            
+            return {
+                "success": True,
+                "total": len(devices),
+                "devices": devices,
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Network device listing not available in this mode",
+            )
+    except Exception as e:
+        logger.error(f"Failed to get network devices: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve network devices: {str(e)}",
+        ) from e

@@ -77,6 +77,8 @@ async def list_ipsks(
                 ssid_name=ipsk.get("ssid_name"),
                 status=ipsk.get("status", "unknown"),
                 group_policy_id=ipsk.get("group_policy_id"),
+                group_policy_name=ipsk.get("group_policy_name"),
+                psk_group_id=ipsk.get("psk_group_id"),
                 expires_at=ipsk.get("expires_at"),
                 created_at=ipsk.get("created_at"),
                 associated_device_id=ipsk.get("associated_device_id"),

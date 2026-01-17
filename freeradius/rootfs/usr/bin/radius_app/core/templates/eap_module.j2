@@ -1,0 +1,107 @@
+# EAP configuration - Generated from database
+# Do not edit manually - changes will be overwritten
+#
+# Per FreeRADIUS documentation:
+# - At least one EAP-Type sub-stanza must be defined
+# - EAP cannot authorize, only authenticate
+# - default_eap_type determines which EAP type to use
+#
+eap {
+    default_eap_type = {{ eap_config.default_eap_type }}
+    timer_expire = {{ eap_config.timer_expire }}
+    ignore_unknown_eap_types = {{ 'yes' if eap_config.ignore_unknown_eap_types else 'no' }}
+    cisco_accounting_username_bug = {{ 'yes' if eap_config.cisco_accounting_username_bug else 'no' }}
+    max_sessions = {{ eap_config.max_sessions }}
+
+    # TLS configuration (shared)
+    tls-config tls-common {
+        private_key_password = ${ENV::RADIUS_CERT_PASSWORD}
+        private_key_file = {{ eap_config.private_key_file }}
+        certificate_file = {{ eap_config.certificate_file }}
+        ca_file = {{ eap_config.ca_file }}
+        dh_file = {{ eap_config.dh_file }}
+        random_file = /dev/urandom
+
+        # TLS version and cipher requirements
+        # Use tls_min_version/tls_max_version instead of deprecated disable_tlsv1
+        tls_min_version = "{{ eap_config.tls_min_version }}"
+        tls_max_version = "{{ eap_config.tls_max_version }}"
+        cipher_list = "{{ eap_config.cipher_list }}"
+        cipher_server_preference = {{ 'yes' if eap_config.cipher_server_preference else 'no' }}
+
+        # Certificate verification
+        check_cert_cn = {{ '%{User-Name}' if eap_config.check_cert_cn else 'no' }}
+        check_crl = {{ 'yes' if eap_config.check_crl else 'no' }}
+
+        # OCSP configuration
+        ocsp {
+            enable = no
+        }
+
+        # Cache settings
+        cache {
+            enable = {{ 'yes' if eap_config.cache_enable else 'no' }}
+            lifetime = {{ eap_config.cache_lifetime }}
+            max_entries = {{ eap_config.cache_max_entries }}
+        }
+    }
+
+{% if 'md5' in enabled_methods %}
+    # EAP-MD5 - MD5 challenge/response authentication
+    # Does not require additional packages
+    md5 {
+    }
+
+{% endif %}
+{% if 'tls' in enabled_methods %}
+    # EAP-TLS - Certificate-based authentication
+    # Requires OpenSSL (any version from 0.9.7)
+    tls {
+        tls = tls-common
+        include_length = yes
+        virtual_server = inner-tunnel
+    }
+
+{% endif %}
+{% if 'ttls' in enabled_methods %}
+    # EAP-TTLS - Tunneled TLS with inner authentication
+    # Requires OpenSSL (any version from 0.9.7)
+    ttls {
+        tls = tls-common
+        default_eap_type = {{ eap_config.ttls_default_eap_type }}
+        copy_request_to_tunnel = {{ 'yes' if eap_config.ttls_copy_request_to_tunnel else 'no' }}
+        use_tunneled_reply = {{ 'yes' if eap_config.ttls_use_tunneled_reply else 'no' }}
+{% if eap_config.ttls_virtual_server %}
+        virtual_server = {{ eap_config.ttls_virtual_server }}
+{% else %}
+        virtual_server = inner-tunnel
+{% endif %}
+    }
+
+{% endif %}
+{% if 'peap' in enabled_methods %}
+    # PEAP - Protected EAP (Windows PEAP)
+    # Requires OpenSSL (any version from 0.9.7)
+    peap {
+        tls = tls-common
+        default_eap_type = {{ eap_config.peap_default_eap_type }}
+        copy_request_to_tunnel = {{ 'yes' if eap_config.peap_copy_request_to_tunnel else 'no' }}
+        use_tunneled_reply = {{ 'yes' if eap_config.peap_use_tunneled_reply else 'no' }}
+{% if eap_config.peap_virtual_server %}
+        virtual_server = {{ eap_config.peap_virtual_server }}
+{% else %}
+        virtual_server = inner-tunnel
+{% endif %}
+    }
+
+{% endif %}
+{% if eap_type_count == 0 %}
+    # Fallback: Adding default EAP type '{{ eap_config.default_eap_type }}'
+    {{ eap_config.default_eap_type }} {
+{% if eap_config.default_eap_type in ['tls', 'ttls', 'peap'] %}
+        tls = tls-common
+{% endif %}
+    }
+
+{% endif %}
+}
