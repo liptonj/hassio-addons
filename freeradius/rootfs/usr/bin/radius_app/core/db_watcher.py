@@ -38,7 +38,24 @@ class DatabaseWatcher:
         self.last_radsec_update: datetime | None = None
         self.last_mac_bypass_update: datetime | None = None
         self.running = False
+        self._initialized = False  # Track if we've done initial sync
         logger.info(f"Database watcher initialized (poll interval: {poll_interval}s)")
+    
+    def _initialize_timestamps(self, db: Session) -> None:
+        """Initialize timestamps from database without regenerating.
+        
+        Called on first poll to establish baseline state.
+        """
+        self.last_clients_update = self._get_last_update_timestamp(db, RadiusClient)
+        self.last_assignments_update = self._get_last_update_timestamp(db, UdnAssignment)
+        self.last_policies_update = self._get_last_update_timestamp(db, RadiusPolicy)
+        self.last_radsec_update = self._get_last_update_timestamp(db, RadiusRadSecConfig)
+        
+        from radius_app.db.models import RadiusMacBypassConfig
+        self.last_mac_bypass_update = self._get_last_update_timestamp(db, RadiusMacBypassConfig)
+        
+        self._initialized = True
+        logger.info("📊 Database watcher initialized timestamps (no regeneration needed)")
     
     def _get_last_update_timestamp(self, db: Session, table_class) -> datetime | None:
         """Get the most recent update timestamp from a table.
@@ -179,46 +196,74 @@ class DatabaseWatcher:
         db = next(db_generator)
         
         try:
+            # On first run, check if config files already exist
+            # If they do, just initialize timestamps without regenerating
+            settings = get_settings()
+            config_path = Path(settings.radius_config_path)
+            clients_path = Path(settings.radius_clients_path)
+            
+            configs_exist = (
+                (clients_path / "clients.conf").exists() and
+                (config_path / "users").exists() and
+                (config_path / "sites-enabled" / "default").exists()
+            )
+            
+            if not self._initialized and configs_exist and not force:
+                # Config files exist - just initialize timestamps, don't regenerate
+                self._initialize_timestamps(db)
+                return result
+            
             # Check RADIUS clients
             current_clients_update = self._get_last_update_timestamp(db, RadiusClient)
             
             if force or self.last_clients_update is None or (
-                current_clients_update and current_clients_update > self.last_clients_update
+                current_clients_update and self.last_clients_update and 
+                current_clients_update > self.last_clients_update
             ):
                 logger.info("🔄 Regenerating clients.conf (database changed)")
                 self.config_generator.generate_clients_conf(db)
                 self.last_clients_update = current_clients_update
                 result["clients_regenerated"] = True
+            elif self.last_clients_update is None:
+                # First run - just set timestamp
+                self.last_clients_update = current_clients_update
             
             # Check UDN assignments
             current_assignments_update = self._get_last_update_timestamp(db, UdnAssignment)
             
-            if force or self.last_assignments_update is None or (
-                current_assignments_update and current_assignments_update > self.last_assignments_update
+            if force or (
+                current_assignments_update and self.last_assignments_update and 
+                current_assignments_update > self.last_assignments_update
             ):
                 logger.info("🔄 Regenerating users file (database changed)")
                 self.config_generator.generate_users_file(db)
                 self.last_assignments_update = current_assignments_update
                 result["users_regenerated"] = True
+            elif self.last_assignments_update is None:
+                self.last_assignments_update = current_assignments_update
             
             # Check policies
             current_policies_update = self._get_last_update_timestamp(db, RadiusPolicy)
             
-            if force or self.last_policies_update is None or (
-                current_policies_update and current_policies_update > self.last_policies_update
+            if force or (
+                current_policies_update and self.last_policies_update and 
+                current_policies_update > self.last_policies_update
             ):
                 logger.info("🔄 Regenerating policy file (database changed)")
                 self.policy_generator.generate_policy_file(db)
                 self.policy_generator.generate_policy_include()
                 self.last_policies_update = current_policies_update
                 result["policies_regenerated"] = True
+            elif self.last_policies_update is None:
+                self.last_policies_update = current_policies_update
             
             # Check MAC bypass configs
             from radius_app.db.models import RadiusMacBypassConfig
             current_mac_bypass_update = self._get_last_update_timestamp(db, RadiusMacBypassConfig)
             
-            if force or self.last_mac_bypass_update is None or (
-                current_mac_bypass_update and current_mac_bypass_update > self.last_mac_bypass_update
+            if force or (
+                current_mac_bypass_update and self.last_mac_bypass_update and 
+                current_mac_bypass_update > self.last_mac_bypass_update
             ):
                 logger.info("🔄 Regenerating MAC bypass file (database changed)")
                 from radius_app.core.psk_config_generator import PskConfigGenerator
@@ -226,27 +271,35 @@ class DatabaseWatcher:
                 psk_generator.generate_mac_bypass_file(db)
                 self.last_mac_bypass_update = current_mac_bypass_update
                 result["mac_bypass_regenerated"] = True
+            elif self.last_mac_bypass_update is None:
+                self.last_mac_bypass_update = current_mac_bypass_update
             
-            # Generate PSK users file (always regenerate on sync)
-            try:
-                from radius_app.core.psk_config_generator import PskConfigGenerator
-                psk_generator = PskConfigGenerator()
-                psk_generator.generate_psk_users_file(db)
-                result["psk_users_regenerated"] = True
-            except Exception as e:
-                logger.warning(f"Failed to generate PSK users file: {e}")
+            # Generate PSK users file only if force or assignments changed
+            if force or result.get("users_regenerated"):
+                try:
+                    from radius_app.core.psk_config_generator import PskConfigGenerator
+                    psk_generator = PskConfigGenerator()
+                    psk_generator.generate_psk_users_file(db)
+                    result["psk_users_regenerated"] = True
+                except Exception as e:
+                    logger.warning(f"Failed to generate PSK users file: {e}")
             
             # Check RadSec configurations
             current_radsec_update = self._get_last_update_timestamp(db, RadiusRadSecConfig)
             
-            if force or self.last_radsec_update is None or (
-                current_radsec_update and current_radsec_update > self.last_radsec_update
+            if force or (
+                current_radsec_update and self.last_radsec_update and 
+                current_radsec_update > self.last_radsec_update
             ):
                 logger.info("🔄 Regenerating RadSec configuration (database changed)")
                 self.radsec_generator.generate_radsec_conf(db)
                 self.radsec_generator.generate_radsec_include()
                 self.last_radsec_update = current_radsec_update
                 result["radsec_regenerated"] = True
+            elif self.last_radsec_update is None:
+                self.last_radsec_update = current_radsec_update
+            
+            self._initialized = True
             
             # Generate/enable all virtual servers (always regenerate on force/initial)
             # This ensures we overwrite any template files and sync all servers
@@ -332,9 +385,23 @@ class DatabaseWatcher:
         logger.info("🔍 Starting database watch loop...")
         self.running = True
         
-        # Initial generation
-        logger.info("Performing initial configuration generation...")
-        await self.check_and_regenerate(force=True)
+        # Initial check - only force if config files don't exist
+        settings = get_settings()
+        config_path = Path(settings.radius_config_path)
+        clients_path = Path(settings.radius_clients_path)
+        
+        configs_exist = (
+            (clients_path / "clients.conf").exists() and
+            (config_path / "users").exists() and
+            (config_path / "sites-enabled" / "default").exists()
+        )
+        
+        if configs_exist:
+            logger.info("📊 Config files exist - initializing timestamps only")
+            await self.check_and_regenerate(force=False)
+        else:
+            logger.info("⚠️ Config files missing - performing initial generation")
+            await self.check_and_regenerate(force=True)
         
         # Watch loop
         while self.running:

@@ -79,9 +79,10 @@ COPY rootfs/etc/raddb/dictionary.meraki /etc/raddb/dictionary.meraki
 # These contain our security settings and Cisco-AVPair handling
 COPY rootfs/etc/raddb/sites-available/ /etc/raddb/sites-available.fallback/
 
-# Copy run script
+# Copy run scripts
 COPY rootfs/usr/bin/run.sh /usr/bin/run.sh
-RUN chmod +x /usr/bin/run.sh
+COPY rootfs/usr/bin/run-standalone.sh /usr/bin/run-standalone.sh
+RUN chmod +x /usr/bin/run.sh /usr/bin/run-standalone.sh
 
 # Create necessary directories
 RUN mkdir -p \

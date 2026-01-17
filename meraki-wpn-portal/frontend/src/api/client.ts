@@ -78,6 +78,27 @@ api.interceptors.response.use(
 )
 
 // ============================================================================
+// Auth Token Helpers
+// ============================================================================
+
+/**
+ * Get the current auth token (admin or user token)
+ * Used by other API clients (like radiusClient) to authenticate requests
+ */
+export function getAuthToken(): string | null {
+  const adminToken = localStorage.getItem('admin_token')
+  const userToken = localStorage.getItem('user_token')
+  
+  // Prefer admin token if available
+  if (adminToken) {
+    return adminToken
+  }
+  if (userToken) {
+    return userToken
+  }
+  return null
+}
+
 // Public API
 // ============================================================================
 

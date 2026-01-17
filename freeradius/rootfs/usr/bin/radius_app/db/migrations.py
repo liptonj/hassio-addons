@@ -230,6 +230,32 @@ def run_migrations():
                 logger.info("  ✅ Created table radius_unlang_policies")
                 changes_made += 1
             
+            # Migration 4b: Add missing columns to radius_unlang_policies (if table exists)
+            if table_exists(session, "radius_unlang_policies", is_mysql):
+                unlang_columns = [
+                    ("policy_type", "VARCHAR(50) DEFAULT 'authorization' NOT NULL"),
+                    ("section", "VARCHAR(50) DEFAULT 'authorize' NOT NULL"),
+                    ("condition_attribute", "VARCHAR(100) DEFAULT NULL"),
+                    ("condition_operator", "VARCHAR(20) DEFAULT 'exists' NOT NULL"),
+                    ("sql_condition", "TEXT DEFAULT NULL"),
+                    ("additional_conditions", "JSON DEFAULT NULL" if is_mysql else "TEXT DEFAULT NULL"),
+                    ("condition_logic", "VARCHAR(10) DEFAULT 'AND' NOT NULL"),
+                    ("action_type", "VARCHAR(50) DEFAULT 'accept' NOT NULL"),
+                    ("module_name", "VARCHAR(100) DEFAULT NULL"),
+                    ("custom_unlang", "TEXT DEFAULT NULL"),
+                    ("reply_message", "VARCHAR(255) DEFAULT NULL"),
+                    ("reject_reason", "VARCHAR(255) DEFAULT NULL"),
+                    ("else_action_type", "VARCHAR(50) DEFAULT NULL"),
+                    ("else_profile_id", "INTEGER DEFAULT NULL"),
+                    ("else_reply_message", "VARCHAR(255) DEFAULT NULL"),
+                    ("virtual_server", "VARCHAR(100) DEFAULT NULL"),
+                    ("usage_count", "INTEGER DEFAULT 0 NOT NULL"),
+                    ("last_triggered", "TIMESTAMP NULL DEFAULT NULL"),
+                ]
+                for col_name, col_def in unlang_columns:
+                    if add_column_if_not_exists(session, "radius_unlang_policies", col_name, col_def, is_mysql):
+                        changes_made += 1
+            
             # Migration 5: Create radius_psk_configs table
             if not table_exists(session, "radius_psk_configs", is_mysql):
                 if is_mysql:
@@ -265,6 +291,16 @@ def run_migrations():
                     """))
                 logger.info("  ✅ Created table radius_psk_configs")
                 changes_made += 1
+            
+            # Migration 5b: Add missing columns to radius_psk_configs
+            if table_exists(session, "radius_psk_configs", is_mysql):
+                psk_columns = [
+                    ("default_vlan_id", "INTEGER DEFAULT NULL"),
+                    ("created_by", "VARCHAR(255) DEFAULT NULL"),
+                ]
+                for col_name, col_def in psk_columns:
+                    if add_column_if_not_exists(session, "radius_psk_configs", col_name, col_def, is_mysql):
+                        changes_made += 1
             
             # Migration 6: Create radius_eap_configs table
             if not table_exists(session, "radius_eap_configs", is_mysql):

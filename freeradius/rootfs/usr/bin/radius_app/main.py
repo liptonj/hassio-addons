@@ -62,16 +62,21 @@ async def lifespan(app: FastAPI):
     logger.info(f"Config path: {settings.radius_config_path}")
     logger.info(f"Clients path: {settings.radius_clients_path}")
     
-    # Initialize database connection
+    # Initialize database connection (schema only, no default data yet)
     logger.info("Initializing database connection...")
     try:
-        init_db()
-        logger.info("✅ Database connection initialized")
+        from radius_app.db.database import get_engine
+        from radius_app.db.init_schema import create_schema
+        
+        engine = get_engine()
+        create_schema(engine)
+        logger.info("✅ Database schema initialized")
     except Exception as e:
-        logger.error(f"❌ Failed to initialize database: {e}")
+        logger.error(f"❌ Failed to initialize database schema: {e}")
         logger.error("Continuing anyway - will retry on first request")
     
-    # Run database migrations
+    # Run database migrations BEFORE initializing default data
+    # This ensures all columns exist before we try to insert data
     logger.info("Running database migrations...")
     try:
         from radius_app.db.migrations import run_migrations
@@ -80,6 +85,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️  Migration warning: {e}")
         logger.info("Continuing - migrations may already be applied")
+    
+    # Now initialize default data (after migrations have added missing columns)
+    logger.info("Initializing default data...")
+    try:
+        from radius_app.db.init_schema import init_default_data, apply_eap_migrations
+        engine = get_engine()
+        apply_eap_migrations(engine)
+        init_default_data(engine)
+        logger.info("✅ Default data initialized")
+    except Exception as e:
+        logger.warning(f"⚠️  Default data warning: {e}")
+        logger.info("Continuing - default data may already exist")
     
     # Start database watcher
     logger.info("Starting database watcher...")

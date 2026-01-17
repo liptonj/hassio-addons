@@ -1,80 +1,24 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { getAllSettings } from './client'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
+import { getAuthToken } from './client'
 
-const DEFAULT_RADIUS_API_URL = 'http://localhost:8000'
-const SETTINGS_CACHE_TTL_MS = 30000
-
-interface RadiusSettings {
-  apiUrl: string
-  apiToken: string | null
-}
-
-// Extended config with custom properties
-interface RadiusRequestConfig extends InternalAxiosRequestConfig {
-  skipAuth?: boolean
-}
-
-let cachedSettings: RadiusSettings | null = null
-let lastSettingsFetchMs = 0
-
-async function loadRadiusSettings(): Promise<RadiusSettings> {
-  const now = Date.now()
-  if (cachedSettings && now - lastSettingsFetchMs < SETTINGS_CACHE_TTL_MS) {
-    return cachedSettings
-  }
-
-  try {
-    const settings = await getAllSettings()
-    const apiUrlValue = [
-      settings.radius_api_url,
-      settings.radius_api_endpoint,
-    ].find((value) => typeof value === 'string' && value.trim().length > 0) as string | undefined
-
-    cachedSettings = {
-      apiUrl: apiUrlValue?.trim() || DEFAULT_RADIUS_API_URL,
-      apiToken:
-        typeof settings.radius_api_token === 'string' && settings.radius_api_token.trim().length > 0
-          ? settings.radius_api_token.trim()
-          : null,
-    }
-  } catch (error) {
-    cachedSettings = {
-      apiUrl: DEFAULT_RADIUS_API_URL,
-      apiToken: null,
-    }
-  }
-
-  lastSettingsFetchMs = now
-  return cachedSettings
-}
-
-function createMissingTokenError(): Error {
-  return new Error(
-    'RADIUS API token is missing. Set radius_api_token in the portal settings.'
-  )
-}
+// Use the portal backend proxy for RADIUS API calls
+// The portal backend proxies requests to the internal FreeRADIUS service
+const RADIUS_PROXY_URL = '/api/radius'
 
 const radiusApi = axios.create({
-  baseURL: DEFAULT_RADIUS_API_URL,
-  timeout: 10000,
+  baseURL: RADIUS_PROXY_URL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
+// Add auth token from portal session (not the RADIUS API token)
 radiusApi.interceptors.request.use(async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
-  const requestConfig = config as RadiusRequestConfig
-  const settings = await loadRadiusSettings()
-
-  config.baseURL = settings.apiUrl
-
-  if (!requestConfig.skipAuth) {
-    if (!settings.apiToken) {
-      throw createMissingTokenError()
-    }
-    config.headers.set('Authorization', `Bearer ${settings.apiToken}`)
+  const token = getAuthToken()
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`)
   }
-
   return config
 })
 

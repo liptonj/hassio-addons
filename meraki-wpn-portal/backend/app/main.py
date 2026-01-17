@@ -21,6 +21,7 @@ from app.api import (
     ipsk_admin,
     qr_codes,
     radius,
+    radius_proxy,
     registration,
     user_account,
     user_certificates,
@@ -197,6 +198,7 @@ app.include_router(devices.router, prefix="/api", tags=["Device Management"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(auth_config.router, prefix="/api/admin", tags=["Auth Config"])
 app.include_router(radius.router, prefix="/api/admin/radius", tags=["RADIUS"])
+app.include_router(radius_proxy.router, prefix="/api/radius", tags=["RADIUS Proxy"])
 app.include_router(email.router, prefix="/api", tags=["Email"])
 
 
