@@ -1,6 +1,6 @@
 name: "FreeRADIUS Server"
 description: "FreeRADIUS server with RadSec support for Meraki WPN Portal"
-version: "2.0.1"
+version: "2.0.2"
 slug: "freeradius-server"
 # Pre-built image from GitHub Container Registry (built by CI/CD)
 # Remove this line to build locally from Dockerfile
@@ -99,36 +99,36 @@ options:
   cert_password: ""
   
 schema:
-  server_name: str
-  max_requests: "int(1024,65536)"
-  max_request_time: "int(10,120)"
-  cleanup_delay: "int(1,30)"
-  max_servers: "int(1,256)"
-  min_spare_servers: "int(1,32)"
-  max_spare_servers: "int(1,64)"
-  radsec_enabled: bool
-  radsec_port: "int(1024,65535)"
-  coa_enabled: bool?
+  server_name: "str?"
+  max_requests: "int(1024,65536)?"
+  max_request_time: "int(10,120)?"
+  cleanup_delay: "int(1,30)?"
+  max_servers: "int(1,256)?"
+  min_spare_servers: "int(1,32)?"
+  max_spare_servers: "int(1,64)?"
+  radsec_enabled: "bool?"
+  radsec_port: "int(1024,65535)?"
+  coa_enabled: "bool?"
   coa_port: "int(1024,65535)?"
   cert_source: "list(selfsigned|letsencrypt)?"
-  log_level: "list(debug|info|warn|error)"
-  log_auth: bool
-  log_auth_badpass: bool
-  log_auth_goodpass: bool
-  db_type: "list(sqlite|mysql|postgresql)"
+  log_level: "list(debug|info|warn|error)?"
+  log_auth: "bool?"
+  log_auth_badpass: "bool?"
+  log_auth_goodpass: "bool?"
+  db_type: "list(sqlite|mysql|postgresql)?"
   db_host: "str?"
   db_port: "int(1,65535)?"
-  db_name: str
+  db_name: "str?"
   db_user: "str?"
   db_password: "password?"
   db_pool_size: "int(1,20)?"
   db_max_overflow: "int(0,50)?"
   db_pool_recycle: "int(300,7200)?"
-  api_enabled: bool
-  api_port: "int(1024,65535)"
+  api_enabled: "bool?"
+  api_port: "int(1024,65535)?"
   api_host: "str?"
   api_auth_token: "password?"
-  letsencrypt_standalone: bool?
+  letsencrypt_standalone: "bool?"
   letsencrypt_domain: "str?"
   letsencrypt_email: "email?"
   letsencrypt_http_port: "int(1,65535)?"

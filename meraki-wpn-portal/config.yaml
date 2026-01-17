@@ -1,6 +1,6 @@
 name: "Meraki WPN Portal"
 description: "Self-service WiFi registration portal for Cisco Meraki networks with IPSK management"
-version: "1.0.1"
+version: "1.0.2"
 slug: "meraki-wpn-portal"
 # Pre-built image from GitHub Container Registry (built by CI/CD)
 # Remove this line to build locally from Dockerfile
@@ -103,30 +103,30 @@ options:
 
 schema:
   run_mode: "list(standalone|homeassistant)?"
-  ha_url: str
-  ha_token: password
-  property_name: str
+  ha_url: "str?"
+  ha_token: "password?"
+  property_name: "str?"
   logo_url: "url?"
   primary_color: "str?"
-  default_network_id: str
-  default_ssid_number: "int(0,14)"
+  default_network_id: "str?"
+  default_ssid_number: "int(0,14)?"
   default_group_policy_id: "str?"
-  auth_self_registration: bool
-  auth_invite_codes: bool
-  auth_email_verification: bool
-  auth_sms_verification: bool
-  require_unit_number: bool
-  unit_source: "list(ha_areas|manual_list|free_text)"
+  auth_self_registration: "bool?"
+  auth_invite_codes: "bool?"
+  auth_email_verification: "bool?"
+  auth_sms_verification: "bool?"
+  require_unit_number: "bool?"
+  unit_source: "list(ha_areas|manual_list|free_text)?"
   manual_units:
     - str
-  default_ipsk_duration_hours: "int(0,8760)"
-  passphrase_length: "int(8,32)"
+  default_ipsk_duration_hours: "int(0,8760)?"
+  passphrase_length: "int(8,32)?"
   admin_notification_email: "email?"
   admin_username: "str?"
   admin_password: "password?"
-  enable_oauth: bool
+  enable_oauth: "bool?"
   oauth_provider: "list(none|duo|entra)?"
-  oauth_admin_only: bool
+  oauth_admin_only: "bool?"
   duo_client_id: "str?"
   duo_client_secret: "password?"
   duo_api_hostname: "str?"
@@ -134,12 +134,12 @@ schema:
   entra_client_secret: "password?"
   entra_tenant_id: "str?"
   oauth_callback_url: "url?"
-  db_type: "list(sqlite|mysql|postgresql)"
+  db_type: "list(sqlite|mysql|postgresql)?"
   db_host: "str?"
   db_port: "int(1,65535)?"
-  db_name: str
+  db_name: "str?"
   db_user: "str?"
   db_password: "password?"
-  freeradius_enabled: bool
+  freeradius_enabled: "bool?"
   freeradius_api_url: "url?"
   freeradius_api_token: "password?"
