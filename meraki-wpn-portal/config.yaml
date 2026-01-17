@@ -1,6 +1,6 @@
 name: "Meraki WPN Portal"
 description: "Self-service WiFi registration portal for Cisco Meraki networks with IPSK management"
-version: "1.0.0"
+version: "1.0.1"
 slug: "meraki-wpn-portal"
 # Pre-built image from GitHub Container Registry (built by CI/CD)
 # Remove this line to build locally from Dockerfile

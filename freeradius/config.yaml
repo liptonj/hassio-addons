@@ -1,6 +1,6 @@
 name: "FreeRADIUS Server"
 description: "FreeRADIUS server with RadSec support for Meraki WPN Portal"
-version: "2.0.0"
+version: "2.0.1"
 slug: "freeradius-server"
 # Pre-built image from GitHub Container Registry (built by CI/CD)
 # Remove this line to build locally from Dockerfile
