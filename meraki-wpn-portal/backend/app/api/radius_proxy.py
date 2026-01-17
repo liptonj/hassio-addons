@@ -62,16 +62,27 @@ async def proxy_to_radius(
     # Build the target URL
     # The path may already contain /api/ or /api/v1/, so we normalize it
     clean_path = path
+    use_v1_prefix = False
+    
     if clean_path.startswith("api/v1/"):
         clean_path = clean_path[7:]  # Remove api/v1/
+        use_v1_prefix = True
     elif clean_path.startswith("api/"):
         clean_path = clean_path[4:]  # Remove api/
     
-    # Handle special endpoints that don't have /api/v1 prefix
+    # Endpoints that use /api/v1/ prefix
+    v1_endpoints = ["unlang-policies", "eap", "mac-bypass", "psk"]
+    
+    # Check if this endpoint needs /api/v1/ prefix
+    needs_v1 = use_v1_prefix or any(clean_path.startswith(ep) for ep in v1_endpoints)
+    
+    # Handle special endpoints that don't have /api prefix
     if clean_path == "health":
         target_url = f"{settings.radius_api_url.rstrip('/')}/health"
-    else:
+    elif needs_v1:
         target_url = f"{settings.radius_api_url.rstrip('/')}/api/v1/{clean_path}"
+    else:
+        target_url = f"{settings.radius_api_url.rstrip('/')}/api/{clean_path}"
     
     # Forward query parameters
     if request.query_params:

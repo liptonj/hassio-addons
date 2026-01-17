@@ -131,7 +131,7 @@ export default function AuthenticationConfig() {
   const { data: authPolicies } = useQuery({
     queryKey: ['unlang-policies'],
     queryFn: async () => {
-      const response = await listUnlangPolicies({ page: 1, page_size: 200 })
+      const response = await listUnlangPolicies({ page: 1, page_size: 100 })
       return response.items
     },
   })
@@ -337,7 +337,7 @@ export default function AuthenticationConfig() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <span className="loading-spinner" style={{ width: '40px', height: '40px' }} />
+        <span className="loading-spinner w-10 h-10" />
       </div>
     )
   }
@@ -679,7 +679,7 @@ export default function AuthenticationConfig() {
               
               {pskLoading ? (
                 <div className="text-center py-4">
-                  <span className="loading-spinner" style={{ width: '24px', height: '24px' }} />
+                  <span className="loading-spinner w-6 h-6" />
                 </div>
               ) : pskConfigs && pskConfigs.length > 0 ? (
                 <div className="space-y-4">

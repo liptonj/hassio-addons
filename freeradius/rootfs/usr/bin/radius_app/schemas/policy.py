@@ -60,14 +60,14 @@ class PolicyBase(BaseModel):
     match_nas_ip: Optional[str] = Field(None, max_length=100, description="NAS IP pattern")
     
     # Reply attributes
-    reply_attributes: List[ReplyAttribute] = Field(
-        default_factory=list,
+    reply_attributes: Optional[List[ReplyAttribute]] = Field(
+        default=None,
         description="Attributes to return on accept"
     )
     
     # Check attributes (additional conditions)
-    check_attributes: List[CheckAttribute] = Field(
-        default_factory=list,
+    check_attributes: Optional[List[CheckAttribute]] = Field(
+        default=None,
         description="Attributes to check before granting access"
     )
     

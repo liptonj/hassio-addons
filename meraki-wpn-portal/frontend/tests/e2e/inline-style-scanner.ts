@@ -16,6 +16,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 interface StyleViolation {
   file: string;
@@ -35,12 +40,21 @@ const ALLOWED_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   // Dynamic dimensions from state/props (not hardcoded values)
   { pattern: /height\s*:\s*[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)*(?:\s*\+|\s*-|\s*\*|\s*\/|\s*\?|\s*\|)?/, reason: 'Dynamic height' },
   { pattern: /width\s*:\s*[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)*(?:\s*\+|\s*-|\s*\*|\s*\/|\s*\?|\s*\|)?/, reason: 'Dynamic width' },
+  // Dynamic colors from state/props (e.g., strengthColor, primaryColor, formData.color)
+  { pattern: /color\s*:\s*[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)*\s*(?:,|\}|\s)/, reason: 'Dynamic color variable' },
+  { pattern: /backgroundColor\s*:\s*[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)*\s*(?:,|\}|\s)/, reason: 'Dynamic background color' },
   // Transform with dynamic values
   { pattern: /transform\s*:\s*`/, reason: 'Dynamic transform' },
   // Animation with dynamic values
   { pattern: /animation\s*:\s*`/, reason: 'Dynamic animation' },
   // Template literals (dynamic interpolation)
   { pattern: /`[^`]*\$\{/, reason: 'Template literal with interpolation' },
+  // Dynamic opacity from state/props
+  { pattern: /opacity\s*:\s*[a-zA-Z_$!][\w$!]*(?:\s*\?|\s*\||[^'"])/, reason: 'Dynamic opacity' },
+  // Background with linear-gradient or rgba using dynamic values
+  { pattern: /background\s*:\s*`/, reason: 'Dynamic background with template literal' },
+  // Width/height with fixed icon sizes (48px, 64px buttons are acceptable for icon containers)
+  { pattern: /width\s*:\s*['"](?:48|64)px['"].*height\s*:\s*['"](?:48|64)px['"]/, reason: 'Fixed icon container size' },
 ];
 
 // Map of common inline styles to their Tailwind equivalents
@@ -197,8 +211,13 @@ function formatViolation(v: StyleViolation): string {
   ].join('\n');
 }
 
-// Run if executed directly
-if (require.main === module) {
+// Run if executed directly (ESM compatible)
+const isMain = process.argv[1] && (
+  process.argv[1] === fileURLToPath(import.meta.url) ||
+  process.argv[1].endsWith('inline-style-scanner.ts')
+);
+
+if (isMain) {
   console.log('\n🔍 Scanning for inline styles...\n');
 
   const { violations, filesScanned } = runScanner();

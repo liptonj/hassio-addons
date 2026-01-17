@@ -137,7 +137,7 @@ export default function UniversalLogin() {
     return (
       <div className="animate-slide-up max-w-[480px] mx-auto text-center">
         <div className="card">
-          <div className="loading-spinner" style={{ width: '48px', height: '48px' }} />
+          <div className="loading-spinner w-12 h-12 mx-auto" />
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -151,8 +151,7 @@ export default function UniversalLogin() {
           <img
             src={logoUrl}
             alt={propertyName}
-            className="mx-auto mb-4"
-            style={{ maxWidth: '140px', height: 'auto', maxHeight: '70px', objectFit: 'contain' }}
+            className="mx-auto mb-4 max-w-[140px] h-auto max-h-[70px] object-contain"
           />
         ) : (
           <div
@@ -344,7 +343,7 @@ export default function UniversalLogin() {
               borderColor: `rgba(var(--primary-color-rgb), 0.2)`
             }}
           >
-            <p className="text-sm" style={{ color: 'var(--gray-700, #4a5568)' }}>
+            <p className="text-sm text-gray-700 dark:text-slate-200">
               We didn't find an account with <span className="font-semibold">{email}</span>.
             </p>
           </div>

@@ -76,11 +76,11 @@ export default function InviteCodes() {
       {/* Codes Table */}
       {isLoading ? (
         <div className="flex items-center justify-center p-8">
-          <span className="loading-spinner" style={{ width: '32px', height: '32px' }} />
+          <span className="loading-spinner w-8 h-8" />
         </div>
       ) : codes?.length === 0 ? (
         <div className="card text-center p-8">
-          <AlertCircle size={48} className="text-muted" style={{ margin: '0 auto 1rem' }} />
+          <AlertCircle size={48} className="text-muted mx-auto mb-4" />
           <h3>No Invite Codes</h3>
           <p className="text-muted">Generate codes to allow controlled access to WiFi registration.</p>
           <button
@@ -105,17 +105,11 @@ export default function InviteCodes() {
             </thead>
             <tbody>
               {codes?.map((code) => (
-                <tr key={code.code} style={{ opacity: !code.is_active ? 0.5 : 1 }}>
+                <tr key={code.code} className={!code.is_active ? 'opacity-50' : ''}>
                   <td>
                     <div className="flex items-center gap-2">
                       <code
-                        className="font-medium"
-                        style={{
-                          background: 'var(--gray-100)',
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.875rem',
-                        }}
+                        className="font-medium bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-sm"
                       >
                         {code.code}
                       </code>
@@ -159,9 +153,8 @@ export default function InviteCodes() {
                   <td className="text-sm text-muted">{formatDate(code.created_at)}</td>
                   <td>
                     <button
-                      className="btn btn-icon btn-ghost"
+                      className="btn btn-icon btn-ghost text-error hover:text-error-dark"
                       title="Delete code"
-                      style={{ color: 'var(--error)' }}
                       onClick={() => {
                         if (confirm(`Delete invite code "${code.code}"?`)) {
                           deleteMutation.mutate(code.code)
@@ -215,25 +208,18 @@ function CreateCodeModal({
 
   return (
     <div
-      className="loading-overlay"
+      className="fixed inset-0 flex items-center justify-center z-50 bg-black/50"
       onClick={onClose}
-      style={{ background: 'rgba(0, 0, 0, 0.5)' }}
     >
       <div
-        className="card animate-slide-up"
-        style={{ maxWidth: '400px', width: '100%', margin: '2rem' }}
+        className="card animate-slide-up max-w-[400px] w-full m-8"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4">Generate Invite Code</h2>
 
         {error && (
           <div
-            className="mb-4 p-4"
-            style={{
-              background: 'var(--error-light)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--error)',
-            }}
+            className="mb-4 p-4 bg-red-50 dark:bg-red-950 rounded-lg text-error"
           >
             {error}
           </div>
@@ -257,7 +243,7 @@ function CreateCodeModal({
           <div className="form-group">
             <label className="form-label">
               Expires In (hours)
-              <span className="text-muted" style={{ fontWeight: 'normal' }}>
+              <span className="text-muted font-normal">
                 {' '}(leave blank for no expiration)
               </span>
             </label>
@@ -290,18 +276,16 @@ function CreateCodeModal({
           <div className="flex gap-4 mt-6">
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn btn-ghost flex-1"
               onClick={onClose}
               disabled={isLoading}
-              style={{ flex: 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary flex-1"
               disabled={isLoading}
-              style={{ flex: 1 }}
             >
               {isLoading ? (
                 <>

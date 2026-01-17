@@ -1,9 +1,14 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { getAuthToken } from './client'
 
 // Use the portal backend proxy for RADIUS API calls
 // The portal backend proxies requests to the internal FreeRADIUS service
 const RADIUS_PROXY_URL = '/api/radius'
+
+// Extended config with custom properties
+interface RadiusRequestConfig extends InternalAxiosRequestConfig {
+  skipAuth?: boolean
+}
 
 const radiusApi = axios.create({
   baseURL: RADIUS_PROXY_URL,
@@ -25,10 +30,6 @@ radiusApi.interceptors.request.use(async (config: InternalAxiosRequestConfig): P
 radiusApi.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ detail?: string; message?: string }>) => {
-    if (error instanceof Error && error.message === createMissingTokenError().message) {
-      return Promise.reject(error)
-    }
-
     const message =
       error.response?.data?.detail ||
       error.response?.data?.message ||

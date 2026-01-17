@@ -125,24 +125,22 @@ export default function IPSKManager() {
       {/* Filters */}
       <div className="card mb-6">
         <div className="flex gap-4 flex-wrap">
-          <div className="flex items-center gap-2" style={{ flex: 1, minWidth: '200px' }}>
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <Search size={18} className="text-muted" />
             <input
               type="text"
-              className="form-input"
+              className="form-input mb-0"
               placeholder="Search by name, unit, or user..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ marginBottom: 0 }}
             />
           </div>
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-muted" />
             <select
-              className="form-select"
+              className="form-select mb-0 w-auto"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ marginBottom: 0, width: 'auto' }}
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -156,7 +154,7 @@ export default function IPSKManager() {
       {/* IPSK Table */}
       {isLoading ? (
         <div className="flex items-center justify-center p-8">
-          <span className="loading-spinner" style={{ width: '32px', height: '32px' }} />
+          <span className="loading-spinner w-8 h-8" />
         </div>
       ) : (
         <div className="table-container">
@@ -186,19 +184,14 @@ export default function IPSKManager() {
                     <td>
                       <div className="font-medium">{ipsk.name}</div>
                       {revealedPassphrases[ipsk.id] && (
-                        <code className="text-sm" style={{ color: 'var(--meraki-blue)' }}>
+                        <code className="text-sm text-meraki-blue">
                           {revealedPassphrases[ipsk.id]}
                         </code>
                       )}
                     </td>
                     <td>
                       {(ipsk.psk_group_id || ipsk.pskGroupId) ? (
-                        <code className="text-sm" style={{ 
-                          background: 'var(--bg-secondary)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontFamily: 'monospace'
-                        }}>
+                        <code className="text-sm bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded font-mono">
                           {ipsk.psk_group_id || ipsk.pskGroupId}
                         </code>
                       ) : (
@@ -250,9 +243,8 @@ export default function IPSKManager() {
                           </button>
                         )}
                         <button
-                          className="btn btn-icon btn-ghost"
+                          className="btn btn-icon btn-ghost text-error hover:text-error-dark"
                           title="Delete"
-                          style={{ color: 'var(--error)' }}
                           onClick={() => {
                             if (confirm(`Delete IPSK "${ipsk.name}"? This cannot be undone.`)) {
                               deleteMutation.mutate(ipsk.id)
@@ -317,26 +309,17 @@ function CreateIPSKModal({
 
   return (
     <div
-      className="loading-overlay"
+      className="fixed inset-0 flex items-center justify-center z-50 bg-black/50"
       onClick={onClose}
-      style={{ background: 'rgba(0, 0, 0, 0.5)' }}
     >
       <div
-        className="card animate-slide-up"
-        style={{ maxWidth: '480px', width: '100%', margin: '2rem' }}
+        className="card animate-slide-up max-w-[480px] w-full m-8"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4">Create New IPSK</h2>
 
         {error && (
-          <div
-            className="mb-4 p-4"
-            style={{
-              background: 'var(--error-light)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--error)',
-            }}
-          >
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-950 rounded-lg text-error">
             {error}
           </div>
         )}
@@ -357,7 +340,7 @@ function CreateIPSKModal({
           <div className="form-group">
             <label className="form-label">
               Passphrase
-              <span className="text-muted" style={{ fontWeight: 'normal' }}>
+              <span className="text-muted font-normal">
                 {' '}(leave blank to auto-generate)
               </span>
             </label>
@@ -372,7 +355,7 @@ function CreateIPSKModal({
 
           <div className="form-group">
             <label className="form-label">
-              <Shield size={16} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+              <Shield size={16} className="inline mr-1 align-middle" />
               Group Policy
             </label>
             <select
@@ -432,18 +415,16 @@ function CreateIPSKModal({
           <div className="flex gap-4 mt-6">
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn btn-ghost flex-1"
               onClick={onClose}
               disabled={isLoading}
-              style={{ flex: 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary flex-1"
               disabled={isLoading || !formData.name}
-              style={{ flex: 1 }}
             >
               {isLoading ? (
                 <>

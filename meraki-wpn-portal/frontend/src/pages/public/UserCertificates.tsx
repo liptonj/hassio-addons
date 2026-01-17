@@ -123,7 +123,7 @@ export default function UserCertificates() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <span className="loading-spinner" style={{ width: '40px', height: '40px' }} />
+        <span className="loading-spinner w-10 h-10" />
       </div>
     )
   }

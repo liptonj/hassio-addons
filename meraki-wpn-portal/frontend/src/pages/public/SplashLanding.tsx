@@ -86,11 +86,10 @@ export default function SplashLanding() {
   if (isLoading) {
     return (
       <div 
-        className="page-container" 
-        style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        className="page-container min-h-screen flex items-center justify-center" 
       >
-        <div className="card" style={{ maxWidth: '440px', width: '100%', textAlign: 'center' }}>
-          <div className="loading-spinner" style={{ width: '48px', height: '48px' }} />
+        <div className="card max-w-[440px] w-full text-center">
+          <div className="loading-spinner w-12 h-12 mx-auto" />
           <p className="mt-4 text-gray-600">Loading portal...</p>
         </div>
       </div>
@@ -99,18 +98,16 @@ export default function SplashLanding() {
 
   return (
     <div 
-      className="page-container" 
-      style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      className="page-container min-h-screen flex items-center justify-center" 
     >
-      <div className="card" style={{ maxWidth: '440px', width: '100%' }}>
+      <div className="card max-w-[440px] w-full">
         {/* Header */}
         <div className="text-center mb-6">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={propertyName}
-              className="mx-auto mb-4"
-              style={{ maxWidth: '160px', height: 'auto', maxHeight: '80px', objectFit: 'contain' }}
+              className="mx-auto mb-4 max-w-[160px] h-auto max-h-[80px] object-contain"
             />
           ) : (
             <div
@@ -267,13 +264,13 @@ export default function SplashLanding() {
                 background: 'var(--gray-200, #edf2f7)',
               }}
             >
-              <LogIn size={24} style={{ color: 'var(--gray-600, #718096)' }} />
+              <LogIn size={24} className="text-gray-600 dark:text-slate-300" />
             </div>
             <div className="flex-1">
               <div className="font-semibold text-lg">Already Have an Account?</div>
               <div className="text-sm opacity-70">Login to view your credentials</div>
             </div>
-            <ArrowRight size={20} style={{ color: 'var(--gray-400, #cbd5e0)' }} />
+            <ArrowRight size={20} className="text-gray-400 dark:text-slate-500" />
           </button>
         )}
 

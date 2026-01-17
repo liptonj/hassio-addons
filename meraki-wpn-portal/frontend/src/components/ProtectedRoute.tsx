@@ -26,15 +26,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span className="loading-spinner" style={{ width: '40px', height: '40px' }} />
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="loading-spinner w-10 h-10" />
       </div>
     )
   }

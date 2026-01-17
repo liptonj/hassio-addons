@@ -158,16 +158,10 @@ export default function UserAuth() {
   if (brandingLoading) {
     return (
       <div
-        className="page-container"
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        className="page-container min-h-screen flex items-center justify-center"
       >
-        <div className="card" style={{ maxWidth: '400px', width: '100%', textAlign: 'center' }}>
-          <div className="loading-spinner" style={{ width: '48px', height: '48px' }} />
+        <div className="card max-w-[400px] w-full text-center">
+          <div className="loading-spinner w-12 h-12 mx-auto" />
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -179,23 +173,16 @@ export default function UserAuth() {
 
   return (
     <div
-      className="page-container"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      className="page-container min-h-screen flex items-center justify-center"
     >
-      <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
+      <div className="card max-w-[400px] w-full">
         {/* Header */}
         <div className="text-center mb-6">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={propertyName}
-              className="mx-auto mb-4"
-              style={{ maxWidth: '120px', height: 'auto', maxHeight: '60px', objectFit: 'contain' }}
+              className="mx-auto mb-4 max-w-[120px] h-auto max-h-[60px] object-contain"
             />
           ) : (
             <div
@@ -288,16 +275,14 @@ export default function UserAuth() {
               <div className="relative">
                 <User
                   size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
-                  style={{ color: 'var(--gray-400, #cbd5e0)' }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
                 />
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full form-input"
-                  style={{ paddingLeft: '40px' }}
+                  className="w-full form-input pl-10"
                   required
                   minLength={2}
                 />
@@ -310,16 +295,14 @@ export default function UserAuth() {
             <div className="relative">
               <Mail
                 size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2"
-                style={{ color: 'var(--gray-400, #cbd5e0)' }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
               />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full form-input"
-                style={{ paddingLeft: '40px' }}
+                className="w-full form-input pl-10"
                 required
               />
             </div>
@@ -330,16 +313,14 @@ export default function UserAuth() {
             <div className="relative">
               <Lock
                 size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2"
-                style={{ color: 'var(--gray-400, #cbd5e0)' }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
               />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'signup' ? 'Create a password (8+ chars)' : 'Enter your password'}
-                className="w-full form-input"
-                style={{ paddingLeft: '40px' }}
+                className="w-full form-input pl-10"
                 required
                 minLength={mode === 'signup' ? 8 : 1}
               />

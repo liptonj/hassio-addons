@@ -56,7 +56,7 @@ export default function AuthorizationPolicies() {
   const { data: policies, isLoading, error, refetch } = useQuery({
     queryKey: ['unlang-policies'],
     queryFn: async () => {
-      const response = await listUnlangPolicies({ page: 1, page_size: 200 })
+      const response = await listUnlangPolicies({ page: 1, page_size: 100 })
       return response.items
     },
   })
@@ -65,7 +65,7 @@ export default function AuthorizationPolicies() {
   const { data: profiles } = useQuery({
     queryKey: ['radius-profiles'],
     queryFn: async () => {
-      const response = await listPolicies({ page: 1, page_size: 200 })
+      const response = await listPolicies({ page: 1, page_size: 100 })
       return response.items
     },
   })

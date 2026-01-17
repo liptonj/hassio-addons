@@ -26,7 +26,7 @@ export default function Header({ isAdmin = false, onAdminMenuToggle }: HeaderPro
               <img
                 src={logoUrl}
                 alt={propertyName}
-                style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
+                className="h-8 w-auto object-contain"
                 onError={(e) => {
                   // Fallback to WiFi icon if logo fails to load
                   e.currentTarget.style.display = 'none'
@@ -40,7 +40,7 @@ export default function Header({ isAdmin = false, onAdminMenuToggle }: HeaderPro
             {/* Fallback icon - hidden if logo loads successfully */}
             <Wifi 
               size={28} 
-              style={{ display: logoUrl ? 'none' : 'block' }}
+              className={logoUrl ? 'hidden' : 'block'}
             />
             <Link to={isAdmin ? '/admin' : '/'} className="header-brand">
               {isAdmin ? 'WPN Admin' : propertyName}
@@ -90,7 +90,7 @@ export default function Header({ isAdmin = false, onAdminMenuToggle }: HeaderPro
                   className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-white text-sm font-semibold"
                   aria-label="Open admin menu"
                 >
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white text-sm font-bold" style={{ color: 'var(--primary-color)' }}>
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white text-sm font-bold text-primary">
                     AD
                   </span>
                   <ChevronDown size={16} />

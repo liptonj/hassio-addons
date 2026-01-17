@@ -10,10 +10,9 @@ export default function QRCode({ dataUrl, size = 200, hint }: QRCodeProps) {
       <img
         src={dataUrl}
         alt="WiFi QR Code"
-        className="qr-code"
+        className="qr-code block mx-auto"
         width={size}
         height={size}
-        style={{ display: 'block', margin: '0 auto' }}
       />
       {hint && <p className="qr-hint">{hint}</p>}
     </div>

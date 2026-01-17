@@ -46,7 +46,7 @@ export default function PolicyManagement() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['radius-policies'],
     queryFn: async () => {
-      const response = await listPolicies({ page: 1, page_size: 200 })
+      const response = await listPolicies({ page: 1, page_size: 100 })
       return response.items
     },
   })

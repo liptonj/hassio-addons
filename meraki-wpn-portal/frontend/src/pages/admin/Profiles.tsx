@@ -59,7 +59,7 @@ export default function Profiles() {
   const { data: profiles, isLoading, error, refetch } = useQuery({
     queryKey: ['radius-profiles'],
     queryFn: async () => {
-      const response = await listPolicies({ page: 1, page_size: 200 })
+      const response = await listPolicies({ page: 1, page_size: 100 })
       return response.items
     },
   })

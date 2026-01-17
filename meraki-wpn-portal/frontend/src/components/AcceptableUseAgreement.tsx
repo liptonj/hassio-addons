@@ -82,8 +82,7 @@ export default function AcceptableUseAgreement({
           type="checkbox"
           checked={accepted}
           onChange={(e) => onAcceptChange(e.target.checked)}
-          className="mt-1 w-5 h-5 text-meraki-blue border-gray-300 rounded focus:ring-meraki-blue focus:ring-2 cursor-pointer"
-          style={{ minWidth: '20px', minHeight: '20px' }}
+          className="mt-1 w-5 h-5 min-w-[20px] min-h-[20px] text-meraki-blue border-gray-300 rounded focus:ring-meraki-blue focus:ring-2 cursor-pointer"
         />
         <span className="text-sm text-gray-700 select-none group-hover:text-gray-900">
           I have read and agree to the Acceptable Use Policy
