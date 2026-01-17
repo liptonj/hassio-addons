@@ -1,6 +1,6 @@
 name: "Meraki WPN Portal"
 description: "Self-service WiFi registration portal for Cisco Meraki networks with IPSK management"
-version: "1.0.5"
+version: "1.0.6"
 slug: "meraki-wpn-portal"
 arch:
   - amd64

@@ -1,6 +1,6 @@
 name: "FreeRADIUS Server"
 description: "FreeRADIUS server with RadSec support for Meraki WPN Portal"
-version: "2.0.5"
+version: "2.0.6"
 slug: "freeradius-server"
 arch:
   - amd64

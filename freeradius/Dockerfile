@@ -4,7 +4,7 @@
 # Note: Using FreeRADIUS 3.x (stable) until v4 has better package availability
 # FreeRADIUS 4.0 is still in alpha with limited distribution support
 
-ARG BUILD_FROM
+ARG BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20"
 FROM ${BUILD_FROM}
 
 # Install FreeRADIUS and dependencies
@@ -34,7 +34,7 @@ RUN apk add --no-cache \
 # Install Python packages for configuration API
 RUN pip3 install --no-cache-dir --break-system-packages \
     fastapi \
-    uvicorn[standard] \
+    uvicorn \
     pydantic \
     pydantic-settings \
     pydantic[email] \
