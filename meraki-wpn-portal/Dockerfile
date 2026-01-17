@@ -1,9 +1,7 @@
 # Meraki WPN Portal Add-on
 # Multi-stage build for Home Assistant add-on
 
-# BUILD_FROM is set by HA add-on builder, defaults to python base for standalone
-ARG BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20"
-
+# Stage 1: Build frontend
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
@@ -16,15 +14,15 @@ RUN npm ci --production=false
 COPY frontend/ ./
 RUN npm run build
 
-# Backend stage - use Python base image
-ARG BUILD_FROM
-FROM ${BUILD_FROM}
+# Stage 2: Backend - use Home Assistant Python base
+FROM ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
 
-# Install build dependencies (Python is already in base-python image)
+# Install build dependencies
 RUN apk add --no-cache \
     curl \
     libffi-dev \
     build-base \
+    mariadb-client \
     && pip install --no-cache-dir uv
 
 WORKDIR /app
@@ -52,7 +50,7 @@ COPY run.sh /run.sh
 COPY run-standalone.sh /run-standalone.sh
 RUN chmod a+x /run.sh /run-standalone.sh
 
-# Set default environment variables (can be overridden by docker-compose or HA)
+# Set default environment variables
 ENV RUN_MODE=standalone
 ENV APP_SIGNING_KEY=change-this-in-production
 
