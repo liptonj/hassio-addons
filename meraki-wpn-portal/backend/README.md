@@ -38,7 +38,7 @@ uv run uvicorn app.main:app --reload --port 8080
 | `RUN_MODE` | `standalone` or `homeassistant` | `standalone` |
 | `MERAKI_API_KEY` | Meraki Dashboard API key | - |
 | `DATABASE_URL` | SQLite database path | `sqlite:///./meraki_wpn_portal.db` |
-| `SECRET_KEY` | JWT secret key | - |
+| `APP_SIGNING_KEY` | JWT signing key | - |
 | `PROPERTY_NAME` | Property/building name | `My Property` |
 
 ## License

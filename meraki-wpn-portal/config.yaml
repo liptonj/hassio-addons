@@ -8,7 +8,6 @@ image: "ghcr.io/liptonj/meraki-wpn-portal-{arch}"
 arch:
   - aarch64
   - amd64
-  - armv7
 url: "https://github.com/liptonj/hassio-addons"
 init: false
 startup: application

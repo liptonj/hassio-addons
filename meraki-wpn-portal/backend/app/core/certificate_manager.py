@@ -511,7 +511,7 @@ class CertificateManager:
             In production, this should come from a secure key management system
             like AWS KMS, Azure Key Vault, or HashiCorp Vault.
         """
-        # For now, derive from settings SECRET_KEY
+        # For now, derive from settings.secret_key (set via APP_SIGNING_KEY env var)
         # In production, use a dedicated encryption key from KMS
         secret_key = self.settings.secret_key.encode('utf-8')
         

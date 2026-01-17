@@ -210,15 +210,15 @@ if bashio::config.exists 'ha_url' 2>/dev/null; then
             ;;
     esac
     
-    # Generate or load SECRET_KEY for JWT tokens
-    SECRET_KEY_FILE="/config/.secret_key"
-    if [ -f "${SECRET_KEY_FILE}" ]; then
-        export SECRET_KEY=$(cat "${SECRET_KEY_FILE}")
+    # Generate or load APP_SIGNING_KEY for JWT tokens
+    SIGNING_KEY_FILE="/config/.signing_key"
+    if [ -f "${SIGNING_KEY_FILE}" ]; then
+        export APP_SIGNING_KEY=$(cat "${SIGNING_KEY_FILE}")
     else
-        export SECRET_KEY=$(generate_secret_key)
-        echo "${SECRET_KEY}" > "${SECRET_KEY_FILE}"
-        chmod 600 "${SECRET_KEY_FILE}"
-        bashio::log.info "Generated new SECRET_KEY"
+        export APP_SIGNING_KEY=$(generate_secret_key)
+        echo "${APP_SIGNING_KEY}" > "${SIGNING_KEY_FILE}"
+        chmod 600 "${SIGNING_KEY_FILE}"
+        bashio::log.info "Generated new APP_SIGNING_KEY"
     fi
     
     # FreeRADIUS Integration
@@ -287,17 +287,17 @@ else
     export RUN_MODE="${RUN_MODE:-standalone}"
     export DATABASE_URL="${DATABASE_URL:-sqlite:///./meraki_wpn_portal.db}"
     
-    # Generate SECRET_KEY if not set
-    if [ -z "${SECRET_KEY}" ] || [ "${SECRET_KEY}" = "change-this-in-production" ]; then
-        SECRET_KEY_FILE="/data/.secret_key"
-        if [ -f "${SECRET_KEY_FILE}" ]; then
-            export SECRET_KEY=$(cat "${SECRET_KEY_FILE}")
+    # Generate APP_SIGNING_KEY if not set
+    if [ -z "${APP_SIGNING_KEY}" ] || [ "${APP_SIGNING_KEY}" = "change-this-in-production" ]; then
+        SIGNING_KEY_FILE="/data/.signing_key"
+        if [ -f "${SIGNING_KEY_FILE}" ]; then
+            export APP_SIGNING_KEY=$(cat "${SIGNING_KEY_FILE}")
         else
-            export SECRET_KEY=$(generate_secret_key)
+            export APP_SIGNING_KEY=$(generate_secret_key)
             mkdir -p /data
-            echo "${SECRET_KEY}" > "${SECRET_KEY_FILE}"
-            chmod 600 "${SECRET_KEY_FILE}"
-            echo "Generated new SECRET_KEY"
+            echo "${APP_SIGNING_KEY}" > "${SIGNING_KEY_FILE}"
+            chmod 600 "${SIGNING_KEY_FILE}"
+            echo "Generated new APP_SIGNING_KEY"
         fi
     fi
     

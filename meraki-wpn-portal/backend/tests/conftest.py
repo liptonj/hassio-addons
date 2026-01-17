@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["HA_URL"] = "http://test-ha:8123"
 os.environ["HA_TOKEN"] = "test-token"
-os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
+os.environ["APP_SIGNING_KEY"] = "test-secret-key-for-testing-only"
 
 from app.db.database import get_db
 from app.db.models import Base

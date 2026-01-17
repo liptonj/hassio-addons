@@ -26,18 +26,18 @@ if [ -z "${DATABASE_URL}" ]; then
     export DATABASE_URL="sqlite:////data/meraki_wpn_portal.db"
 fi
 
-# Generate or load SECRET_KEY for JWT tokens
-SECRET_KEY_FILE="/data/.secret_key"
-if [ -z "${SECRET_KEY}" ] || [ "${SECRET_KEY}" = "change-this-in-production" ]; then
-    if [ -f "${SECRET_KEY_FILE}" ]; then
-        export SECRET_KEY=$(cat "${SECRET_KEY_FILE}")
-        echo "Loaded SECRET_KEY from ${SECRET_KEY_FILE}"
+# Generate or load APP_SIGNING_KEY for JWT tokens
+SIGNING_KEY_FILE="/data/.signing_key"
+if [ -z "${APP_SIGNING_KEY}" ] || [ "${APP_SIGNING_KEY}" = "change-this-in-production" ]; then
+    if [ -f "${SIGNING_KEY_FILE}" ]; then
+        export APP_SIGNING_KEY=$(cat "${SIGNING_KEY_FILE}")
+        echo "Loaded APP_SIGNING_KEY from ${SIGNING_KEY_FILE}"
     else
-        export SECRET_KEY=$(generate_secret_key)
+        export APP_SIGNING_KEY=$(generate_secret_key)
         mkdir -p /data
-        echo "${SECRET_KEY}" > "${SECRET_KEY_FILE}"
-        chmod 600 "${SECRET_KEY_FILE}"
-        echo "Generated new SECRET_KEY and saved to ${SECRET_KEY_FILE}"
+        echo "${APP_SIGNING_KEY}" > "${SIGNING_KEY_FILE}"
+        chmod 600 "${SIGNING_KEY_FILE}"
+        echo "Generated new APP_SIGNING_KEY and saved to ${SIGNING_KEY_FILE}"
     fi
 fi
 

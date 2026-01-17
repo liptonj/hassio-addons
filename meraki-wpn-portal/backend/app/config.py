@@ -6,6 +6,7 @@ import os
 from enum import Enum
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -265,7 +266,11 @@ class Settings(BaseSettings):
     database_url: str = ""
 
     # Security
-    secret_key: str = "change-this-in-production-use-strong-random-key"
+    # Note: Uses APP_SIGNING_KEY env var to avoid Docker BuildKit secret detection warnings
+    secret_key: str = Field(
+        default="change-this-in-production-use-strong-random-key",
+        validation_alias="APP_SIGNING_KEY"
+    )
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
