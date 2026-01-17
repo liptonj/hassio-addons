@@ -2,7 +2,7 @@
 # Multi-stage build for Home Assistant add-on
 
 # BUILD_FROM is set by HA add-on builder, defaults to python base for standalone
-ARG BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22"
+ARG BUILD_FROM="ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20"
 
 FROM node:20-alpine AS frontend-builder
 

@@ -16,7 +16,7 @@ dev = [
 name = "meraki-wpn-portal"
 version = "1.0.0"
 description = "Meraki WPN Portal - Self-service WiFi registration for Meraki networks"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}
 dependencies = [
