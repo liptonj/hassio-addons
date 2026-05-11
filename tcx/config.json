@@ -1,6 +1,6 @@
 {
   "name": "Jandy TCX Client",
-  "version": "2026.5.4",
+  "version": "2026.5.5",
   "slug": "tcx-client",
   "init": false,
   "description": "Jandy TCX Client for to interact with Home Assistant",
@@ -27,8 +27,13 @@
     "AUTO_RECONNECT": "True",
     "RECONNECT_TIMER": "60",
     "PING_TIMER": "60",
+    "POOL_SHAPE": "rectangular",
+    "POOL_LENGTH_FT": "0",
+    "POOL_WIDTH_FT": "0",
+    "POOL_DEPTH_FT": "0",
     "POOL_VOLUME": "0",
-    "HEATER_BTU": "0"
+    "HEATER_BTU": "0",
+    "OUTDOOR_TEMP_ENTITY": ""
   },
   "schema": {
     "log_level": "list(crit|warn|error|info|debug)",
@@ -38,7 +43,12 @@
     "AUTO_RECONNECT": "list(True|False)",
     "RECONNECT_TIMER": "str?",
     "PING_TIMER": "str?",
+    "POOL_SHAPE": "list(rectangular|oval|round|kidney)?",
+    "POOL_LENGTH_FT": "str?",
+    "POOL_WIDTH_FT": "str?",
+    "POOL_DEPTH_FT": "str?",
     "POOL_VOLUME": "str?",
-    "HEATER_BTU": "str?"
+    "HEATER_BTU": "list(100000|150000|200000|250000|300000|350000|400000|500000)?",
+    "OUTDOOR_TEMP_ENTITY": "str?"
   }
 }
