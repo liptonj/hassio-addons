@@ -1,6 +1,6 @@
 {
   "name": "Jandy TCX Client",
-  "version": "2026.5.3",
+  "version": "2026.5.4",
   "slug": "tcx-client",
   "init": false,
   "description": "Jandy TCX Client for to interact with Home Assistant",
@@ -26,7 +26,9 @@
     "WS_TRACE": "False",
     "AUTO_RECONNECT": "True",
     "RECONNECT_TIMER": "60",
-    "PING_TIMER": "60"
+    "PING_TIMER": "60",
+    "POOL_VOLUME": "0",
+    "HEATER_BTU": "0"
   },
   "schema": {
     "log_level": "list(crit|warn|error|info|debug)",
@@ -35,6 +37,8 @@
     "WS_TRACE": "list(True|False)",
     "AUTO_RECONNECT": "list(True|False)",
     "RECONNECT_TIMER": "str?",
-    "PING_TIMER": "str?"
+    "PING_TIMER": "str?",
+    "POOL_VOLUME": "str?",
+    "HEATER_BTU": "str?"
   }
 }
