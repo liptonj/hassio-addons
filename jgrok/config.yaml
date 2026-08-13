@@ -1,0 +1,21 @@
+name: "JGROK Agent"
+description: "Connect Home Assistant and local services to JGROK using an outbound-only secure tunnel"
+version: "0.3.22"
+slug: "jgrok-agent"
+image: "docker.io/5lsus/jgrok"
+url: "https://github.com/liptonj/hassio-addons/tree/master/jgrok"
+stage: experimental
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+
+options:
+  device_name: "Home Assistant"
+  control_url: "https://edge-01.relays.jgrok.app"
+
+schema:
+  device_name: str(2,80)
+  control_url: url

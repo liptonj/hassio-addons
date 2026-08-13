@@ -34,6 +34,12 @@ FreeRADIUS server with RadSec (RADIUS over TLS) support, designed to work with t
 
 Ngrok tunnel for secure remote access to Home Assistant.
 
+### JGROK Agent
+
+Outbound-only JGROK agent for forwarding approved HTTP/S and TCP routes to
+Home Assistant, other add-ons, and reachable LAN services. Browser-approved
+registration is stored in Home Assistant's persistent add-on data.
+
 ## Installation
 
 Add the repository URL below to your Supervisor Add-on Store in Home Assistant:
@@ -54,6 +60,7 @@ Each add-on has its own documentation:
 - [Meraki WPN Portal Documentation](meraki-wpn-portal/DOCS.md)
 - [FreeRADIUS Server Documentation](freeradius/DOCS.md)
 - [ngrok Documentation](ngrok/DOCS.md)
+- [JGROK Agent Documentation](jgrok/DOCS.md)
 
 ## Support
 
