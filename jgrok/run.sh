@@ -5,6 +5,7 @@ readonly credential_directory="/data/jgrok"
 readonly credential_path="${credential_directory}/credentials.json"
 readonly application_id="app.jgrok.docker"
 readonly platform="docker"
+readonly control_url="https://edge-01.relays.jgrok.app"
 
 if [[ ! -r /data/options.json ]]; then
   bashio::log.fatal "Home Assistant did not provide /data/options.json."
@@ -12,7 +13,6 @@ if [[ ! -r /data/options.json ]]; then
 fi
 
 device_name="$(jq --exit-status --raw-output '.device_name | select(type == "string" and length > 0)' /data/options.json)"
-control_url="$(jq --exit-status --raw-output '.control_url | select(type == "string" and length > 0)' /data/options.json)"
 
 if [[ -L "${credential_directory}" ]]; then
   bashio::log.fatal "The persistent credential directory must not be a symbolic link."

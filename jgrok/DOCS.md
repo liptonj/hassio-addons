@@ -60,12 +60,6 @@ Home Assistant Core.
 The name shown during browser approval and in the JGROK portal. It is applied
 when registration occurs.
 
-### `control_url`
-
-The HTTPS JGROK control-plane origin used for registration. Keep the default
-unless you operate a different JGROK control plane. Paths, credentials, query
-strings, and fragments are rejected by the agent.
-
 ## Troubleshooting
 
 - If the log is waiting for approval, finish the browser flow or restart the

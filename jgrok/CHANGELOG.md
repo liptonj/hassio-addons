@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.23
+
+- Remove relay/control-plane selection from user configuration.
+- Use the JGROK-managed production control address for device registration;
+  the control plane assigns the appropriate relay.
+- Continue bundling the signed JGROK 0.3.22 agent release.
+
 ## 0.3.22
 
 - Update the bundled JGROK agent to the signed 0.3.22 release.
