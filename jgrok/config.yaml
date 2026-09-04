@@ -1,6 +1,6 @@
 name: "JGROK Agent"
 description: "Connect Home Assistant and local services to JGROK using an outbound-only secure tunnel"
-version: "0.3.40"
+version: "0.3.41"
 slug: "jgrok-agent"
 image: "ghcr.io/liptonj/jgrok"
 url: "https://github.com/liptonj/hassio-addons/tree/master/jgrok"

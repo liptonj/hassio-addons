@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.41
+
+- Bundle the signed JGROK 0.3.41 Linux agent.
+- Keep the add-on session alive when WebSocket TCP splice data arrives before
+  the local Home Assistant connection is open.
+
 ## 0.3.40
 
 - Bundle the signed JGROK 0.3.40 Linux agent.
