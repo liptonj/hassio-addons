@@ -1,12 +1,10 @@
 # Jandy TCX Client — Home Assistant Add-on
 
-A Home Assistant add-on that connects to a Jandy TCX pool controller via the Zodiac cloud WebSocket API and publishes native Home Assistant sensors and binary sensors.
+A Home Assistant add-on that connects to a Jandy TCX pool controller via the Zodiac cloud WebSocket API and publishes native Home Assistant sensors. Pair it with the `tcx` custom integration for real switches, lights, and numbers that supervisors can control.
 
----
+Version **2026.9.1** keeps the Zodiac client token across ordinary state deltas, unwraps `main`/`pib0` payloads so water temperature is populated, and periodically requests full device state.
 
-## How It Works
-
-The add-on authenticates with the Zodiac/iAquaLink cloud (`prod.zodiac-io.com`), opens a persistent WebSocket connection to your TCX device, and pushes state updates directly into Home Assistant via the Supervisor REST API. No MQTT broker required.
+The add-on image is built FROM `ghcr.io/liptonj/amd64-tcx-client:native-ha-api` (the native Supervisor ha_api client). Do not rebuild from MQTT `ghcr.io/liptonj/amd64-tcx-client:latest`.
 
 ---
 
@@ -15,14 +13,15 @@ The add-on authenticates with the Zodiac/iAquaLink cloud (`prod.zodiac-io.com`),
 1. Add this repository to Home Assistant: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**
    `https://github.com/liptonj/hassio-addons`
 2. Install the **Jandy TCX Client** add-on
-3. Configure the options (see below)
+3. Configure Jandy username and password
 4. Start the add-on
+5. Install the `tcx` custom integration (copy `custom_components/tcx` into `/config/custom_components/`) and add it with URL `http://af1e6959-tcx-client:5050`
 
 ---
 
 ## Home Assistant Entities
 
-The following entities are created automatically the first time a value is received from the TCX device:
+The add-on creates sensors on first TCX value:
 
 | Entity ID | Type | Description |
 |---|---|---|
@@ -32,57 +31,30 @@ The following entities are created automatically the first time a value is recei
 | `sensor.tcx_light_color` | Sensor | Current pool light color |
 | `binary_sensor.tcx_pump` | Binary Sensor | Pool pump/filter on or off |
 | `binary_sensor.tcx_light` | Binary Sensor | Pool light on or off |
+| `binary_sensor.tcx_heater` | Binary Sensor | Heater enabled |
 
-> **Note:** `sensor.tcx_air_temperature` reads from the sensor inside the pool equipment enclosure, not outdoor ambient air. It will not match your local weather.
+The `tcx` integration owns the controls:
 
----
-
-## Configuration
-
-| Option | Required | Default | Description |
-|---|---|---|---|
-| `JANDY_USERNAME` | Yes | — | Your iAquaLink account email |
-| `JANDY_PASSWORD` | Yes | — | Your iAquaLink account password |
-| `log_level` | No | `info` | Log verbosity: `debug`, `info`, `warn`, `error`, `crit` |
-| `AUTO_RECONNECT` | No | `True` | Automatically reconnect on WebSocket drop |
-| `RECONNECT_TIMER` | No | `60` | Seconds to wait before reconnecting |
-| `PING_TIMER` | No | `60` | WebSocket ping interval in seconds |
-| `WS_TRACE` | No | `False` | Enable verbose WebSocket frame logging |
-
-Example configuration:
-
-```yaml
-log_level: info
-JANDY_USERNAME: user@email.com
-JANDY_PASSWORD: yourpassword
-AUTO_RECONNECT: "True"
-RECONNECT_TIMER: "60"
-PING_TIMER: "60"
-WS_TRACE: "False"
-```
+| Entity ID | Type | Description |
+|---|---|---|
+| `switch.tcx_pump` | Switch | Pump on/off |
+| `number.tcx_pump_rpm` | Number | Pump speed |
+| `light.tcx_pool_light` | Light | On/off plus 12 Jandy color programs |
+| `switch.tcx_heater` | Switch | Heater enable |
+| `number.tcx_heater_setpoint` | Number | Water setpoint °F |
+| `number.tcx_swc_level` | Number | Chlorinator percent |
 
 ---
 
 ## REST API
 
-The add-on exposes a small HTTP API on port `5050`:
+Port `5050`:
 
 ### `GET /status`
-Returns the current cached state of all sensors as JSON.
 
-```json
-{
-  "water": 70.0,
-  "air": 49.0,
-  "system": "ON",
-  "swc": "50%",
-  "light": "OFF",
-  "lightColor": "None"
-}
-```
+Cached controller state as JSON.
 
 ### `POST /statecontrol`
-Sends a desired state command to the TCX device.
 
 ```json
 {
@@ -91,20 +63,20 @@ Sends a desired state command to the TCX device.
 }
 ```
 
+Light commands use namespace `zig` (not MQTT `zigbee`).
+
 ### `GET /tcxreconnect`
-Forces a WebSocket reconnect to the TCX device.
+
+Forces a WebSocket reconnect.
 
 ---
 
-## Migrating from the MQTT Version
+## Migrating from MQTT
 
-Previous versions published sensor values to MQTT topics (`pool/TCX/pump`, `pool/TCX/swc`, etc.), which created HA entities via the MQTT integration. Those entity IDs differ from the new native ones.
+Previous versions published `pool/TCX/*` and `pool/control`. After upgrading to 2026.9.1:
 
-After upgrading:
-
-1. Rebuild and restart the add-on
-2. New entities appear in HA automatically on first TCX message
-3. Go to **Settings → Devices & Services → MQTT** and delete the old `pool/TCX/*` entities
-4. Update any dashboards or automations to use the new entity IDs listed above
-
-Sensor history does not carry over since the entity IDs changed.
+1. Rebuild and start this add-on, uninstall any `tcx-client-patched` local add-on
+2. Add the `tcx` integration
+3. Retarget dashboards from `light.pool_light` / `switch.filter_pump` to `light.tcx_pool_light` / `switch.tcx_pump`
+4. Remove the MQTT pool light, filter pump, SWC, and light-color entities
+5. Remove the template that mirrored `light.pool_light` into `binary_sensor.tcx_light`
