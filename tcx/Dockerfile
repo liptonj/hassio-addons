@@ -1,6 +1,9 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 COPY client.py /opt/jandy/client.py
+COPY ha_api.py /opt/jandy/ha_api.py
+COPY ha_publish.py /opt/jandy/ha_publish.py
+COPY zodaic_init.py /opt/jandy/api/zodaic/__init__.py
 COPY launcher.py /opt/tcx_launcher.py
 COPY run.sh /etc/services.d/tcx-client/run
 RUN chmod 755 /etc/services.d/tcx-client/run
