@@ -8,6 +8,7 @@ on:
     paths:
       - 'meraki-wpn-portal/**'
       - 'freeradius/**'
+      - 'jgrok/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches:
@@ -26,6 +27,7 @@ on:
           - ''
           - meraki-wpn-portal
           - freeradius
+          - jgrok
 
 env:
   REGISTRY: ghcr.io
@@ -39,6 +41,7 @@ jobs:
     outputs:
       meraki-wpn-portal: ${{ steps.filter.outputs.meraki-wpn-portal }}
       freeradius: ${{ steps.filter.outputs.freeradius }}
+      jgrok: ${{ steps.filter.outputs.jgrok }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,6 +55,8 @@ jobs:
               - 'meraki-wpn-portal/**'
             freeradius:
               - 'freeradius/**'
+            jgrok:
+              - 'jgrok/**'
 
   # Build Meraki WPN Portal
   build-meraki-wpn-portal:
@@ -108,6 +113,110 @@ jobs:
             io.hass.arch=amd64
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+  build-jgrok:
+    name: Build JGROK ${{ matrix.hass_arch }}
+    needs: changes
+    if: |
+      needs.changes.outputs.jgrok == 'true' ||
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.addon == '' || github.event.inputs.addon == 'jgrok'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - hass_arch: amd64
+            docker_platform: linux/amd64
+          - hass_arch: aarch64
+            docker_platform: linux/arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get add-on version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'version:\s*"\K[^"]+' jgrok/config.yaml)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./jgrok
+          file: ./jgrok/Dockerfile
+          platforms: ${{ matrix.docker_platform }}
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            BUILD_ARCH=${{ matrix.hass_arch }}
+            BUILD_VERSION=${{ steps.version.outputs.version }}
+            JGROK_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}-${{ matrix.hass_arch }}
+          labels: |
+            io.hass.name=JGROK Agent
+            io.hass.description=Outbound-only JGROK agent for Home Assistant
+            io.hass.type=addon
+            io.hass.version=${{ steps.version.outputs.version }}
+            io.hass.arch=${{ matrix.hass_arch }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  publish-jgrok-manifest:
+    name: Publish JGROK multi-arch manifest
+    needs: [changes, build-jgrok]
+    if: |
+      github.event_name != 'pull_request' &&
+      (needs.changes.outputs.jgrok == 'true' ||
+       github.event_name == 'release' ||
+       (github.event_name == 'workflow_dispatch' &&
+         (github.event.inputs.addon == '' || github.event.inputs.addon == 'jgrok')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get add-on version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'version:\s*"\K[^"]+' jgrok/config.yaml)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch tags
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}" \
+            -t "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:latest" \
+            "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}-amd64" \
+            "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}-aarch64"
 
   # Build FreeRADIUS
   build-freeradius:

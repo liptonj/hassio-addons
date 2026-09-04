@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.40
+
+- Bundle the signed JGROK 0.3.40 Linux agent.
+- Restore the public Host and trusted `X-Forwarded-*` headers on local HTTP
+  forwards so Home Assistant login and WebSocket upgrades work through hostname
+  tunnels.
+- Log the running agent version when the add-on starts.
+
 ## 0.3.23
 
 - Remove relay/control-plane selection from user configuration.

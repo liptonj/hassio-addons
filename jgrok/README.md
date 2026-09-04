@@ -10,5 +10,5 @@ persistent add-on storage and reused after restarts, upgrades, and backups.
 
 See [DOCS.md](DOCS.md) for installation and registration instructions.
 
-Prebuilt `amd64` and `aarch64` images are published on Docker Hub as the
-multi-architecture container `5lsus/jgrok`.
+Prebuilt `amd64` and `aarch64` images are published as the multi-architecture
+container `ghcr.io/liptonj/jgrok`.

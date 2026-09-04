@@ -77,5 +77,6 @@ else
   bashio::log.info "Using the saved JGROK registration from Home Assistant persistent storage."
 fi
 
-bashio::log.info "Starting JGROK agent."
+agent_version="$(/usr/bin/jgrok-agent --version)"
+bashio::log.info "Starting JGROK agent ${agent_version} (${platform})."
 exec s6-setuidgid jgrok /usr/bin/jgrok-agent

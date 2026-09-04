@@ -8,7 +8,7 @@ inbound port. Routes assigned in the JGROK portal can forward traffic to Home
 Assistant, another add-on, or another host that is reachable from the add-on.
 
 Home Assistant installs the prebuilt multi-architecture image from
-`docker.io/5lsus/jgrok`. Images are published for `amd64` and `aarch64`.
+`ghcr.io/liptonj/jgrok`. Images are published for `amd64` and `aarch64`.
 
 ## Install and register
 
