@@ -165,11 +165,15 @@ jobs:
           file: ./jgrok/Dockerfile
           platforms: ${{ matrix.docker_platform }}
           push: ${{ github.event_name != 'pull_request' }}
+          provenance: false
+          sbom: false
           build-args: |
             BUILD_ARCH=${{ matrix.hass_arch }}
             BUILD_VERSION=${{ steps.version.outputs.version }}
-            JGROK_VERSION=${{ steps.version.outputs.version }}
+            JGROK_VERSION=0.3.45
           tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok-${{ matrix.hass_arch }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok-${{ matrix.hass_arch }}:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}-${{ matrix.hass_arch }}
           labels: |
             io.hass.name=JGROK Agent
@@ -215,8 +219,8 @@ jobs:
           docker buildx imagetools create \
             -t "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}" \
             -t "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:latest" \
-            "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}-amd64" \
-            "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok:${{ steps.version.outputs.version }}-aarch64"
+            "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok-amd64:${{ steps.version.outputs.version }}" \
+            "${{ env.REGISTRY }}/${{ github.repository_owner }}/jgrok-aarch64:${{ steps.version.outputs.version }}"
 
   # Build FreeRADIUS
   build-freeradius:

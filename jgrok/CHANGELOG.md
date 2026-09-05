@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.46
+
+- Publish Supervisor images as `ghcr.io/liptonj/jgrok-{arch}:0.3.46`.
+- Bundle the signed JGROK 0.3.45 Linux agent (tunnel mux HTTP splice).
+
+
 ## 0.3.45
 
 - Bundle the signed JGROK 0.3.45 Linux agent.
