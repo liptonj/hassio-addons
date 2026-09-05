@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.45
+
+- Bundle the signed JGROK 0.3.45 Linux agent.
+- Stream local-network HTTP over TCP / tunnel mux so Supervisor logs and
+  VS Code workbench assets are no longer buffered as a single JSON body.
+
+
 ## 0.3.41
 
 - Bundle the signed JGROK 0.3.41 Linux agent.

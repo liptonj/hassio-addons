@@ -4,7 +4,7 @@ FROM ${BUILD_FROM}
 ARG BUILD_ARCH
 ARG TARGETARCH
 ARG BUILD_VERSION
-ARG JGROK_VERSION=0.3.41
+ARG JGROK_VERSION=0.3.45
 
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 
@@ -16,11 +16,11 @@ RUN apk add --no-cache ca-certificates curl \
     && case "${release_arch}" in \
         amd64) \
           artifact_arch="amd64"; \
-          artifact_sha256="af218acd6652b5e617e88a0de18e7204554aec33264081542817fc25c9dbd2e5" \
+          artifact_sha256="0b3e3ba1040b6286e818fb5dd0ea1779111e6b2d67983780dca359e1bb13e1d5" \
           ;; \
         aarch64|arm64) \
           artifact_arch="arm64"; \
-          artifact_sha256="a7714c4b8e091df2a29f53bad41b1d29c6f006ee8a6fb2570761991c430573ba" \
+          artifact_sha256="877f9d97e9b76db80f2067843cc2100fc087d2f24ba876515306044fd8830037" \
           ;; \
         *) \
           echo "Unsupported build architecture: ${release_arch}" >&2; \
