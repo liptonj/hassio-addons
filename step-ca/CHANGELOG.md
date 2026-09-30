@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2.15
+
+- Versions are now numbered `0.30.2.N`. Home Assistant treated
+  `0.30.2-10` and later as older than `0.30.2-9`, so the update button
+  stayed disabled. This release contains the changes from 0.30.2-10 to
+  0.30.2-14.
+
 ## 0.30.2-14
 
 - Fix enrollment and CA page URLs using the address Home Assistant was
