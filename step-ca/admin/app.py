@@ -42,6 +42,8 @@ STEP_PATH = os.environ.get("STEPPATH", "/data/step")
 ROOT_CERT = f"{STEP_PATH}/certs/root_ca.crt"
 INTERMEDIATE_CERT = f"{STEP_PATH}/certs/intermediate_ca.crt"
 PROVISIONER_PASSWORD = f"{STEP_PATH}/secrets/provisioner_password"
+ROOT_KEY = f"{STEP_PATH}/secrets/root_ca_key"
+CA_PASSWORD = f"{STEP_PATH}/secrets/password"
 CA_URL = "https://localhost:9000"
 CRL_URL = "http://127.0.0.1:9080/crl?pem"
 SCEP_PROVISIONER = os.environ.get("SCEP_PROVISIONER", "scep")
@@ -648,7 +650,7 @@ class Handler(BaseHTTPRequestHandler):
     def handle_post(self):
         path = urllib.parse.urlsplit(self.path).path
         length = int(self.headers.get("Content-Length") or 0)
-        if length > (UPLOAD_LIMIT if path == "/ca/extra" else 4096):
+        if length > (UPLOAD_LIMIT if path in ("/ca/extra", "/ca/subordinate") else 4096):
             self.send(413, "Request too large", "text/plain")
             return
         body = self.rfile.read(length)
@@ -662,6 +664,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/ca/extra":
             self.extra_ca_add(form)
+            return
+        if path == "/ca/subordinate":
+            self.subordinate_sign(form)
             return
         if m := re.fullmatch(r"/ca/extra/([0-9a-f]{64})/remove", path):
             enroll.save_extra_cas([c for c in enroll.load_extra_cas()
@@ -1158,6 +1163,27 @@ class Handler(BaseHTTPRequestHandler):
         enroll.save_extra_cas(certs)
         self.redirect("/ca?added=1")
 
+    def subordinate_sign(self, form):
+        data = form.get("file", [b""])[0]
+        if not data.strip():
+            data = str(form.get("pem", [""])[0]).encode()
+        if not data.strip():
+            self.redirect("/ca?error=" + urllib.parse.quote("Choose a certificate request file or paste a PEM."))
+            return
+        with open(ROOT_CERT, "rb") as cert_file, open(ROOT_KEY, "rb") as key_file, \
+                open(CA_PASSWORD, "rb") as password_file:
+            root = x509.load_pem_x509_certificate(cert_file.read())
+            key = serialization.load_pem_private_key(key_file.read(), password_file.read().strip())
+        try:
+            cert = enroll.sign_subordinate(data if isinstance(data, bytes) else data.encode(), root, key)
+        except ValueError as err:
+            self.redirect("/ca?error=" + urllib.parse.quote(str(err)[:300]))
+            return
+        print(f"Signed subordinate CA {cert.subject.rfc4514_string()!r} with the root CA "
+              f"(serial {cert.serial_number}, valid until {cert.not_valid_after_utc:%Y-%m-%d})", flush=True)
+        self.download(enroll.chain_pem(cert, [root]),
+                      f"{safe_filename(enroll.common_name(cert))}-chain.pem", "application/x-pem-file")
+
     def ca_page(self, query=None):
         query = query or {}
         root, inter = cert_chain()
@@ -1213,6 +1239,7 @@ class Handler(BaseHTTPRequestHandler):
             f'<p><a href="{esc(self.url("/download/ca-chain.pem"))}">Download ca-chain.pem</a></p>'
             '<p class="muted">The intermediate and root CA in one PEM file (full trusted chain), '
             "for MDMs and RADIUS servers.</p></div>"
+            + self.subordinate_card(csrf)
             + '<div class="card"><h2 style="margin-top:0">Full CA bundle</h2>'
             f'<p><a href="{esc(self.url("/download/ca-bundle.pem"))}">Download ca-bundle.pem</a></p>'
             '<p class="muted">Root, intermediate' + (", and the other trusted CAs" if extra else "")
@@ -1231,6 +1258,26 @@ class Handler(BaseHTTPRequestHandler):
             + self.mdm_card(base, extra)
         )
         self.page("CA & downloads", body)
+
+    def subordinate_card(self, csrf):
+        return (
+            '<div class="card"><h2 style="margin-top:0">Sign a subordinate CA (e.g. Meraki SCEP CA)</h2>'
+            "<p>Signs another CA's certificate request with this root CA, so certificates it issues "
+            "are trusted wherever this root is. For Meraki Systems Manager, download the SCEP CA "
+            "certificate request (or current certificate) under <b>Organization &gt; MDM</b>, sign it "
+            "here, and upload the downloaded file there; it holds the signed certificate and this "
+            "root CA.</p>"
+            f'<form method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/subordinate"))}">'
+            f'{csrf}<label for="subfile">Certificate request or certificate (.csr, .pem, .crt, .cer)</label>'
+            '<input id="subfile" type="file" name="file" accept=".csr,.req,.pem,.crt,.cer,.der">'
+            '<label for="subpem">or paste PEM</label>'
+            '<textarea id="subpem" name="pem" rows="4" class="mono" style="width:100%" '
+            'placeholder="-----BEGIN CERTIFICATE REQUEST-----"></textarea>'
+            '<p class="muted">The subject is kept as requested. The certificate is a CA that cannot '
+            f"sign further CAs (path length 0), valid for {enroll.SUBORDINATE_DAYS // 365} years or "
+            "until the root expires. Only sign requests from systems you control.</p>"
+            '<div style="margin-top:12px"><button class="btn">Sign and download</button></div></form></div>'
+        )
 
     def mdm_card(self, base, extra):
         """Values for an MDM's SCEP, certificate, and Wi-Fi payloads."""

@@ -338,6 +338,21 @@ Create one configuration profile with these payloads.
 - **Android Enterprise and Windows MDMs** with a static-challenge SCEP
   profile (for example Workspace ONE): use the same URL, challenge, and
   certificates.
+- **Cisco Meraki Systems Manager** runs its own SCEP CA. To make the
+  certificates it issues trusted by this CA's root, sign Meraki's SCEP CA
+  with this CA:
+  1. In Meraki, go to **Organization → MDM** and download the SCEP CA
+     certificate request (or the current SCEP CA certificate).
+  2. On **Certificates → CA & downloads → Sign a subordinate CA**, choose
+     that file and select **Sign and download**. The root CA signs it as a
+     CA that cannot sign further CAs (path length 0), keeping Meraki's
+     subject (`CN=SCEP CA for <org>, OU=<org ID>`), and valid for up to
+     10 years.
+  3. Upload the downloaded `…-chain.pem` in Meraki. It holds the signed
+     certificate followed by this root CA, the full trusted chain Meraki
+     asks for.
+
+  The signing is written to the add-on log.
 
 ### Your RADIUS server
 

@@ -335,6 +335,57 @@ def chain_pem(cert, pool):
     return b"".join(c.public_bytes(serialization.Encoding.PEM) for c in chain)
 
 
+SUBORDINATE_DAYS = 3650
+
+
+def parse_subordinate_request(data):
+    """Subject and public key from an uploaded CSR or certificate (PEM or DER)."""
+    loaders = ((x509.load_pem_x509_csr, x509.load_pem_x509_certificate) if b"-----BEGIN" in data
+               else (x509.load_der_x509_csr, x509.load_der_x509_certificate))
+    for loader in loaders:
+        try:
+            request = loader(data)
+        except ValueError:
+            continue
+        if isinstance(request, x509.CertificateSigningRequest) and not request.is_signature_valid:
+            raise ValueError("The certificate request's signature is not valid.")
+        return request.subject, request.public_key()
+    raise ValueError("The file is not a PEM or DER certificate request (CSR) or certificate.")
+
+
+def sign_subordinate(data, issuer, issuer_key, days=SUBORDINATE_DAYS):
+    """Sign a subordinate CA (e.g. Meraki's SCEP CA) that may not issue further CAs.
+
+    The subject is copied unchanged from the request, because some CAs (Meraki)
+    only accept their certificate back with the exact subject they asked for.
+    """
+    subject, public_key = parse_subordinate_request(data)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    not_after = min(now + datetime.timedelta(days=days), issuer.not_valid_after_utc)
+    try:
+        aki = x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(
+            issuer.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value)
+    except x509.ExtensionNotFound:
+        aki = x509.AuthorityKeyIdentifier.from_issuer_public_key(issuer.public_key())
+    return (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer.subject)
+        .public_key(public_key)
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=5))
+        .not_valid_after(not_after)
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+        .add_extension(x509.KeyUsage(
+            digital_signature=True, content_commitment=False, key_encipherment=False,
+            data_encipherment=False, key_agreement=False, key_cert_sign=True, crl_sign=False,
+            encipher_only=False, decipher_only=False), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(public_key), critical=False)
+        .add_extension(aki, critical=False)
+        .sign(issuer_key, hashes.SHA256())
+    )
+
+
 def common_name(cert):
     names = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
     return str(names[0].value) if names else cert.subject.rfc4514_string()

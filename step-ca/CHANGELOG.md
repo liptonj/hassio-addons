@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.20
+
+- New **Sign a subordinate CA** card on **CA & downloads**: upload another
+  CA's certificate request (for example Cisco Meraki Systems Manager's SCEP
+  CA) and download it signed by the root CA, with the root, as one chain
+  file to upload back. The requested subject is kept unchanged; the
+  certificate is a CA with path length 0 and key usage certificate signing
+  and digital signature.
+
 ## 0.30.2.19
 
 - New `ca-chain.pem` download on **CA & downloads**: the intermediate and
