@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.23
+
+- Signed certificate requests download as `<name>-chain.crt` instead of
+  `.pem`, because Meraki only accepts `.crt` or `.cer` for its SCEP CA. The
+  content is unchanged (Base64 PEM).
+- The **Subordinate CA** option shows the extensions it sets:
+  `basicConstraints = critical,CA:true,pathlen:0` and
+  `keyUsage = critical,keyCertSign,digitalSignature`.
+
 ## 0.30.2.22
 
 - Fix "2 is not a valid CSR version" when signing Meraki's SCEP CA request.

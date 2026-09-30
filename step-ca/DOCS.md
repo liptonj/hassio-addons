@@ -263,14 +263,19 @@ download**:
   `default_cert_duration` lifetime. `certificate_subject` attributes are
   applied as for other certificates. It appears on **Certificates** and can
   be revoked.
-- **Subordinate CA**: signed by the root CA as a CA that cannot sign
-  further CAs (path length 0), keeping the requested subject unchanged, for
-  10 years or until the root expires. Used for another CA whose
+- **Subordinate CA**: signed by the root CA, keeping the requested subject
+  unchanged, for 10 years or until the root expires, with these extensions:
+
+  ```
+  basicConstraints = critical,CA:true,pathlen:0
+  keyUsage = critical,keyCertSign,digitalSignature
+  ```
+ Used for another CA whose
   certificates should be trusted wherever this root is, such as Meraki's
   SCEP CA (see [Platform notes](#platform-notes)).
 
-The download (`<name>-chain.pem`) holds the signed certificate followed by
-its CA chain up to the root. Each signing is written to the add-on log.
+The download (`<name>-chain.crt`, Base64 PEM) holds the signed certificate
+followed by its CA chain up to the root. Each signing is written to the add-on log.
 
 ### Profile signing
 
@@ -371,11 +376,11 @@ Create one configuration profile with these payloads.
      certificate request (or the current SCEP CA certificate).
   2. On **Certificates → CA & downloads → Sign a certificate request**,
      choose that file, pick **Subordinate CA**, and select **Sign and
-     download**. The root CA signs it as a
-     CA that cannot sign further CAs (path length 0), keeping Meraki's
-     subject (`CN=SCEP CA for <org>, OU=<org ID>`), and valid for up to
-     10 years.
-  3. Upload the downloaded `…-chain.pem` in Meraki. It holds the signed
+     download**. The root CA signs it with the extensions Meraki
+     requires (`basicConstraints = critical,CA:true,pathlen:0` and
+     `keyUsage = critical,keyCertSign,digitalSignature`), keeping Meraki's
+     subject unchanged, valid for up to 10 years.
+  3. Upload the downloaded `…-chain.crt` in Meraki. It holds the signed
      certificate followed by this root CA, the full trusted chain Meraki
      asks for.
 

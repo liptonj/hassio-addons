@@ -1190,7 +1190,7 @@ class Handler(BaseHTTPRequestHandler):
         print(f"Signed {signer} {cert.subject.rfc4514_string()!r} for an uploaded request "
               f"(serial {cert.serial_number}, valid until {cert.not_valid_after_utc:%Y-%m-%d})", flush=True)
         self.download(b"".join(c.public_bytes(serialization.Encoding.PEM) for c in chain),
-                      f"{safe_filename(enroll.common_name(cert))}-chain.pem", "application/x-pem-file")
+                      f"{safe_filename(enroll.common_name(cert))}-chain.crt", "application/x-pem-file")
 
     def ca_page(self, query=None):
         query = query or {}
@@ -1282,8 +1282,9 @@ class Handler(BaseHTTPRequestHandler):
             "<b>Certificates</b> and can be revoked.</span></span></label>"
             '<label class="choice"><input type="radio" name="kind" value="ca"> '
             "<span><b>Subordinate CA</b> (e.g. Meraki SCEP CA)<br><span class=muted>Signed by the root "
-            "CA with the subject kept exactly as requested, as a CA that cannot sign further CAs (path "
-            f"length 0), valid for {enroll.SUBORDINATE_DAYS // 365} years or until the root expires. "
+            "CA with the subject kept exactly as requested and the extensions "
+            "<span class=mono>basicConstraints = critical,CA:true,pathlen:0</span> and "
+            "<span class=mono>keyUsage = critical,keyCertSign,digitalSignature</span>, valid for {enroll.SUBORDINATE_DAYS // 365} years or until the root expires. "
             "Also accepts the other CA's current certificate. For Meraki, download the SCEP CA request "
             "under <b>Organization &gt; MDM</b> and upload the signed file there.</span></span></label>"
             '<label for="signfile">Certificate request (.csr, .req, .pem)</label>'
