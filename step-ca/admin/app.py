@@ -21,6 +21,7 @@ import ssl
 import subprocess
 import threading
 import time
+import traceback
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -530,14 +531,26 @@ class Handler(BaseHTTPRequestHandler):
                 self.detail_page(m.group(1), query)
             else:
                 self.page("Not found", "<h1>Not found</h1>", 404)
-        except pymysql.MySQLError as err:
-            self.page("Database error", f'<div class="msg error">Database error: {esc(err)}</div>', 502)
-        except OSError as err:
-            self.page("Error", f'<div class="msg error">{esc(err)}</div>', 502)
+        except Exception as err:  # noqa: BLE001 - shown on the page
+            self.error_page(err)
+
+    def error_page(self, err):
+        # Home Assistant shows "The app is starting" and retries for 5xx
+        # ingress responses, hiding the error, so errors are shown with 200.
+        traceback.print_exc()
+        title = "Database error" if isinstance(err, pymysql.MySQLError) else "Error"
+        self.page(title, f'<h1>{title}</h1><div class="msg error">{esc(err)}</div>'
+                  '<p class="muted">Details are in the add-on log.</p>')
 
     def do_POST(self):
         if not self.allowed():
             return
+        try:
+            self.handle_post()
+        except Exception as err:  # noqa: BLE001 - shown on the page
+            self.error_page(err)
+
+    def handle_post(self):
         path = urllib.parse.urlsplit(self.path).path
         length = int(self.headers.get("Content-Length") or 0)
         if length > 4096:

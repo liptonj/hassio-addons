@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2-10
+
+- The Certificates panel shows errors (for example database errors) on the
+  page and in the add-on log. They were returned as server errors, which
+  Home Assistant shows as "The app is starting" indefinitely.
+
 ## 0.30.2-9
 
 - Fix a start-up loop ("Could not configure the SCEP provisioner: client GET
