@@ -511,12 +511,35 @@ if [[ -n "${SUPERVISOR_TOKEN:-}" ]]; then
   fi
 fi
 
-info "SCEP URL:         <your Home Assistant URL>/api/step_ca_scep/scep/${provisioner_name}"
-info "Root CA download: <your Home Assistant URL>/api/step_ca_scep/roots.pem"
-info "CRL download:     <your Home Assistant URL>/api/step_ca_scep/crl"
+# Devices reach step-ca through Home Assistant, so show its URL: the
+# enrollment.public_url override, else Home Assistant's External URL.
+ha_url="${public_url}"
+if [[ -z "${ha_url}" && -n "${SUPERVISOR_TOKEN:-}" ]]; then
+  ha_url="$(curl --silent --fail --max-time 5 \
+    --header "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    http://supervisor/core/api/config | jq --raw-output '.external_url // ""' 2>/dev/null || true)"
+  ha_url="${ha_url%/}"
+fi
+[[ -n "${ha_url}" ]] || ha_url="<your Home Assistant URL>"
+info "SCEP URL:         ${ha_url}/api/step_ca_scep/scep/${provisioner_name}"
+info "Root CA download: ${ha_url}/api/step_ca_scep/roots.pem"
+info "CRL download:     ${ha_url}/api/step_ca_scep/crl"
 info "Starting step-ca and the management page."
 
-SSL_CERT_FILE="${ca_bundle}" su-exec step:step step-ca --password-file "${ca_password_file}" "${ca_config}" &
+# step-ca logs its own URLs from the first dns_names entry and its internal
+# port 9000, which devices do not use; drop those lines.
+filter_ca_log() {
+  local line
+  while IFS= read -r line; do
+    case "${line}" in
+      *"The primary server URL is "*|*"Root certificates are available at "*|*"Additional configured hostnames:"*) ;;
+      *) printf '%s\n' "${line}" ;;
+    esac
+  done
+}
+
+SSL_CERT_FILE="${ca_bundle}" su-exec step:step step-ca --password-file "${ca_password_file}" "${ca_config}" \
+  > >(filter_ca_log) 2>&1 &
 ca_pid=$!
 
 (

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.17
+
+- The start-up log shows the SCEP, root CA, and CRL URLs with your Home
+  Assistant URL (`enrollment.public_url` or the External URL) instead of a
+  placeholder.
+- Hide step-ca's own "primary server URL" and "root certificates" lines,
+  which point at its internal port 9000 that devices do not use.
+
 ## 0.30.2.16
 
 - Add an icon for the add-on and the Step CA SCEP integration
