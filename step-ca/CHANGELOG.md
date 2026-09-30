@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2-9
+
+- Fix a start-up loop ("Could not configure the SCEP provisioner: client GET
+  https://<dns name>:9000/admin/admins failed: context deadline exceeded")
+  when the first `dns_names` entry resolves on the network but does not
+  answer. Provisioners are now always written to ca.json directly.
+
 ## 0.30.2-8
 
 - Remove the retired `profile_signing` Let's Encrypt options (`acme_domain`,

@@ -368,9 +368,16 @@ cat "${tmp_config}" > "${ca_config}"
 rm -f "${tmp_config}"
 chmod 0600 "${ca_config}"
 
+# `step ca provisioner add` first asks the CA at defaults.json's ca-url (the
+# first dns_names entry) and only edits ca.json when that connection is
+# refused. A name that resolves but does not answer times out instead, so
+# point it at a closed loopback port.
+offline_ca_url="https://127.0.0.1:1"
+
 scep_args=(
   --type SCEP
   --ca-config "${ca_config}"
+  --ca-url "${offline_ca_url}"
   --encryption-algorithm-identifier "${encryption_algorithm}"
   --min-public-key-length "${min_key_length}"
   --scep-decrypter-certificate-file "${ra_cert}"
@@ -450,7 +457,7 @@ cat > "${enroll_template}" <<'EOF'
 EOF
 jq --null-input --argjson policy "${subject_policy}" '{subjectPolicy: $policy}' > "${leaf_template_data}"
 step ca provisioner add "${enroll_provisioner}" --type JWK --create \
-  --ca-config "${ca_config}" --password-file "${enroll_password_file}" \
+  --ca-config "${ca_config}" --ca-url "${offline_ca_url}" --password-file "${enroll_password_file}" \
   --x509-template "${enroll_template}" --x509-template-data "${leaf_template_data}" \
   --x509-default-dur "${default_duration}" --x509-max-dur "${max_duration}" >/dev/null 2>&1 \
   || fatal "Could not configure the enrollment provisioner."
