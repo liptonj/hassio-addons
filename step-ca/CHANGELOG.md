@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2-13
+
+- The enrollment link form says where the Home Assistant URL came from
+  (External URL, `enrollment.public_url`, or the address Home Assistant was
+  opened with) and how to set a public HTTPS URL when it is not one. A
+  failure to read the URLs from Home Assistant is logged.
+- The .p12 download page always offers `ca-bundle.pem` with the root and
+  intermediate CA, not only when other CAs were uploaded.
+
 ## 0.30.2-12
 
 - New **Using an MDM** section in the documentation and card on

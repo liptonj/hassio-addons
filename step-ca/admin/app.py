@@ -299,8 +299,13 @@ _core_urls = {"at": float("-inf"), "external": "", "internal": ""}
 
 def default_base_url(headers):
     """Best guess at the URL devices use to reach Home Assistant."""
+    return detect_base_url(headers)[0]
+
+
+def detect_base_url(headers):
+    """(url, where it came from) for the URL devices use to reach Home Assistant."""
     if ENROLL_PUBLIC_URL:
-        return enroll.normalize_base_url(ENROLL_PUBLIC_URL)
+        return enroll.normalize_base_url(ENROLL_PUBLIC_URL), "the enrollment.public_url option"
     if time.monotonic() - _core_urls["at"] > 300:
         try:
             req = urllib.request.Request(
@@ -309,19 +314,33 @@ def default_base_url(headers):
                 config = json.load(resp)
             external = config.get("external_url") or ""
             internal = config.get("internal_url") or ""
-        except (OSError, ValueError):
+        except (OSError, ValueError) as err:
+            print(f"Could not read the Home Assistant URLs from Core: {err}", flush=True)
             external = internal = ""
         _core_urls.update(at=time.monotonic(), external=enroll.normalize_base_url(external),
                           internal=enroll.normalize_base_url(internal))
     if _core_urls["external"]:
-        return _core_urls["external"]
+        return _core_urls["external"], "Home Assistant's External URL"
     # No External URL set: use the hostname the admin opened Home Assistant
     # with, which is the public one when they are not at home.
     host = headers.get("X-Forwarded-Host", "")
     proto = headers.get("X-Forwarded-Proto", "http")
     if host:
-        return enroll.normalize_base_url(f"{proto}://{host}")
-    return _core_urls["internal"]
+        return (enroll.normalize_base_url(f"{proto}://{host}"),
+                "the address you opened Home Assistant with, because no External URL is set")
+    if _core_urls["internal"]:
+        return _core_urls["internal"], "Home Assistant's Internal URL, because no External URL is set"
+    return "", ""
+
+
+def base_url_hint(url, source):
+    """Explain where the default enrollment URL came from."""
+    hint = f"From {esc(source)}." if source else "No Home Assistant URL was found."
+    if not url.startswith("https://"):
+        hint += (" Devices away from home need a public HTTPS URL: set the <b>External URL</b> under "
+                 "Settings &rsaquo; System &rsaquo; Network, or the <b>enrollment.public_url</b> add-on "
+                 "option, or type it here.")
+    return f'<p class="muted">{hint}</p>'
 
 
 def signer_status():
@@ -868,9 +887,8 @@ class Handler(BaseHTTPRequestHandler):
                       "Ask your administrator to check the add-on log.</div>", 500)
             return
         download = DOWNLOADS.add(link_id, data, f"{safe_filename(cn)}.p12", "application/x-pkcs12")
-        bundle = ""
-        if enroll.load_extra_cas():
-            bundle = DOWNLOADS.add(link_id, full_bundle(), "ca-bundle.pem", "application/x-pem-file")
+        bundle = DOWNLOADS.add(link_id, full_bundle(), "ca-bundle.pem", "application/x-pem-file")
+        radius = ", including the Wi-Fi (RADIUS) server CA" if enroll.load_extra_cas() else ""
         body = (
             f"<h1>Certificate for {esc(cn)}</h1>{self.insecure_note()}"
             '<div class="card"><p>Password for the .p12 file. Write it down now; it is not shown again:</p>'
@@ -879,8 +897,8 @@ class Handler(BaseHTTPRequestHandler):
             f"Download {esc(safe_filename(cn))}.p12</a></p>"
             f'<p><a href="{esc(f"{self.enroll_prefix()}/{token}/root_ca.crt")}">Download the root CA '
             "certificate</a> separately if your device asks for a CA certificate"
-            + (f', or <a href="{esc(f"{self.enroll_prefix()}/{token}/file/{bundle}")}">ca-bundle.pem</a> '
-               "with all CA certificates, including the Wi-Fi (RADIUS) server CA" if bundle else "")
+            + f', or <a href="{esc(f"{self.enroll_prefix()}/{token}/file/{bundle}")}">ca-bundle.pem</a> '
+            f"with all CA certificates{radius}"
             + ".</p>"
             '<p class="muted">The download is available for 10 minutes. Android: Settings &rsaquo; '
             "Security &rsaquo; Encryption &amp; credentials &rsaquo; Install a certificate. Windows: "
@@ -924,7 +942,7 @@ class Handler(BaseHTTPRequestHandler):
             self.p12_result(token, link_id, link, cn)
 
     def enroll_page(self, notice=""):
-        base_url = default_base_url(self.headers)
+        base_url, base_source = detect_base_url(self.headers)
         signer_ok, signer_html = signer_status()
         wifi_opt = ""
         if wifi_enabled():
@@ -972,6 +990,7 @@ class Handler(BaseHTTPRequestHandler):
             '<label for="base">Home Assistant URL the device will use</label>'
             f'<input id="base" name="base_url" type="url" required value="{esc(base_url)}" '
             'placeholder="https://home.example.com">'
+            + base_url_hint(base_url, base_source) +
             '<label for="hours">Valid for (hours)</label>'
             f'<input id="hours" name="hours" type="number" min="1" max="168" value="{ENROLL_LINK_HOURS}" '
             'style="width:120px">'
