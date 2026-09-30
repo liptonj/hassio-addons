@@ -15,6 +15,12 @@ RUN chmod 0755 /usr/bin/run-step-ca
 
 ENV STEPPATH=/data/step
 
+# The base image's check runs "step ca health" against the first dns_names
+# entry, which may be a public name that does not reach port 9000 from inside
+# the container; Supervisor then waits in "startup". Check locally instead.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl --silent --fail --insecure --max-time 4 https://127.0.0.1:9000/health | grep -q '"ok"'
+
 LABEL \
     io.hass.name="Step CA SCEP Server" \
     io.hass.description="Private certificate authority that issues client certificates over SCEP" \

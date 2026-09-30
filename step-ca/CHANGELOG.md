@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.18
+
+- Fix the add-on staying in "starting" when the first `dns_names` entry is a
+  public name (for example your External URL host). The container health
+  check now asks step-ca on 127.0.0.1 instead of that name on port 9000.
+
 ## 0.30.2.17
 
 - The start-up log shows the SCEP, root CA, and CRL URLs with your Home
