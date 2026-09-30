@@ -44,6 +44,24 @@ option() { jq --raw-output "$1" "${options_path}"; }
 [[ -r "${options_path}" ]] || fatal "Home Assistant did not provide ${options_path}."
 [[ -L "${step_path}" ]] && fatal "${step_path} must not be a symbolic link."
 
+# Supervisor keeps saved options that later versions removed, and shows them
+# in the configuration editor. Drop the retired Let's Encrypt (lego) options.
+retired='del(.profile_signing.acme_domain, .profile_signing.acme_email,
+  .profile_signing.dns_provider, .profile_signing.dns_credentials,
+  .profile_signing.acme_staging)'
+if [[ -n "${SUPERVISOR_TOKEN:-}" ]] \
+  && [[ "$(jq --compact-output "${retired}" "${options_path}")" != "$(jq --compact-output . "${options_path}")" ]]; then
+  if jq --compact-output "{options: (${retired})}" "${options_path}" \
+    | curl --silent --fail --output /dev/null \
+      --header "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+      --header "Content-Type: application/json" \
+      --data @- http://supervisor/addons/self/options; then
+    info "Removed the retired profile_signing Let's Encrypt options; use the Let's Encrypt add-on instead."
+  else
+    warn "Could not remove the retired profile_signing Let's Encrypt options; delete them in the add-on configuration."
+  fi
+fi
+
 ca_name="$(option '.ca_name')"
 provisioner_name="$(option '.scep_provisioner_name')"
 challenge="$(option '.scep_challenge // ""')"

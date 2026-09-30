@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2-8
+
+- Remove the retired `profile_signing` Let's Encrypt options (`acme_domain`,
+  `acme_email`, `dns_provider`, `dns_credentials`, `acme_staging`) from the
+  saved configuration on start, so they no longer show in the editor.
+
 ## 0.30.2-7
 
 - Sign enrollment profiles with the certificate from Home Assistant's
