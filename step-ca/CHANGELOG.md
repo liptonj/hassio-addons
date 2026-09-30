@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.19
+
+- New `ca-chain.pem` download on **CA & downloads**: the intermediate and
+  root CA in one file, for MDMs that require a full trusted chain. The
+  **Using an MDM** card uses it instead of separate root and intermediate
+  files.
+- An uploaded CA's download includes its issuers when they were uploaded
+  too.
+
 ## 0.30.2.18
 
 - Fix the add-on staying in "starting" when the first `dns_names` entry is a

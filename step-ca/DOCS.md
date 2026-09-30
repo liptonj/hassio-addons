@@ -288,10 +288,13 @@ Create one configuration profile with these payloads.
 
 1. **Certificate** payloads (Apple: *Certificate*; others: *Trusted
    certificate*), one for each file:
-   - `root_ca.pem`: the root CA;
-   - `intermediate_ca.pem`: the intermediate CA;
+   - `ca-chain.pem`: this CA's full trusted chain (intermediate, then root)
+     in one file;
    - each CA added under **Other trusted CAs**, such as your RADIUS server's
-     CA.
+     CA. Its download includes its issuers if you added them too.
+
+   If your MDM takes one certificate per payload instead, use
+   `root_ca.pem` and `intermediate_ca.pem` as two payloads.
 2. **SCEP** payload:
 
    | Field                  | Value                                                        |
@@ -339,8 +342,8 @@ Create one configuration profile with these payloads.
 ### Your RADIUS server
 
 The RADIUS server must trust the client certificates. Give it
-`root_ca.pem` and `intermediate_ca.pem` (or the root alone if it builds the
-chain from the certificates the clients send). To reject revoked
+`ca-chain.pem` (or `root_ca.pem` alone if it builds the chain from the
+certificates the clients send). To reject revoked
 certificates, see [Revocation](#revocation).
 
 ## Revocation

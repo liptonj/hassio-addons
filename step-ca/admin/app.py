@@ -320,6 +320,17 @@ def cert_chain():
     return root, inter
 
 
+def ca_chain():
+    """This CA's chain, intermediate then root, as one PEM file."""
+    root, inter = cert_chain()
+    return enroll.chain_pem(inter, [root])
+
+
+def extra_chain(cert):
+    """An uploaded CA with its uploaded issuers, as one PEM file."""
+    return enroll.chain_pem(cert, enroll.load_extra_cas())
+
+
 def full_bundle():
     """Root, intermediate, and uploaded extra CAs as one PEM file."""
     return enroll.ca_bundle([*cert_chain(), *enroll.load_extra_cas()])
@@ -600,8 +611,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not certs:
                     self.page("Not found", "<h1>Not found</h1>", 404)
                 else:
-                    self.download(certs[0].public_bytes(serialization.Encoding.PEM),
+                    self.download(extra_chain(certs[0]),
                                   f"{safe_filename(enroll.common_name(certs[0]))}.pem", "application/x-pem-file")
+            elif path == "/download/ca-chain.pem":
+                self.download(ca_chain(), "ca-chain.pem", "application/x-pem-file")
             elif path == "/download/ca-bundle.pem":
                 self.download(full_bundle(), "ca-bundle.pem", "application/x-pem-file")
             elif path == "/download/crl.pem":
@@ -1196,6 +1209,10 @@ class Handler(BaseHTTPRequestHandler):
             'placeholder="-----BEGIN CERTIFICATE-----"></textarea>'
             '<div style="margin-top:12px"><button class="btn">Add</button></div></form></div>'
             + extra_rows
+            + '<div class="card"><h2 style="margin-top:0">Certificate chain</h2>'
+            f'<p><a href="{esc(self.url("/download/ca-chain.pem"))}">Download ca-chain.pem</a></p>'
+            '<p class="muted">The intermediate and root CA in one PEM file (full trusted chain), '
+            "for MDMs and RADIUS servers.</p></div>"
             + '<div class="card"><h2 style="margin-top:0">Full CA bundle</h2>'
             f'<p><a href="{esc(self.url("/download/ca-bundle.pem"))}">Download ca-bundle.pem</a></p>'
             '<p class="muted">Root, intermediate' + (", and the other trusted CAs" if extra else "")
@@ -1217,10 +1234,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def mdm_card(self, base, extra):
         """Values for an MDM's SCEP, certificate, and Wi-Fi payloads."""
-        certs = [f'<a href="{esc(self.url("/download/root_ca.pem"))}">root_ca.pem</a>',
-                 f'<a href="{esc(self.url("/download/intermediate_ca.pem"))}">intermediate_ca.pem</a>']
+        certs = [f'<a href="{esc(self.url("/download/ca-chain.pem"))}">ca-chain.pem</a> (this CA: '
+                 "intermediate and root)"]
+        # One payload per chain: skip uploaded CAs that are an issuer of another upload.
+        issuers = {c.issuer for c in extra if c.issuer != c.subject}
         certs += [f'<a href="{esc(self.url(f"/download/extra/{enroll.fingerprint(c)}.pem"))}">'
-                  f"{esc(safe_filename(enroll.common_name(c)))}.pem</a>" for c in extra]
+                  f"{esc(safe_filename(enroll.common_name(c)))}.pem</a>"
+                  for c in extra if c.subject not in issuers]
         challenge = ("the <b>scep_challenge</b> add-on option (static)" if SCEP_CHALLENGE else
                      '<span style="color:var(--bad)">none set; set <b>scep_challenge</b> before '
                      "using an MDM</span>")
@@ -1235,7 +1255,8 @@ class Handler(BaseHTTPRequestHandler):
             "<p>Values for an MDM configuration profile (Jamf Pro, Kandji, Mosyle, and other MDMs with a "
             "static SCEP challenge). Intune SCEP profiles are not supported; see the add-on "
             "documentation.</p><dl>"
-            f"<dt>Certificate payloads</dt><dd>{', '.join(certs)}</dd>"
+            f"<dt>Certificate payloads</dt><dd>{'; '.join(certs)}. Each file is a full chain; "
+            "upload each as one certificate payload.</dd>"
             f"<dt>SCEP URL</dt><dd class=mono>{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}</dd>"
             f"<dt>Challenge</dt><dd>{challenge}</dd>"
             "<dt>Subject</dt><dd class=mono>CN=&lt;unique device variable&gt;, e.g. CN=$SERIALNUMBER</dd>"

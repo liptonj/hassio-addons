@@ -322,6 +322,19 @@ def ca_bundle(certs):
     return out
 
 
+def chain_pem(cert, pool):
+    """PEM of cert followed by its issuers from pool, up to a self-signed root."""
+    chain, seen = [cert], {fingerprint(cert)}
+    while chain[-1].issuer != chain[-1].subject:
+        issuer = next((c for c in pool if c.subject == chain[-1].issuer
+                       and fingerprint(c) not in seen), None)
+        if issuer is None:
+            break
+        chain.append(issuer)
+        seen.add(fingerprint(issuer))
+    return b"".join(c.public_bytes(serialization.Encoding.PEM) for c in chain)
+
+
 def common_name(cert):
     names = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
     return str(names[0].value) if names else cert.subject.rfc4514_string()
