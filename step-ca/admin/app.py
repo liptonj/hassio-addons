@@ -331,8 +331,9 @@ def signer_status():
     return False, (
         f'<span class="expired pill">Not Verified</span> {who}<br><span class="muted">Signed by '
         "this CA because no publicly trusted certificate is available"
-        + (f" ({esc(PUBLIC_SIGNER_LABEL)} is not ready yet; check the add-on log)" if PUBLIC_SIGNER_LABEL else "")
-        + ". Configure the <b>profile_signing</b> options to get one from Let&#39;s Encrypt.</span>"
+        + (f" ({esc(PUBLIC_SIGNER_LABEL)} was not found)" if PUBLIC_SIGNER_LABEL else "")
+        + ". Install and start the <b>Let&#39;s Encrypt</b> add-on; its certificate in /ssl is picked up "
+        "within an hour.</span>"
     )
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2-7
+
+- Sign enrollment profiles with the certificate from Home Assistant's
+  Let's Encrypt add-on in `/ssl`. The built-in Let's Encrypt client (lego)
+  and the `profile_signing.acme_*`, `dns_provider`, and `dns_credentials`
+  options are removed. The certificate is re-checked hourly, so one issued
+  after the add-on starts is picked up without a restart.
+- "Could not configure the SCEP provisioner" now includes step's error.
+
 ## 0.30.2-6
 
 - Detect the Home Assistant URL for enrollment automatically: the External

@@ -211,39 +211,15 @@ certificate so they show as **Verified**. The certificate only signs
 profiles; its name does not have to match Home Assistant's URL. It is chosen
 in this order:
 
-1. **Let's Encrypt via DNS-01** (recommended). Set `profile_signing`:
-
-   ```yaml
-   profile_signing:
-     acme_domain: "*.home.example.com"
-     acme_email: you@example.com
-     dns_provider: cloudflare
-     dns_credentials:
-       - CF_DNS_API_TOKEN=your-token
-   ```
-
-   The add-on uses [lego](https://go-acme.github.io/lego/dns/); any of its DNS
-   providers works. `dns_provider` is lego's provider code and
-   `dns_credentials` are the environment variables that provider documents,
-   one `NAME=value` per entry. Examples:
-
-   - Cloudflare: `cloudflare` with `CF_DNS_API_TOKEN=...`
-   - DuckDNS: `duckdns` with `DUCKDNS_TOKEN=...`
-   - Route 53: `route53` with `AWS_ACCESS_KEY_ID=...`,
-     `AWS_SECRET_ACCESS_KEY=...`, and `AWS_REGION=...`
-   - Gandi: `gandiv5` with `GANDIV5_PERSONAL_ACCESS_TOKEN=...`
-
-   No port needs to be open. `acme_domain` may be a wildcard. `acme_email`
-   must be a real address; Let's Encrypt rejects domains such as
-   `example.com`. The certificate is requested in the background on start
-   and renewed automatically; set `acme_staging: true` while testing to avoid
-   rate limits (staging certificates are not trusted, so profiles still show
-   as Not Verified).
-2. **A certificate in `/ssl`**, e.g. from the Let's Encrypt or DuckDNS
-   add-on: `profile_signing.ssl_certificate` and `ssl_key` (default
-   `fullchain.pem` and `privkey.pem`). Renewals are picked up within 12
-   hours.
-3. Otherwise profiles are signed by this CA and show as Not Verified. They
+1. **The Let's Encrypt add-on's certificate in `/ssl`** (recommended).
+   Install Home Assistant's official **Let's Encrypt** add-on and configure it
+   for your domain; with its DNS challenge (e.g. Cloudflare) no port needs to
+   be open. It writes `/ssl/fullchain.pem` and `/ssl/privkey.pem`, which this
+   add-on uses by default. Certificates from the DuckDNS add-on or any other
+   publicly trusted certificate in `/ssl` work too; set
+   `profile_signing.ssl_certificate` and `ssl_key` if the file names differ.
+   New certificates and renewals are picked up within an hour.
+2. Otherwise profiles are signed by this CA and show as Not Verified. They
    still install and work.
 
 The **Enroll devices** page shows whether signing is **Verified** and, if not,
@@ -343,11 +319,8 @@ recorder.
 Publicly trusted certificate for signing Apple profiles. See
 [Profile signing](#profile-signing).
 
-- `acme_domain`, `acme_email`, `dns_provider`, `dns_credentials`: Let's
-  Encrypt through DNS-01. Set all of them or none.
-- `acme_staging`: use Let's Encrypt's staging server.
-- `ssl_certificate`, `ssl_key`: file names in `/ssl` used when ACME is not
-  configured.
+- `ssl_certificate`, `ssl_key`: file names in `/ssl` (default
+  `fullchain.pem` and `privkey.pem`, as written by the Let's Encrypt add-on).
 
 ### `wifi`
 
@@ -395,9 +368,8 @@ chaining to a trusted root.
   Assistant URL could not be detected. Set the External URL under
   **Settings → System → Network**.
 - Profiles show as **Not Verified**: check the **Enroll devices** page and
-  the add-on log for the reason. A Let's Encrypt error mentioning
-  `invalidContact` means `acme_email` is not a real address; other errors
-  usually mean wrong `dns_credentials`.
+  the add-on log for the reason. Usually the Let's Encrypt add-on has not
+  run yet or failed; check its log.
 - A profile fails to install with a SCEP error: its one-time challenge was
   already used or is over an hour old. Open the link again, or use
   **Enroll this device**, to get a fresh profile.
@@ -405,4 +377,6 @@ chaining to a trusted root.
 - `badRequest` from the client usually means a wrong challenge password.
 - If a client complains that it cannot encrypt to the CA, make sure it selects
   the RSA RA certificate (the first certificate in the GetCACert response).
-- If the add-on fails with a provisioner error, check the duration options.
+- If the add-on fails with "Could not configure the SCEP provisioner", the
+  message ends with step's own error. Check the duration options and that
+  `scep_provisioner_name` is not `admin` or `enrollment`.

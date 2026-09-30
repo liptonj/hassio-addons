@@ -6,7 +6,7 @@ ARG BUILD_VERSION
 
 USER root
 
-RUN apk add --no-cache jq su-exec python3 py3-pymysql py3-cryptography py3-aiohttp py3-qrcode lego
+RUN apk add --no-cache jq su-exec python3 py3-pymysql py3-cryptography py3-aiohttp py3-qrcode
 
 COPY custom_components/step_ca_scep /opt/step_ca_scep
 COPY admin/app.py admin/db_setup.py admin/enroll.py /opt/step-ca-admin/

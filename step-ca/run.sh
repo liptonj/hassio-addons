@@ -24,7 +24,6 @@ readonly ssl_dir="/ssl"
 readonly ssl_signer_dir="/run/step-ca-signer"
 readonly enroll_port=8100
 readonly webhook_port=8101
-readonly acme_dir="${step_path}/acme"
 readonly ra_cert="${step_path}/scep/ra.crt"
 readonly ra_key="${step_path}/scep/ra.key"
 readonly https_address=":9000"
@@ -63,11 +62,6 @@ public_url="$(option '.enrollment.public_url // ""')"
 public_url="${public_url%/}"
 [[ -z "${public_url}" || "${public_url}" =~ ^https?:// ]] || public_url="https://${public_url}"
 link_hours="$(option '.enrollment.link_hours // 24')"
-acme_domain="$(option '.profile_signing.acme_domain // ""')"
-acme_email="$(option '.profile_signing.acme_email // ""')"
-dns_provider="$(option '.profile_signing.dns_provider // ""')"
-acme_staging="$(option '.profile_signing.acme_staging // false')"
-mapfile -t dns_credentials < <(option '.profile_signing.dns_credentials // [] | .[] | select(. != null and . != "")')
 signing_cert_name="$(option '.profile_signing.ssl_certificate // "fullchain.pem"')"
 signing_key_name="$(option '.profile_signing.ssl_key // "privkey.pem"')"
 wifi_json="$(option '.wifi // {} | {ssid: (.ssid // ""), security: (.security // "WPA2"),
@@ -190,7 +184,8 @@ EOF
     --ca-key "${step_path}/secrets/intermediate_ca_key" \
     --ca-password-file "${ca_password_file}" \
     --not-after 43800h \
-    --no-password --insecure --force >/dev/null 2>&1
+    --no-password --insecure --force >/dev/null 2>&1 \
+    || fatal "Could not issue the SCEP RA certificate."
   rm -f "${ra_template}" "${ra_data}"
   chmod 0600 "${ra_key}"
 fi
@@ -245,54 +240,17 @@ cat /etc/ssl/certs/ca-certificates.crt "${step_path}/certs/root_ca.crt" > "${ca_
   || cat "${step_path}/certs/root_ca.crt" > "${ca_bundle}"
 
 # Enrollment profiles are signed with a publicly trusted certificate so iOS
-# shows them as "Verified". It comes from Let's Encrypt through ACME DNS-01
-# (profile_signing.acme_*), or else from the files in /ssl written by e.g. the
-# Let's Encrypt or DuckDNS add-on. The certificate only signs profiles; its
-# name does not have to match anything. It is copied for the unprivileged
-# management page and refreshed periodically so renewals are picked up.
-acme_enabled=false
-if [[ -n "${acme_domain}" || -n "${dns_provider}" ]]; then
-  [[ -n "${acme_domain}" && -n "${dns_provider}" && -n "${acme_email}" ]] \
-    || fatal "profile_signing needs acme_domain, acme_email, and dns_provider together."
-  for credential in "${dns_credentials[@]}"; do
-    [[ "${credential}" =~ ^[A-Z0-9_]+=.+$ ]] \
-      || fatal "profile_signing.dns_credentials entries must look like NAME=value (e.g. CF_DNS_API_TOKEN=...)."
-  done
-  acme_enabled=true
-fi
-# lego names its files after the domain, with '*' replaced by '_'.
-acme_cert="${acme_dir}/certificates/${acme_domain/\*/_}.crt"
-acme_key="${acme_dir}/certificates/${acme_domain/\*/_}.key"
-
-# Obtains or renews the ACME certificate. Runs in the background; failures
-# only fall back to the CA-issued signer.
-acme_refresh() {
-  local lego_args=(--accept-tos --email "${acme_email}" --path "${acme_dir}"
-    --dns "${dns_provider}" --domains "${acme_domain}" --key-type rsa2048)
-  [[ "${acme_staging}" == "true" ]] \
-    && lego_args+=(--server https://acme-staging-v02.api.letsencrypt.org/directory)
-  local action=(run)
-  [[ -s "${acme_cert}" && -s "${acme_key}" ]] && action=(renew --days 30 --no-random-sleep)
-  local output
-  if output="$(env "${dns_credentials[@]}" lego "${lego_args[@]}" "${action[@]}" 2>&1)"; then
-    [[ "${action[0]}" == "run" ]] && info "Obtained the profile signing certificate for ${acme_domain} from Let's Encrypt."
-    return 0
-  fi
-  warn "Let's Encrypt (${dns_provider}) failed for ${acme_domain}: $(tail -n 3 <<<"${output}" | tr '\n' ' ')"
-  return 1
-}
-
-install -d -m 0700 "${ssl_signer_dir}" "${acme_dir}"
+# shows them as "Verified": the one in /ssl written by Home Assistant's
+# Let's Encrypt add-on (or e.g. the DuckDNS add-on). The certificate only
+# signs profiles; its name does not have to match anything. It is copied for
+# the unprivileged management page and re-checked hourly so renewals, or a
+# certificate that appears after start, are picked up.
+install -d -m 0700 "${ssl_signer_dir}"
 chown step:step "${ssl_signer_dir}"
+signer_label="${ssl_dir}/${signing_cert_name}"
 update_signer() {
-  local cert key
-  if [[ "${acme_enabled}" == "true" ]]; then
-    acme_refresh || true
-    cert="${acme_cert}" key="${acme_key}"
-  elif [[ -n "${signing_cert_name}" && -n "${signing_key_name}" ]]; then
-    cert="${ssl_dir}/${signing_cert_name}" key="${ssl_dir}/${signing_key_name}"
-  fi
-  if [[ -z "${cert:-}" || ! -r "${cert}" || ! -r "${key}" ]]; then
+  local cert="${ssl_dir}/${signing_cert_name}" key="${ssl_dir}/${signing_key_name}"
+  if [[ ! -r "${cert}" || ! -r "${key}" ]]; then
     rm -f "${ssl_signer_dir}/signer.crt" "${ssl_signer_dir}/signer.key"
     return 1
   fi
@@ -301,16 +259,10 @@ update_signer() {
     install -m 0600 -o step -g step "${key}" "${ssl_signer_dir}/signer.key"
   fi
 }
-if [[ "${acme_enabled}" == "true" ]]; then
-  signer_label="Let's Encrypt (${acme_domain})"
-  info "Profile signing certificate: Let's Encrypt for ${acme_domain} via DNS-01 (${dns_provider})."
-elif [[ -n "${signing_cert_name}" && -r "${ssl_dir}/${signing_cert_name}" ]]; then
-  signer_label="${ssl_dir}/${signing_cert_name}"
-  update_signer || true
+if update_signer; then
   info "Profile signing certificate: ${signer_label}."
 else
-  signer_label=""
-  warn "No publicly trusted profile signing certificate configured; enrollment profiles are signed by this CA and iOS shows them as \"Not Verified\". Set profile_signing.acme_domain, acme_email, dns_provider, and dns_credentials."
+  warn "${signer_label} not found; enrollment profiles are signed by this CA and iOS shows them as \"Not Verified\". Install and start the Let's Encrypt add-on to get a publicly trusted certificate."
 fi
 [[ -s "${enroll_password_file}" ]] || (umask 077; head -c 32 /dev/urandom | base64 | tr -d '\n' > "${enroll_password_file}")
 
@@ -442,8 +394,8 @@ fi
 [[ "${include_root}" == "true" ]] && scep_args+=(--include-root)
 [[ "${force_cn}" == "true" ]] && scep_args+=(--force-cn)
 
-step ca provisioner add "${provisioner_name}" "${scep_args[@]}" >/dev/null 2>&1 \
-  || fatal "Could not configure the SCEP provisioner; check the certificate duration options."
+provisioner_output="$(step ca provisioner add "${provisioner_name}" "${scep_args[@]}" 2>&1)" \
+  || fatal "Could not configure the SCEP provisioner: $(grep -v 'CA Configuration' <<<"${provisioner_output}" | tail -n 3 | tr '\n' ' ')"
 
 # The management page decides which SCEP challenges are accepted: the static
 # scep_challenge and one-time challenges from enrollment profiles. With a
@@ -554,12 +506,9 @@ ca_pid=$!
 ) &
 admin_pid=$!
 
-# Obtain, renew, and pick up the profile signing certificate. The first ACME
-# run happens here, in the background, so a slow DNS provider does not delay
-# startup.
+# Pick up renewals of the profile signing certificate.
 (
-  [[ "${acme_enabled}" == "true" ]] && { update_signer || true; }
-  while sleep 43200; do update_signer || true; done
+  while sleep 3600; do update_signer || true; done
 ) &
 refresh_pid=$!
 
