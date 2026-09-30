@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.16
+
+- Add an icon for the add-on and the Step CA SCEP integration
+  (integration 1.2.1; Home Assistant 2026.3 or later shows it). Restart
+  Home Assistant after the add-on installs the new integration version.
+
 ## 0.30.2.15
 
 - Versions are now numbered `0.30.2.N`. Home Assistant treated
