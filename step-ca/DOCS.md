@@ -185,9 +185,10 @@ enrollment shows up in the links table like any other.
    a pending link to make it unusable.
 
 Links are served through Home Assistant's own URL, so devices must be able to
-reach it. The URL is taken from `enrollment.public_url`, or else from Home
-Assistant's **External URL** (then Internal URL) under **Settings → System →
-Network**.
+reach it. Nothing needs to be configured: the add-on uses Home Assistant's
+**External URL** (**Settings → System → Network**), or if none is set, the
+hostname you opened Home Assistant with, and only then the Internal URL. The
+URL is shown, and can be changed, when you create a link.
 
 The .p12 files use 3DES and SHA-1 so that Android, Windows, and older Apple
 devices can import them.
@@ -332,10 +333,9 @@ recorder.
 
 ### `enrollment`
 
-- `public_url`: base URL devices use to reach Home Assistant, e.g.
-  `https://ha.example.com` (`https://` is assumed if left out; no path).
-  Empty uses Home Assistant's External or Internal
-  URL.
+- `public_url` (hidden; enable **Show unused optional configuration
+  options** to set it): overrides the detected Home Assistant URL, e.g.
+  `https://ha.example.com`. Not needed normally.
 - `link_hours`: how long enrollment links stay valid (1-168, default 24).
 
 ### `profile_signing`
@@ -391,8 +391,9 @@ chaining to a trusted root.
 - Enrollment links return `404`: the link was used, cancelled, or has
   expired, or Home Assistant has not been restarted since the add-on updated
   the integration to 1.2.0.
-- "Set enrollment.public_url in the add-on options first": Home Assistant has
-  no External or Internal URL. Set one, or set `enrollment.public_url`.
+- "Set enrollment.public_url in the add-on options first": the Home
+  Assistant URL could not be detected. Set the External URL under
+  **Settings → System → Network**.
 - Profiles show as **Not Verified**: check the **Enroll devices** page and
   the add-on log for the reason. A Let's Encrypt error mentioning
   `invalidContact` means `acme_email` is not a real address; other errors

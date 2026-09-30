@@ -286,7 +286,7 @@ def wifi_enabled():
     return bool(WIFI.get("ssid"))
 
 
-_core_urls = {"at": 0.0, "url": ""}
+_core_urls = {"at": float("-inf"), "external": "", "internal": ""}
 
 
 def default_base_url(headers):
@@ -294,21 +294,26 @@ def default_base_url(headers):
     if ENROLL_PUBLIC_URL:
         return enroll.normalize_base_url(ENROLL_PUBLIC_URL)
     if time.monotonic() - _core_urls["at"] > 300:
-        url = ""
         try:
             req = urllib.request.Request(
                 CORE_CONFIG_URL, headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"})
             with urllib.request.urlopen(req, timeout=5) as resp:
                 config = json.load(resp)
-            url = config.get("external_url") or config.get("internal_url") or ""
+            external = config.get("external_url") or ""
+            internal = config.get("internal_url") or ""
         except (OSError, ValueError):
-            pass
-        _core_urls.update(at=time.monotonic(), url=enroll.normalize_base_url(url))
-    if _core_urls["url"]:
-        return _core_urls["url"]
+            external = internal = ""
+        _core_urls.update(at=time.monotonic(), external=enroll.normalize_base_url(external),
+                          internal=enroll.normalize_base_url(internal))
+    if _core_urls["external"]:
+        return _core_urls["external"]
+    # No External URL set: use the hostname the admin opened Home Assistant
+    # with, which is the public one when they are not at home.
     host = headers.get("X-Forwarded-Host", "")
     proto = headers.get("X-Forwarded-Proto", "http")
-    return enroll.normalize_base_url(f"{proto}://{host}") if host else ""
+    if host:
+        return enroll.normalize_base_url(f"{proto}://{host}")
+    return _core_urls["internal"]
 
 
 def signer_status():

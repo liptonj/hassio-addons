@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2-6
+
+- Detect the Home Assistant URL for enrollment automatically: the External
+  URL, else the hostname Home Assistant was opened with, else the Internal
+  URL. `enrollment.public_url` is now hidden and only needed as an override.
+
 ## 0.30.2-5
 
 - `enrollment.public_url` accepts a trailing slash or a bare hostname
