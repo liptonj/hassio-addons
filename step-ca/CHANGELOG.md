@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2-14
+
+- Fix enrollment and CA page URLs using the address Home Assistant was
+  opened with (for example `http://home.local`) instead of the public URL.
+  The URLs are now read over Home Assistant's websocket, and Home Assistant
+  Cloud remote access (nabu.casa) is used when no External URL is set. The
+  detected URLs are written to the add-on log.
+
 ## 0.30.2-13
 
 - The enrollment link form says where the Home Assistant URL came from

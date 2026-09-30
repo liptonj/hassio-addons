@@ -65,7 +65,6 @@ WEBHOOK_KEY = os.environ.get("WEBHOOK_KEY", f"{STEP_PATH}/enroll/webhook.key")
 ENROLL_ALLOWED_CLIENTS = set(os.environ.get("ENROLL_ALLOWED_CLIENTS", "172.30.32.1").split(","))
 ENROLL_PUBLIC_URL = os.environ.get("ENROLL_PUBLIC_URL", "")
 ENROLL_LINK_HOURS = int(os.environ.get("ENROLL_LINK_HOURS", "24"))
-CORE_CONFIG_URL = os.environ.get("CORE_CONFIG_URL", "http://supervisor/core/api/config")
 try:
     WIFI = json.loads(os.environ.get("WIFI_JSON") or "{}")
 except ValueError:
@@ -128,6 +127,42 @@ async def _fetch_admin_ids():
                 if user.get("is_active", True)
                 and (user.get("is_owner") or ADMIN_GROUP in (user.get("group_ids") or []))
             }
+
+
+async def _core_call(*messages):
+    """Send commands over Core's websocket; returns each result, or None when one fails."""
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.ws_connect(CORE_WEBSOCKET) as ws:
+            if (await ws.receive_json()).get("type") != "auth_required":
+                raise RuntimeError("unexpected websocket greeting")
+            await ws.send_json({"type": "auth", "access_token": SUPERVISOR_TOKEN})
+            if (await ws.receive_json()).get("type") != "auth_ok":
+                raise RuntimeError("websocket authentication failed")
+            results = []
+            for number, message in enumerate(messages, 1):
+                await ws.send_json({"id": number, **message})
+                while True:
+                    reply = await ws.receive_json()
+                    if reply.get("id") == number and reply.get("type") == "result":
+                        break
+                results.append(reply.get("result") if reply.get("success") else None)
+            return results
+
+
+def _fetch_core_urls():
+    """(external, cloud, internal) Home Assistant URLs from Core."""
+    config, cloud = asyncio.run(_core_call({"type": "get_config"}, {"type": "cloud/status"}))
+    config = config or {}
+    cloud_url = ""
+    # Home Assistant Cloud remote access: External URL stays empty and the
+    # nabu.casa address is used instead.
+    if isinstance(cloud, dict) and cloud.get("logged_in") and cloud.get("remote_enabled") \
+            and cloud.get("remote_domain"):
+        cloud_url = f"https://{cloud['remote_domain']}"
+    return (enroll.normalize_base_url(config.get("external_url") or ""),
+            enroll.normalize_base_url(cloud_url),
+            enroll.normalize_base_url(config.get("internal_url") or ""))
 
 
 class AdminCache:
@@ -294,7 +329,7 @@ def wifi_enabled():
     return bool(WIFI.get("ssid"))
 
 
-_core_urls = {"at": float("-inf"), "external": "", "internal": ""}
+_core_urls = {"at": float("-inf"), "external": "", "cloud": "", "internal": ""}
 
 
 def default_base_url(headers):
@@ -308,19 +343,19 @@ def detect_base_url(headers):
         return enroll.normalize_base_url(ENROLL_PUBLIC_URL), "the enrollment.public_url option"
     if time.monotonic() - _core_urls["at"] > 300:
         try:
-            req = urllib.request.Request(
-                CORE_CONFIG_URL, headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                config = json.load(resp)
-            external = config.get("external_url") or ""
-            internal = config.get("internal_url") or ""
-        except (OSError, ValueError) as err:
+            external, cloud, internal = _fetch_core_urls()
+        except Exception as err:  # noqa: BLE001 - fall back to the request's host
             print(f"Could not read the Home Assistant URLs from Core: {err}", flush=True)
-            external = internal = ""
-        _core_urls.update(at=time.monotonic(), external=enroll.normalize_base_url(external),
-                          internal=enroll.normalize_base_url(internal))
+            external = cloud = internal = ""
+        found = {"external": external, "cloud": cloud, "internal": internal}
+        if found != {k: _core_urls[k] for k in found}:
+            print(f"Home Assistant URLs: external={external or '-'} cloud={cloud or '-'} "
+                  f"internal={internal or '-'}", flush=True)
+        _core_urls.update(at=time.monotonic(), **found)
     if _core_urls["external"]:
         return _core_urls["external"], "Home Assistant's External URL"
+    if _core_urls["cloud"]:
+        return _core_urls["cloud"], "Home Assistant Cloud remote access"
     # No External URL set: use the hostname the admin opened Home Assistant
     # with, which is the public one when they are not at home.
     host = headers.get("X-Forwarded-Host", "")
