@@ -541,6 +541,13 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/download/intermediate_ca.pem":
                 self.download(open(INTERMEDIATE_CERT, "rb").read(), "intermediate_ca.pem",
                               "application/x-pem-file")
+            elif m := re.fullmatch(r"/download/extra/([0-9a-f]{64})\.pem", path):
+                certs = [c for c in enroll.load_extra_cas() if enroll.fingerprint(c) == m.group(1)]
+                if not certs:
+                    self.page("Not found", "<h1>Not found</h1>", 404)
+                else:
+                    self.download(certs[0].public_bytes(serialization.Encoding.PEM),
+                                  f"{safe_filename(enroll.common_name(certs[0]))}.pem", "application/x-pem-file")
             elif path == "/download/ca-bundle.pem":
                 self.download(full_bundle(), "ca-bundle.pem", "application/x-pem-file")
             elif path == "/download/crl.pem":
@@ -1106,6 +1113,8 @@ class Handler(BaseHTTPRequestHandler):
 
         extra_rows = "".join(
             f'<div class="card"><dl>{details(cert)}</dl>'
+            f'<div style="margin-top:12px"><a href="{esc(self.url(f"/download/extra/{enroll.fingerprint(cert)}.pem"))}">'
+            f"Download {esc(safe_filename(enroll.common_name(cert)))}.pem</a></div>"
             f'<form method="post" action="{esc(self.url(f"/ca/extra/{enroll.fingerprint(cert)}/remove"))}" '
             f'style="margin-top:12px">{csrf}<button class="btn">Remove</button></form></div>'
             for cert in extra
@@ -1148,8 +1157,39 @@ class Handler(BaseHTTPRequestHandler):
             + "</dd>"
             "<dt>Storage</dt><dd>" + ("MariaDB" if db_enabled() else "Embedded database") + "</dd>"
             "</dl></div>"
+            + self.mdm_card(base, extra)
         )
         self.page("CA & downloads", body)
+
+    def mdm_card(self, base, extra):
+        """Values for an MDM's SCEP, certificate, and Wi-Fi payloads."""
+        certs = [f'<a href="{esc(self.url("/download/root_ca.pem"))}">root_ca.pem</a>',
+                 f'<a href="{esc(self.url("/download/intermediate_ca.pem"))}">intermediate_ca.pem</a>']
+        certs += [f'<a href="{esc(self.url(f"/download/extra/{enroll.fingerprint(c)}.pem"))}">'
+                  f"{esc(safe_filename(enroll.common_name(c)))}.pem</a>" for c in extra]
+        challenge = ("the <b>scep_challenge</b> add-on option (static)" if SCEP_CHALLENGE else
+                     '<span style="color:var(--bad)">none set; set <b>scep_challenge</b> before '
+                     "using an MDM</span>")
+        wifi = ""
+        if wifi_enabled():
+            names = ", ".join(WIFI.get("radius_server_names") or []) or "the names in your RADIUS certificate"
+            wifi = (f"<dt>Wi-Fi</dt><dd>SSID <b>{esc(WIFI['ssid'])}</b>, EAP-TLS, identity = the SCEP "
+                    f"payload, trusted certificates = the certificate payloads above, trusted server "
+                    f"names = {esc(names)}</dd>")
+        return (
+            '<div class="card"><h2 style="margin-top:0">Using an MDM</h2>'
+            "<p>Values for an MDM configuration profile (Jamf Pro, Kandji, Mosyle, and other MDMs with a "
+            "static SCEP challenge). Intune SCEP profiles are not supported; see the add-on "
+            "documentation.</p><dl>"
+            f"<dt>Certificate payloads</dt><dd>{', '.join(certs)}</dd>"
+            f"<dt>SCEP URL</dt><dd class=mono>{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}</dd>"
+            f"<dt>Challenge</dt><dd>{challenge}</dd>"
+            "<dt>Subject</dt><dd class=mono>CN=&lt;unique device variable&gt;, e.g. CN=$SERIALNUMBER</dd>"
+            "<dt>Key</dt><dd>RSA, 2048 bits or more, usage signing and encryption, not exportable</dd>"
+            "<dt>Fingerprint</dt><dd>Leave empty</dd>"
+            + wifi +
+            "</dl></div>"
+        )
 
 
 UPLOAD_LIMIT = 65536

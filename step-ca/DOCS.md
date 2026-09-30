@@ -4,8 +4,9 @@
 
 This add-on runs [smallstep step-ca](https://github.com/smallstep/certificates)
 (Apache-2.0), an open-source private certificate authority, and configures a
-SCEP provisioner so that devices, MDM platforms (Intune, Jamf, Meraki SM,
-etc.), and network gear can enroll for client certificates, for example for
+SCEP provisioner so that devices, MDM platforms with a static SCEP challenge
+(Jamf Pro, Kandji, Mosyle, and others; see [Using an MDM](#using-an-mdm)),
+and network gear can enroll for client certificates, for example for
 802.1X / EAP-TLS with the FreeRADIUS add-on.
 
 The add-on is built on the official `smallstep/step-ca` container image.
@@ -266,6 +267,81 @@ in this order:
 
 The **Enroll devices** page shows whether signing is **Verified** and, if not,
 why.
+
+## Using an MDM
+
+An MDM can deploy the same SCEP enrollment that enrollment links do. The
+values for your installation, and each certificate as a separate download,
+are on **Certificates → CA & downloads → Using an MDM**.
+
+Before you start:
+
+- Set a strong `scep_challenge`. The MDM sends it to every device; anyone who
+  learns it can obtain certificates, so change it if it leaks.
+- Devices request their certificate themselves, so they must reach the SCEP
+  URL. Use the Home Assistant URL that works where the devices are: the
+  External URL if they enroll away from home.
+
+### What to put in the profile
+
+Create one configuration profile with these payloads.
+
+1. **Certificate** payloads (Apple: *Certificate*; others: *Trusted
+   certificate*), one for each file:
+   - `root_ca.pem`: the root CA;
+   - `intermediate_ca.pem`: the intermediate CA;
+   - each CA added under **Other trusted CAs**, such as your RADIUS server's
+     CA.
+2. **SCEP** payload:
+
+   | Field                  | Value                                                        |
+   | ---------------------- | ------------------------------------------------------------ |
+   | URL                    | `<Home Assistant URL>/api/step_ca_scep/scep/<provisioner>`   |
+   | Name                   | Any name, e.g. the provisioner name `scep`                   |
+   | Subject                | `CN=<device variable>`, e.g. `CN=$SERIALNUMBER` in Jamf      |
+   | Subject alternative name | Optional: RFC 822 name (email) or DNS name                |
+   | Challenge              | The `scep_challenge` value (static challenge)                |
+   | Key size               | 2048 (or more; at least `min_public_key_length`)             |
+   | Key type               | RSA                                                          |
+   | Key usage              | Signing and encryption                                       |
+   | Fingerprint            | Leave empty                                                  |
+   | Allow export of key    | Off                                                          |
+
+   Use a variable in the subject that is unique per device, so each
+   certificate can be found and revoked in the **Certificates** list. If
+   `certificate_subject` is set, its O, OU, L, ST, and C replace whatever the
+   profile asks for; the Common Name and SANs come from the profile.
+3. **Wi-Fi** payload (optional), for 802.1X EAP-TLS:
+   - Security: WPA2/WPA3 Enterprise; accepted EAP type **TLS**.
+   - Identity certificate: the SCEP payload.
+   - Username: optional, e.g. the same variable as the Common Name.
+   - Trusted certificates: the certificate payloads that issued your RADIUS
+     server's certificate (this CA, or the RADIUS CA you added).
+   - Trusted server certificate names: the names in the RADIUS server's
+     certificate, e.g. `radius.example.com`.
+
+### Platform notes
+
+- **Jamf Pro**: use a *Computer* or *Mobile Device* configuration profile
+  with the payloads above. The challenge type is *Static*. Jamf's *SCEP
+  proxy* is not needed.
+- **Kandji, Mosyle, SimpleMDM, Addigy, and other Apple MDMs**: use their
+  SCEP and Certificate library items with the values above.
+- **Microsoft Intune**: Intune's SCEP profiles use a one-time challenge that
+  the CA must verify with Intune's validation API. step-ca's open-source
+  release does not do this, so Intune SCEP profiles do not work with this
+  add-on. You can still deploy the CA certificates with Intune *Trusted
+  certificate* profiles and enroll devices with enrollment links.
+- **Android Enterprise and Windows MDMs** with a static-challenge SCEP
+  profile (for example Workspace ONE): use the same URL, challenge, and
+  certificates.
+
+### Your RADIUS server
+
+The RADIUS server must trust the client certificates. Give it
+`root_ca.pem` and `intermediate_ca.pem` (or the root alone if it builds the
+chain from the certificates the clients send). To reject revoked
+certificates, see [Revocation](#revocation).
 
 ## Revocation
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2-12
+
+- New **Using an MDM** section in the documentation and card on
+  **Certificates → CA & downloads** with the SCEP URL, challenge, subject,
+  key, and Wi-Fi values for an MDM profile (Jamf Pro, Kandji, Mosyle, and
+  others).
+- Download each uploaded CA (for example the RADIUS server's CA) as its own
+  .pem, for MDM certificate payloads.
+
 ## 0.30.2-11
 
 - Add other CAs devices must trust, such as the RADIUS server's CA, under

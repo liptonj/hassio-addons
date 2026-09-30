@@ -322,7 +322,7 @@ def ca_bundle(certs):
     return out
 
 
-def _common_name(cert):
+def common_name(cert):
     names = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
     return str(names[0].value) if names else cert.subject.rfc4514_string()
 
@@ -445,7 +445,7 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "PayloadVersion": 1,
             "PayloadIdentifier": f"{prefix}.extra-ca.{fingerprint(cert)[:16]}",
             "PayloadUUID": extra_uuid,
-            "PayloadDisplayName": _common_name(cert),
+            "PayloadDisplayName": common_name(cert),
             "PayloadCertificateFileName": f"extra_ca_{index}.cer",
             "PayloadContent": cert.public_bytes(serialization.Encoding.DER),
         })
