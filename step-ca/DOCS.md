@@ -333,7 +333,8 @@ recorder.
 ### `enrollment`
 
 - `public_url`: base URL devices use to reach Home Assistant, e.g.
-  `https://ha.example.com`. Empty uses Home Assistant's External or Internal
+  `https://ha.example.com` (`https://` is assumed if left out; no path).
+  Empty uses Home Assistant's External or Internal
   URL.
 - `link_hours`: how long enrollment links stay valid (1-168, default 24).
 

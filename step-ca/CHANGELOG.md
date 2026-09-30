@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.30.2-5
+
+- `enrollment.public_url` accepts a trailing slash or a bare hostname
+  (`https://` is assumed).
+
 ## 0.30.2-4
 
 - New `certificate_subject` option (O, OU, L, ST, C) for the CA certificates

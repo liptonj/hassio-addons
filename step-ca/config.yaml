@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2-4"
+version: "0.30.2-5"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -96,7 +96,7 @@ schema:
   database: list(mariadb|embedded)
   mariadb_database: match(^[A-Za-z0-9_]{1,64}$)
   enrollment:
-    public_url: match(^(https?://[^/\s]+)?$)?
+    public_url: match(^((https?://)?[^/\s]+/?)?$)?
     link_hours: int(1,168)
   profile_signing:
     acme_domain: match(^((\*\.)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+)?$)?

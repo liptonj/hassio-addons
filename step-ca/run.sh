@@ -59,6 +59,9 @@ database="$(option '.database // "mariadb"')"
 mariadb_database="$(option '.mariadb_database // "stepca"')"
 mapfile -t dns_names < <(option '.dns_names[]')
 public_url="$(option '.enrollment.public_url // ""')"
+# Accept "ha.example.com" and "https://ha.example.com/" as well.
+public_url="${public_url%/}"
+[[ -z "${public_url}" || "${public_url}" =~ ^https?:// ]] || public_url="https://${public_url}"
 link_hours="$(option '.enrollment.link_hours // 24')"
 acme_domain="$(option '.profile_signing.acme_domain // ""')"
 acme_email="$(option '.profile_signing.acme_email // ""')"
