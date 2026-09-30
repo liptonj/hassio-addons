@@ -1181,7 +1181,7 @@ class Handler(BaseHTTPRequestHandler):
                 chain = [cert, root]
                 signer = "subordinate CA"
             else:
-                chain = enroll.sign_csr(enroll.parse_csr(data), ca_url=CA_URL, root_cert=ROOT_CERT)
+                chain = enroll.sign_csr(enroll.parse_csr(data)[1], ca_url=CA_URL, root_cert=ROOT_CERT)
                 cert = chain[0]
                 signer = "certificate"
         except (ValueError, RuntimeError) as err:

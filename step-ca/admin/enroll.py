@@ -12,6 +12,8 @@ it through Home Assistant and either:
 Link tokens and SCEP challenges are stored only as SHA-256 hashes.
 """
 
+import base64
+import binascii
 import datetime
 import hashlib
 import ipaddress
@@ -27,8 +29,9 @@ import time
 import uuid
 
 from cryptography import x509
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
 from cryptography.hazmat.primitives.serialization import pkcs7, pkcs12
 from cryptography.x509.oid import NameOID
 
@@ -338,26 +341,93 @@ def chain_pem(cert, pool):
 SUBORDINATE_DAYS = 3650
 
 
-def parse_csr(data):
-    """An uploaded certificate request (PEM or DER) for an end-entity certificate."""
+PEM_BLOCK_RE = re.compile(rb"-----BEGIN [A-Z0-9 ]+-----(.+?)-----END [A-Z0-9 ]+-----", re.DOTALL)
+
+
+def _to_der(data):
+    """DER bytes of the first PEM block in data, or data itself if it is not PEM."""
+    if b"-----BEGIN" not in data:
+        return data
+    match = PEM_BLOCK_RE.search(data)
     try:
-        csr = (x509.load_pem_x509_csr(data) if b"-----BEGIN" in data
-               else x509.load_der_x509_csr(data))
+        return base64.b64decode(b"".join(match.group(1).split()), validate=True) if match else b""
+    except binascii.Error:
+        return b""
+
+
+def _der_item(der, pos):
+    """(content start, content end) of the DER item at pos."""
+    length, pos = der[pos + 1], pos + 2
+    if length & 0x80:
+        count = length & 0x7F
+        length, pos = int.from_bytes(der[pos:pos + count], "big"), pos + count
+    return pos, pos + length
+
+
+def _verify_csr_signature(csr, tbs):
+    """Check csr's signature over tbs, its original to-be-signed bytes."""
+    key, params, hash_algorithm = csr.public_key(), csr.signature_algorithm_parameters, csr.signature_hash_algorithm
+    try:
+        if isinstance(key, rsa.RSAPublicKey):
+            key.verify(csr.signature, tbs, params, hash_algorithm)
+        elif isinstance(key, ec.EllipticCurvePublicKey):
+            key.verify(csr.signature, tbs, params)
+        elif isinstance(key, (ed25519.Ed25519PublicKey, ed448.Ed448PublicKey)):
+            key.verify(csr.signature, tbs)
+        else:
+            return False
+    except InvalidSignature:
+        return False
+    return True
+
+
+def load_csr(data):
+    """Load a PEM or DER certificate request and check its signature.
+
+    Returns (csr, der). Some systems (Meraki's SCEP CA) write a version other
+    than the only defined one, v1 (0), which cryptography and OpenSSL refuse.
+    Such a request is read as v1, and its signature is checked over the
+    original bytes, which stay unchanged in der.
+    """
+    der = _to_der(data)
+    try:
+        csr = x509.load_der_x509_csr(der)
+        valid = csr.is_signature_valid
+    except x509.InvalidVersion:
+        try:
+            # CertificationRequest { CertificationRequestInfo { version, ... }, ... }
+            info_start, _ = _der_item(der, 0)
+            fields_start, info_end = _der_item(der, info_start)
+            version_start, version_end = _der_item(der, fields_start)
+            if der[fields_start] != 0x02 or version_end - version_start != 1:
+                raise ValueError
+            patched = bytearray(der)
+            patched[version_start] = 0
+            csr = x509.load_der_x509_csr(bytes(patched))
+        except (ValueError, IndexError) as err:
+            raise ValueError("The file is not a PEM or DER certificate request (CSR).") from err
+        valid = _verify_csr_signature(csr, der[info_start:info_end])
     except ValueError as err:
         raise ValueError("The file is not a PEM or DER certificate request (CSR).") from err
-    if not csr.is_signature_valid:
+    if not valid:
         raise ValueError("The certificate request's signature is not valid.")
+    return csr, der
+
+
+def parse_csr(data):
+    """An uploaded certificate request for an end-entity certificate: (csr, der)."""
+    csr, der = load_csr(data)
     try:
         sans = csr.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
     except x509.ExtensionNotFound:
         sans = []
     if not csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME) and not sans:
         raise ValueError("The certificate request has no Common Name or subject alternative names.")
-    return csr
+    return csr, der
 
 
-def sign_csr(csr, *, ca_url, root_cert):
-    """Have step-ca sign a CSR with the intermediate CA (server and client auth).
+def sign_csr(der, *, ca_url, root_cert):
+    """Have step-ca sign a DER CSR with the intermediate CA (server and client auth).
 
     The CN and SANs come from the request. Returns [leaf, issuers..., root].
     """
@@ -365,7 +435,8 @@ def sign_csr(csr, *, ca_url, root_cert):
         csr_path = os.path.join(tmp, "req.csr")
         crt_path = os.path.join(tmp, "cert.crt")
         with open(csr_path, "wb") as handle:
-            handle.write(csr.public_bytes(serialization.Encoding.PEM))
+            handle.write(b"-----BEGIN CERTIFICATE REQUEST-----\n"
+                         + base64.encodebytes(der) + b"-----END CERTIFICATE REQUEST-----\n")
         result = subprocess.run(
             ["step", "ca", "sign", csr_path, crt_path,
              "--provisioner", ENROLL_PROVISIONER,
@@ -384,17 +455,13 @@ def sign_csr(csr, *, ca_url, root_cert):
 
 def parse_subordinate_request(data):
     """Subject and public key from an uploaded CSR or certificate (PEM or DER)."""
-    loaders = ((x509.load_pem_x509_csr, x509.load_pem_x509_certificate) if b"-----BEGIN" in data
-               else (x509.load_der_x509_csr, x509.load_der_x509_certificate))
-    for loader in loaders:
-        try:
-            request = loader(data)
-        except ValueError:
-            continue
-        if isinstance(request, x509.CertificateSigningRequest) and not request.is_signature_valid:
-            raise ValueError("The certificate request's signature is not valid.")
-        return request.subject, request.public_key()
-    raise ValueError("The file is not a PEM or DER certificate request (CSR) or certificate.")
+    der = _to_der(data)
+    try:
+        cert = x509.load_der_x509_certificate(der)
+    except ValueError:
+        csr, _ = load_csr(der)
+        return csr.subject, csr.public_key()
+    return cert.subject, cert.public_key()
 
 
 def sign_subordinate(data, issuer, issuer_key, days=SUBORDINATE_DAYS):
@@ -615,7 +682,7 @@ def issue_p12(cn, *, ca_url, root_cert, extra_cas=(), sans=()):
     if names:
         builder = builder.add_extension(x509.SubjectAlternativeName(names), critical=False)
     csr = builder.sign(key, hashes.SHA256())
-    leaf, *extra = sign_csr(csr, ca_url=ca_url, root_cert=root_cert)
+    leaf, *extra = sign_csr(csr.public_bytes(serialization.Encoding.DER), ca_url=ca_url, root_cert=root_cert)
     known = {fingerprint(c) for c in extra}
     extra += [c for c in extra_cas if fingerprint(c) not in known]
     password = p12_password()

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2.22
+
+- Fix "2 is not a valid CSR version" when signing Meraki's SCEP CA request.
+  Requests with a version other than the standard v1 are now accepted; their
+  signature is still checked. Files that are not a certificate request show
+  a clear error instead of the error page.
+
 ## 0.30.2.21
 
 - **Sign a subordinate CA** is now **Sign a certificate request** and also
