@@ -338,6 +338,50 @@ def chain_pem(cert, pool):
 SUBORDINATE_DAYS = 3650
 
 
+def parse_csr(data):
+    """An uploaded certificate request (PEM or DER) for an end-entity certificate."""
+    try:
+        csr = (x509.load_pem_x509_csr(data) if b"-----BEGIN" in data
+               else x509.load_der_x509_csr(data))
+    except ValueError as err:
+        raise ValueError("The file is not a PEM or DER certificate request (CSR).") from err
+    if not csr.is_signature_valid:
+        raise ValueError("The certificate request's signature is not valid.")
+    try:
+        sans = csr.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    except x509.ExtensionNotFound:
+        sans = []
+    if not csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME) and not sans:
+        raise ValueError("The certificate request has no Common Name or subject alternative names.")
+    return csr
+
+
+def sign_csr(csr, *, ca_url, root_cert):
+    """Have step-ca sign a CSR with the intermediate CA (server and client auth).
+
+    The CN and SANs come from the request. Returns [leaf, issuers..., root].
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        csr_path = os.path.join(tmp, "req.csr")
+        crt_path = os.path.join(tmp, "cert.crt")
+        with open(csr_path, "wb") as handle:
+            handle.write(csr.public_bytes(serialization.Encoding.PEM))
+        result = subprocess.run(
+            ["step", "ca", "sign", csr_path, crt_path,
+             "--provisioner", ENROLL_PROVISIONER,
+             "--provisioner-password-file", ENROLL_PASSWORD,
+             "--ca-url", ca_url, "--root", root_cert, "--force"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or "The CA did not issue the certificate.")
+        chain = _load_chain(crt_path)
+    root = _load_chain(root_cert)[0]
+    if all(fingerprint(c) != fingerprint(root) for c in chain):
+        chain.append(root)
+    return chain
+
+
 def parse_subordinate_request(data):
     """Subject and public key from an uploaded CSR or certificate (PEM or DER)."""
     loaders = ((x509.load_pem_x509_csr, x509.load_pem_x509_certificate) if b"-----BEGIN" in data
@@ -571,25 +615,7 @@ def issue_p12(cn, *, ca_url, root_cert, extra_cas=(), sans=()):
     if names:
         builder = builder.add_extension(x509.SubjectAlternativeName(names), critical=False)
     csr = builder.sign(key, hashes.SHA256())
-    with tempfile.TemporaryDirectory() as tmp:
-        csr_path = os.path.join(tmp, "req.csr")
-        crt_path = os.path.join(tmp, "cert.crt")
-        with open(csr_path, "wb") as handle:
-            handle.write(csr.public_bytes(serialization.Encoding.PEM))
-        result = subprocess.run(
-            ["step", "ca", "sign", csr_path, crt_path,
-             "--provisioner", ENROLL_PROVISIONER,
-             "--provisioner-password-file", ENROLL_PASSWORD,
-             "--ca-url", ca_url, "--root", root_cert, "--force"],
-            capture_output=True, text=True, timeout=60, check=False,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr.strip() or "The CA did not issue the certificate.")
-        chain = _load_chain(crt_path)
-    root = _load_chain(root_cert)[0]
-    leaf, extra = chain[0], chain[1:]
-    if all(c.fingerprint(hashes.SHA256()) != root.fingerprint(hashes.SHA256()) for c in extra):
-        extra.append(root)
+    leaf, *extra = sign_csr(csr, ca_url=ca_url, root_cert=root_cert)
     known = {fingerprint(c) for c in extra}
     extra += [c for c in extra_cas if fingerprint(c) not in known]
     password = p12_password()

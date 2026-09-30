@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.21
+
+- **Sign a subordinate CA** is now **Sign a certificate request** and also
+  signs ordinary requests (CSRs), for example from a RADIUS, web, or VPN
+  server. These are signed by the intermediate CA through step-ca with
+  server and client authentication, listed on **Certificates**, and can be
+  revoked. The download holds the certificate and its full CA chain.
+
 ## 0.30.2.20
 
 - New **Sign a subordinate CA** card on **CA & downloads**: upload another

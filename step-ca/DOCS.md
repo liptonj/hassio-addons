@@ -53,7 +53,10 @@ It lets you:
   (see [RADIUS server CA](#radius-server-ca-and-other-trusted-cas));
 - enroll devices with one-time links or QR codes, enroll the computer you are
   using, or issue a certificate directly (see
-  [Enrolling devices](#enrolling-devices)).
+  [Enrolling devices](#enrolling-devices));
+- sign certificate requests (CSRs) from other systems, such as a RADIUS or
+  web server, or another CA (see
+  [Signing certificate requests](#signing-certificate-requests)).
 
 The certificate list is read from step-ca's database, so it needs the
 `database` option set to `mariadb` (the default).
@@ -246,6 +249,29 @@ Added CAs are included in:
 Remove a CA with its **Remove** button. Changes apply to profiles and .p12
 files created afterwards; devices already enrolled keep what they got.
 
+### Signing certificate requests
+
+Systems that create their own key, such as a RADIUS, web, or VPN server,
+give you a certificate signing request (CSR). To sign it, open
+**Certificates → CA & downloads → Sign a certificate request**, choose the
+file (PEM or DER) or paste the PEM, pick the type, and click **Sign and
+download**:
+
+- **Server or client certificate**: signed by the intermediate CA through
+  step-ca, with the Common Name and subject alternative names from the
+  request, key usage for server and client authentication, and the
+  `default_cert_duration` lifetime. `certificate_subject` attributes are
+  applied as for other certificates. It appears on **Certificates** and can
+  be revoked.
+- **Subordinate CA**: signed by the root CA as a CA that cannot sign
+  further CAs (path length 0), keeping the requested subject unchanged, for
+  10 years or until the root expires. Used for another CA whose
+  certificates should be trusted wherever this root is, such as Meraki's
+  SCEP CA (see [Platform notes](#platform-notes)).
+
+The download (`<name>-chain.pem`) holds the signed certificate followed by
+its CA chain up to the root. Each signing is written to the add-on log.
+
 ### Profile signing
 
 iOS and macOS show unsigned profiles, or profiles signed by a private CA, as
@@ -343,8 +369,9 @@ Create one configuration profile with these payloads.
   with this CA:
   1. In Meraki, go to **Organization → MDM** and download the SCEP CA
      certificate request (or the current SCEP CA certificate).
-  2. On **Certificates → CA & downloads → Sign a subordinate CA**, choose
-     that file and select **Sign and download**. The root CA signs it as a
+  2. On **Certificates → CA & downloads → Sign a certificate request**,
+     choose that file, pick **Subordinate CA**, and select **Sign and
+     download**. The root CA signs it as a
      CA that cannot sign further CAs (path length 0), keeping Meraki's
      subject (`CN=SCEP CA for <org>, OU=<org ID>`), and valid for up to
      10 years.
