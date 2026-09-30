@@ -1,0 +1,52 @@
+# Changelog
+
+## 0.30.2-4
+
+- New `certificate_subject` option (O, OU, L, ST, C) for the CA certificates
+  (on creation) and issued certificates.
+- Create a dedicated MariaDB database with its own accounts: `stepca_rw` for
+  step-ca and read-only `stepca_ro` for the management page. The MariaDB
+  service account is only used for setup.
+- Restrict the management page to Home Assistant administrators.
+- Enroll devices without an MDM: one-time enrollment links and QR codes,
+  **Enroll this device** for the Mac or Windows PC you are using, and direct
+  .p12 issuing from the management page.
+- Apple devices get a configuration profile with the CA certificates, a SCEP
+  payload with a one-time challenge, and optionally an EAP-TLS Wi-Fi network
+  (new `wifi` options). Other devices get a password-protected .p12.
+- Sign profiles with a publicly trusted certificate from Let's Encrypt via
+  DNS-01 or from `/ssl` (new `profile_signing` options), so iOS and macOS show
+  them as Verified.
+- New `enrollment` options for the public URL and link lifetime.
+- The SCEP challenge is now checked by an internal webhook, which also accepts
+  the one-time challenges from enrollment profiles.
+- Integration 1.2.0 serves the enrollment pages at
+  `/api/step_ca_scep/enroll/...`.
+
+## 0.30.2-3
+
+- Add a **Certificates** management page (ingress panel): list, search,
+  inspect, download, and revoke issued certificates, and download the CA
+  certificates and CRL.
+- Store step-ca's records in the MariaDB add-on through the Supervisor
+  `mysql` service (new `database` and `mariadb_database` options).
+- Enable CRL generation and serve it at `/api/step_ca_scep/crl`
+  (integration 1.1.0).
+
+## 0.30.2-2
+
+- Serve SCEP and the root certificate on Home Assistant's own port through a
+  bundled `step_ca_scep` integration at `/api/step_ca_scep/...`.
+- Install the integration into `custom_components` automatically
+  (`install_integration` option) and announce the add-on through Supervisor
+  discovery.
+- Disable the add-on's direct host ports by default.
+
+## 0.30.2-1
+
+- Initial add-on based on `smallstep/step-ca` 0.30.2.
+- Automatic root and intermediate CA creation in `/data/step`.
+- SCEP provisioner with challenge password, configurable encryption
+  algorithm, key length, and certificate lifetimes.
+- Dedicated RSA SCEP RA certificate, renewed automatically before expiry.
+- SCEP served over HTTP (9080) and HTTPS (9000).

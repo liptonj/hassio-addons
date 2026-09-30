@@ -1,0 +1,116 @@
+name: "Step CA SCEP Server"
+description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
+version: "0.30.2-4"
+slug: "step-ca-scep"
+url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
+stage: experimental
+arch:
+  - amd64
+  - aarch64
+  - armv7
+init: false
+startup: services
+boot: auto
+hassio_api: true
+homeassistant_api: true
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:certificate
+panel_title: Certificates
+panel_admin: true
+services:
+  - mysql:want
+discovery:
+  - step_ca_scep
+map:
+  - homeassistant_config:rw
+  - ssl:ro
+# SCEP is served through Home Assistant's port by the bundled integration.
+# These host ports are disabled by default and can be enabled if a client
+# must reach step-ca directly.
+ports:
+  9000/tcp: null
+  9080/tcp: null
+ports_description:
+  9000/tcp: "Optional direct step-ca HTTPS API"
+  9080/tcp: "Optional direct SCEP over HTTP"
+
+options:
+  ca_name: "Home Assistant CA"
+  certificate_subject:
+    organization: ""
+    organizational_unit: ""
+    locality: ""
+    state: ""
+    country: ""
+  dns_names:
+    - "homeassistant.local"
+  scep_provisioner_name: "scep"
+  scep_challenge: ""
+  encryption_algorithm: "2"
+  min_public_key_length: 2048
+  include_root: true
+  force_cn: false
+  default_cert_duration: "8760h"
+  max_cert_duration: "17520h"
+  install_integration: true
+  database: "mariadb"
+  mariadb_database: "stepca"
+  enrollment:
+    public_url: ""
+    link_hours: 24
+  profile_signing:
+    acme_domain: ""
+    acme_email: ""
+    dns_provider: ""
+    dns_credentials: []
+    acme_staging: false
+    ssl_certificate: "fullchain.pem"
+    ssl_key: "privkey.pem"
+  wifi:
+    ssid: ""
+    security: "WPA2"
+    hidden: false
+    auto_join: true
+    radius_server_names: []
+
+schema:
+  ca_name: str(2,64)
+  certificate_subject:
+    organization: str(0,64)?
+    organizational_unit: str(0,64)?
+    locality: str(0,128)?
+    state: str(0,128)?
+    country: match(^([A-Z]{2})?$)?
+  dns_names:
+    - match(^[A-Za-z0-9.:*-]+$)
+  scep_provisioner_name: match(^[A-Za-z0-9._-]{1,64}$)
+  scep_challenge: password?
+  encryption_algorithm: list(0|1|2|3|4)
+  min_public_key_length: int(1024,8192)
+  include_root: bool
+  force_cn: bool
+  default_cert_duration: match(^[0-9]+(h|m)$)
+  max_cert_duration: match(^[0-9]+(h|m)$)
+  install_integration: bool
+  database: list(mariadb|embedded)
+  mariadb_database: match(^[A-Za-z0-9_]{1,64}$)
+  enrollment:
+    public_url: match(^(https?://[^/\s]+)?$)?
+    link_hours: int(1,168)
+  profile_signing:
+    acme_domain: match(^((\*\.)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+)?$)?
+    acme_email: email?
+    dns_provider: match(^[a-z0-9._-]*$)?
+    dns_credentials:
+      - password?
+    acme_staging: bool
+    ssl_certificate: match(^([A-Za-z0-9._-]+)?$)?
+    ssl_key: match(^([A-Za-z0-9._-]+)?$)?
+  wifi:
+    ssid: str(0,32)?
+    security: list(WPA2|WPA3|Any)
+    hidden: bool
+    auto_join: bool
+    radius_server_names:
+      - str?

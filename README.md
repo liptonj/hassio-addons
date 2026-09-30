@@ -40,6 +40,15 @@ Outbound-only JGROK agent for forwarding approved HTTP/S and TCP routes to
 Home Assistant, other add-ons, and reachable LAN services. Browser-approved
 registration is stored in Home Assistant's persistent add-on data.
 
+### Step CA SCEP Server
+
+Private certificate authority based on smallstep step-ca that issues client
+certificates over SCEP, e.g. for EAP-TLS with the FreeRADIUS add-on. SCEP is
+served on Home Assistant's own port, so no extra port or tunnel is needed.
+Includes a sidebar page for listing and revoking certificates, backed by the
+MariaDB add-on, and MDM-free device enrollment with signed Apple profiles
+(including Wi-Fi) or .p12 files.
+
 ## Installation
 
 Add the repository URL below to your Supervisor Add-on Store in Home Assistant:
@@ -61,6 +70,7 @@ Each add-on has its own documentation:
 - [FreeRADIUS Server Documentation](freeradius/DOCS.md)
 - [ngrok Documentation](ngrok/DOCS.md)
 - [JGROK Agent Documentation](jgrok/DOCS.md)
+- [Step CA SCEP Server Documentation](step-ca/DOCS.md)
 
 ## Support
 

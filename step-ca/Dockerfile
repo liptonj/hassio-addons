@@ -1,0 +1,28 @@
+ARG BUILD_FROM=docker.io/smallstep/step-ca:0.30.2
+FROM ${BUILD_FROM}
+
+ARG BUILD_ARCH
+ARG BUILD_VERSION
+
+USER root
+
+RUN apk add --no-cache jq su-exec python3 py3-pymysql py3-cryptography py3-aiohttp py3-qrcode lego
+
+COPY custom_components/step_ca_scep /opt/step_ca_scep
+COPY admin/app.py admin/db_setup.py admin/enroll.py /opt/step-ca-admin/
+COPY run.sh /usr/bin/run-step-ca
+RUN chmod 0755 /usr/bin/run-step-ca
+
+ENV STEPPATH=/data/step
+
+LABEL \
+    io.hass.name="Step CA SCEP Server" \
+    io.hass.description="Private certificate authority that issues client certificates over SCEP" \
+    io.hass.type="addon" \
+    io.hass.version="${BUILD_VERSION}" \
+    io.hass.arch="${BUILD_ARCH}" \
+    org.opencontainers.image.source="https://github.com/liptonj/hassio-addons" \
+    org.opencontainers.image.licenses="MIT"
+
+ENTRYPOINT []
+CMD ["/usr/bin/run-step-ca"]

@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "hassio_confirm": {
+        "title": "Step CA SCEP",
+        "description": "Serve SCEP from the Step CA SCEP add-on on Home Assistant's own port at /api/step_ca_scep/scep/<provisioner>. These URLs do not require a Home Assistant login."
+      },
+      "user": {
+        "title": "Step CA SCEP",
+        "description": "Enter the plain-HTTP SCEP address of your step-ca server.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Step CA SCEP is already configured."
+    }
+  }
+}

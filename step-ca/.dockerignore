@@ -1,0 +1,6 @@
+*
+!run.sh
+!custom_components/
+!admin/app.py
+!admin/db_setup.py
+!admin/enroll.py

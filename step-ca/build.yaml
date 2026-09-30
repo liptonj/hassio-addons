@@ -1,0 +1,13 @@
+build_from:
+  amd64: "docker.io/smallstep/step-ca:0.30.2"
+  aarch64: "docker.io/smallstep/step-ca:0.30.2"
+  armv7: "docker.io/smallstep/step-ca:0.30.2"
+args:
+  BUILD_FROM: ${build_from}
+labels:
+  io.hass.name: "Step CA SCEP Server"
+  io.hass.description: "Private certificate authority that issues client certificates over SCEP"
+  io.hass.type: addon
+  maintainer: "Josh Lipton <josh.lipton@outlook.com>"
+  org.opencontainers.image.source: "https://github.com/liptonj/hassio-addons"
+  org.opencontainers.image.licenses: "MIT"

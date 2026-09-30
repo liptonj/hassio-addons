@@ -1,0 +1,421 @@
+"""Device enrollment: one-time links, signed Apple profiles, and PKCS#12 bundles.
+
+An administrator creates a one-time link (shown as a QR code). The device opens
+it through Home Assistant and either:
+
+* downloads a signed configuration profile (iPhone, iPad, Mac) holding the CA
+  certificates, a SCEP payload with a one-time challenge so the device creates
+  its own key, and optionally a Wi-Fi (EAP-TLS) payload using that identity; or
+* receives a password-protected .p12 with a key, certificate, and the CA chain
+  (Windows, Android, Linux, browsers).
+
+Link tokens and SCEP challenges are stored only as SHA-256 hashes.
+"""
+
+import datetime
+import hashlib
+import json
+import os
+import plistlib
+import re
+import secrets
+import subprocess
+import tempfile
+import threading
+import time
+import uuid
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import pkcs7, pkcs12
+from cryptography.x509.oid import NameOID
+
+STEP_PATH = os.environ.get("STEPPATH", "/data/step")
+STATE_FILE = f"{STEP_PATH}/enroll/links.json"
+ENROLL_PROVISIONER = "enrollment"
+ENROLL_PASSWORD = f"{STEP_PATH}/secrets/enrollment_password"
+# Public URLs, relative to the Home Assistant origin (see the integration).
+PUBLIC_BASE = "/api/step_ca_scep"
+TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
+DOWNLOAD_RE = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+LINK_ID_RE = re.compile(r"^[0-9a-f]{64}$")
+CN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._@-]{0,63}$")
+BASE_URL_RE = re.compile(r"^https?://(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:[0-9]{1,5})?$")
+CHALLENGE_SECONDS = 3600
+DOWNLOAD_SECONDS = 600
+KEEP_SECONDS = 30 * 86400
+P12_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+
+
+def _hash(value):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _now():
+    return time.time()
+
+
+def normalize_base_url(value):
+    value = (value or "").strip().rstrip("/")
+    return value if BASE_URL_RE.match(value) else ""
+
+
+def valid_cn(value):
+    return bool(CN_RE.match(value or "")) and value == value.strip()
+
+
+class LinkStore:
+    """One-time enrollment links persisted in /data."""
+
+    def __init__(self, path=STATE_FILE):
+        self._path = path
+        self._lock = threading.Lock()
+
+    def _load(self):
+        try:
+            with open(self._path, encoding="utf-8") as handle:
+                links = json.load(handle)
+            return links if isinstance(links, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _save(self, links):
+        now = _now()
+        links = {k: v for k, v in links.items() if v["expires"] + KEEP_SECONDS > now}
+        tmp = f"{self._path}.tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(links, handle)
+        os.replace(tmp, self._path)
+
+    @staticmethod
+    def status(link):
+        if link["status"] == "pending" and link["expires"] < _now():
+            return "expired"
+        return link["status"]
+
+    def create(self, *, label, cn, base_url, wifi, hours, created_by):
+        token = secrets.token_urlsafe(32)
+        now = _now()
+        with self._lock:
+            links = self._load()
+            links[_hash(token)] = {
+                "label": label,
+                "cn": cn,
+                "base_url": base_url,
+                "wifi": wifi,
+                "created": now,
+                "expires": now + hours * 3600,
+                "created_by": created_by,
+                "status": "pending",
+                "challenge": "",
+                "challenge_cn": "",
+                "challenge_expires": 0,
+                "issued_cn": "",
+                "issued_at": 0,
+                "method": "",
+            }
+            self._save(links)
+        return token
+
+    def all(self):
+        with self._lock:
+            links = self._load()
+        rows = [dict(v, id=k, state=self.status(v)) for k, v in links.items()]
+        rows.sort(key=lambda r: r["created"], reverse=True)
+        return rows
+
+    def cancel(self, link_id):
+        with self._lock:
+            links = self._load()
+            link = links.get(link_id)
+            if link and self.status(link) == "pending":
+                link["status"] = "cancelled"
+                link["challenge"] = ""
+                self._save(links)
+
+    def get(self, token):
+        """Return (link_id, link) for a usable token, or (None, None)."""
+        if not TOKEN_RE.match(token or ""):
+            return None, None
+        link_id = _hash(token)
+        with self._lock:
+            link = self._load().get(link_id)
+        if link is None or self.status(link) != "pending":
+            return None, None
+        return link_id, link
+
+    def new_challenge(self, link_id, cn):
+        """Issue a SCEP challenge for this link; earlier profiles stop working."""
+        challenge = secrets.token_urlsafe(24)
+        with self._lock:
+            links = self._load()
+            link = links.get(link_id)
+            if link is None or self.status(link) != "pending":
+                return None
+            link["challenge"] = _hash(challenge)
+            link["challenge_cn"] = cn
+            link["challenge_expires"] = _now() + CHALLENGE_SECONDS
+            self._save(links)
+        return challenge
+
+    def consume_challenge(self, challenge, cn):
+        """Mark the link used if the challenge and CN match. Returns the link id."""
+        if not challenge:
+            return None
+        digest = _hash(challenge)
+        now = _now()
+        with self._lock:
+            links = self._load()
+            for link_id, link in links.items():
+                if link["status"] != "pending" or not link["challenge"]:
+                    continue
+                if not secrets.compare_digest(link["challenge"], digest):
+                    continue
+                if link["challenge_expires"] < now or link["challenge_cn"] != cn:
+                    return None
+                link.update(status="issued", challenge="", issued_cn=cn,
+                            issued_at=now, method="SCEP profile")
+                self._save(links)
+                return link_id
+        return None
+
+    def claim(self, link_id, cn, method):
+        """Atomically reserve a pending link for a server-side issuance."""
+        with self._lock:
+            links = self._load()
+            link = links.get(link_id)
+            if link is None or self.status(link) != "pending":
+                return False
+            link.update(status="issued", challenge="", issued_cn=cn,
+                        issued_at=_now(), method=method)
+            self._save(links)
+            return True
+
+    def release(self, link_id):
+        """Undo claim() after a failed issuance."""
+        with self._lock:
+            links = self._load()
+            link = links.get(link_id)
+            if link and link["status"] == "issued":
+                link.update(status="pending", issued_cn="", issued_at=0, method="")
+                self._save(links)
+
+
+class Downloads:
+    """Short-lived, in-memory files (e.g. a .p12) handed out once issued."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._files = {}
+
+    def add(self, scope, data, filename, content_type):
+        download_id = secrets.token_urlsafe(24)
+        with self._lock:
+            now = _now()
+            self._files = {k: v for k, v in self._files.items() if v[0] > now}
+            self._files[download_id] = (now + DOWNLOAD_SECONDS, scope, data, filename, content_type)
+        return download_id
+
+    def get(self, scope, download_id):
+        with self._lock:
+            entry = self._files.get(download_id)
+        if entry is None or entry[0] < _now() or entry[1] != scope:
+            return None
+        return entry[2:]
+
+
+def _load_chain(path):
+    with open(path, "rb") as handle:
+        return x509.load_pem_x509_certificates(handle.read())
+
+
+def _spki(public_key):
+    return public_key.public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+
+class ProfileSigner:
+    """Signs configuration profiles with the first usable certificate.
+
+    Candidates are (label, cert_path, key_path). A publicly trusted certificate
+    (e.g. Home Assistant's Let's Encrypt certificate in /ssl) makes iOS show the
+    profile as "Verified"; the CA-issued signer is always available as fallback.
+    """
+
+    def __init__(self, candidates):
+        self._candidates = [c for c in candidates if c[1] and c[2]]
+
+    def _load(self, label, cert_path, key_path):
+        chain = _load_chain(cert_path)
+        with open(key_path, "rb") as handle:
+            key = serialization.load_pem_private_key(handle.read(), password=None)
+        cert = chain[0]
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if not cert.not_valid_before_utc <= now <= cert.not_valid_after_utc:
+            raise ValueError("certificate is not currently valid")
+        if _spki(cert.public_key()) != _spki(key.public_key()):
+            raise ValueError("key does not match certificate")
+        return label, cert, key, chain[1:]
+
+    def signer(self):
+        errors = []
+        for label, cert_path, key_path in self._candidates:
+            try:
+                return self._load(label, cert_path, key_path)
+            except (OSError, ValueError, TypeError) as err:
+                errors.append(f"{label}: {err}")
+        raise RuntimeError("No usable profile signing certificate (" + "; ".join(errors) + ")")
+
+    def describe(self):
+        try:
+            label, cert, _, _ = self.signer()
+        except RuntimeError as err:
+            return None, str(err)
+        return label, cert.subject.rfc4514_string()
+
+    def sign(self, data):
+        _, cert, key, extra = self.signer()
+        builder = pkcs7.PKCS7SignatureBuilder().set_data(data).add_signer(cert, key, hashes.SHA256())
+        for extra_cert in extra:
+            builder = builder.add_certificate(extra_cert)
+        # Attached (non-detached) SignedData, as Apple expects for profiles.
+        return builder.sign(serialization.Encoding.DER, [])
+
+
+def _identifier_part(value):
+    return re.sub(r"[^A-Za-z0-9-]+", "-", value).strip("-").lower() or "device"
+
+
+def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi):
+    """Return an unsigned .mobileconfig (XML plist) for SCEP enrollment."""
+    root_uuid, inter_uuid, scep_uuid = (str(uuid.uuid4()).upper() for _ in range(3))
+    prefix = f"io.home-assistant.step-ca.{_identifier_part(ca_name)}"
+    payloads = [
+        {
+            "PayloadType": "com.apple.security.root",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.root",
+            "PayloadUUID": root_uuid,
+            "PayloadDisplayName": f"{ca_name} Root CA",
+            "PayloadCertificateFileName": "root_ca.cer",
+            "PayloadContent": root.public_bytes(serialization.Encoding.DER),
+        },
+        {
+            "PayloadType": "com.apple.security.pkcs1",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.intermediate",
+            "PayloadUUID": inter_uuid,
+            "PayloadDisplayName": f"{ca_name} Intermediate CA",
+            "PayloadCertificateFileName": "intermediate_ca.cer",
+            "PayloadContent": intermediate.public_bytes(serialization.Encoding.DER),
+        },
+        {
+            "PayloadType": "com.apple.security.scep",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.scep",
+            "PayloadUUID": scep_uuid,
+            "PayloadDisplayName": f"{cn} certificate",
+            "PayloadContent": {
+                "URL": scep_url,
+                "Name": ca_name,
+                "Subject": [[["CN", cn]]],
+                "Challenge": challenge,
+                "Keysize": 2048,
+                "Key Type": "RSA",
+                # 1 = signing, 4 = encryption.
+                "Key Usage": 5,
+                "Retries": 3,
+                "RetryDelay": 10,
+                "KeyIsExtractable": False,
+                "AllowAllAppsAccess": True,
+            },
+        },
+    ]
+    if wifi and wifi.get("ssid"):
+        eap = {"AcceptEAPTypes": [13], "UserName": cn, "TLSMinimumVersion": "1.2"}
+        server_names = [n for n in wifi.get("radius_server_names") or [] if n]
+        if server_names:
+            eap["TLSTrustedServerNames"] = server_names
+        payloads.append({
+            "PayloadType": "com.apple.wifi.managed",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.wifi.{_identifier_part(wifi['ssid'])}",
+            "PayloadUUID": str(uuid.uuid4()).upper(),
+            "PayloadDisplayName": f"Wi-Fi {wifi['ssid']}",
+            "SSID_STR": wifi["ssid"],
+            "HIDDEN_NETWORK": bool(wifi.get("hidden")),
+            "AutoJoin": bool(wifi.get("auto_join", True)),
+            "EncryptionType": wifi.get("security") or "WPA2",
+            "IsHotspot": False,
+            "EAPClientConfiguration": eap,
+            # The identity comes from the SCEP payload; the RADIUS server's
+            # certificate must chain to this CA.
+            "PayloadCertificateUUID": scep_uuid,
+            "PayloadCertificateAnchorUUID": [root_uuid, inter_uuid],
+        })
+    profile = {
+        "PayloadType": "Configuration",
+        "PayloadVersion": 1,
+        "PayloadIdentifier": f"{prefix}.enroll.{_identifier_part(cn)}",
+        "PayloadUUID": str(uuid.uuid4()).upper(),
+        "PayloadDisplayName": f"{ca_name}: {cn}",
+        "PayloadDescription": "Installs the certificate authority, requests a device "
+                              "certificate" + (" and configures Wi-Fi." if len(payloads) > 3 else "."),
+        "PayloadRemovalDisallowed": False,
+        "PayloadContent": payloads,
+    }
+    if organization:
+        profile["PayloadOrganization"] = organization
+    return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
+
+
+def p12_password():
+    groups = ("".join(secrets.choice(P12_ALPHABET) for _ in range(4)) for _ in range(4))
+    return "-".join(groups)
+
+
+def issue_p12(cn, *, ca_url, root_cert):
+    """Issue a certificate for a server-generated key and bundle it as .p12.
+
+    Returns (p12_bytes, password, certificate). The key never touches disk.
+    """
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    csr = (
+        x509.CertificateSigningRequestBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)]))
+        .sign(key, hashes.SHA256())
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        csr_path = os.path.join(tmp, "req.csr")
+        crt_path = os.path.join(tmp, "cert.crt")
+        with open(csr_path, "wb") as handle:
+            handle.write(csr.public_bytes(serialization.Encoding.PEM))
+        result = subprocess.run(
+            ["step", "ca", "sign", csr_path, crt_path,
+             "--provisioner", ENROLL_PROVISIONER,
+             "--provisioner-password-file", ENROLL_PASSWORD,
+             "--ca-url", ca_url, "--root", root_cert, "--force"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or "The CA did not issue the certificate.")
+        chain = _load_chain(crt_path)
+    root = _load_chain(root_cert)[0]
+    leaf, extra = chain[0], chain[1:]
+    if all(c.fingerprint(hashes.SHA256()) != root.fingerprint(hashes.SHA256()) for c in extra):
+        extra.append(root)
+    password = p12_password()
+    # 3DES/SHA-1 keeps the bundle importable on older Windows, Android, and
+    # macOS Keychain, which reject AES-based PKCS#12.
+    encryption = (
+        serialization.PrivateFormat.PKCS12.encryption_builder()
+        .kdf_rounds(50000)
+        .key_cert_algorithm(pkcs12.PBES.PBESv1SHA1And3KeyTripleDESCBC)
+        .hmac_hash(hashes.SHA1())
+        .build(password.encode())
+    )
+    data = pkcs12.serialize_key_and_certificates(cn.encode(), key, leaf, extra, encryption)
+    return data, password, leaf
