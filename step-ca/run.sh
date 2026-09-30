@@ -436,7 +436,8 @@ cat "${tmp_config}" > "${ca_config}"
 rm -f "${tmp_config}"
 
 # Provisioner used by the management page to issue .p12 bundles for devices
-# without SCEP. Recreated on each start with a fresh key.
+# without SCEP. Recreated on each start with a fresh key. SANs come only from
+# the request (set by an administrator); step's token would add the CN.
 cat > "${enroll_template}" <<'EOF'
 {
   "subject": {
@@ -447,6 +448,9 @@ cat > "${enroll_template}" <<'EOF'
     "locality": {{ toJson (default .Subject.Locality .subjectPolicy.locality) }},
     "province": {{ toJson (default .Subject.Province .subjectPolicy.province) }}
   },
+  "dnsNames": {{ toJson .Insecure.CR.DNSNames }},
+  "emailAddresses": {{ toJson .Insecure.CR.EmailAddresses }},
+  "ipAddresses": {{ toJson .Insecure.CR.IPAddresses }},
 {{- if typeIs "*rsa.PublicKey" .Insecure.CR.PublicKey }}
   "keyUsage": ["keyEncipherment", "digitalSignature"],
 {{- else }}

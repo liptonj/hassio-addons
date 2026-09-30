@@ -47,7 +47,9 @@ It lets you:
   by name, SAN, or serial number;
 - view a certificate's details and download it as PEM;
 - revoke a certificate with a reason (the CRL is regenerated immediately);
-- download the root CA, intermediate CA, and current CRL;
+- download the root CA, intermediate CA, a full CA bundle, and the current
+  CRL, and add other CAs devices must trust, such as your RADIUS server's
+  (see [RADIUS server CA](#radius-server-ca-and-other-trusted-cas));
 - enroll devices with one-time links or QR codes, enroll the computer you are
   using, or issue a certificate directly (see
   [Enrolling devices](#enrolling-devices)).
@@ -158,13 +160,16 @@ sidebar. There are three ways to get a certificate onto a device:
    Import `root_ca.crt` into **Trusted Root Certification Authorities** if
    Windows does not already trust the CA.
 
+Optionally enter **Alternative names** (see
+[Subject alternative names](#subject-alternative-names)).
+
 The page creates a one-hour enrollment link behind the scenes, so the
 enrollment shows up in the links table like any other.
 
 ### Enrollment links
 
-1. Under **Create an enrollment link**, optionally enter a label and a fixed
-   certificate name, check the Home Assistant URL the device will use, set
+1. Under **Create an enrollment link**, optionally enter a label, a fixed
+   certificate name, and alternative names, check the Home Assistant URL the device will use, set
    how long the link is valid (default `enrollment.link_hours`, 24), and
    choose whether the profile sets up Wi-Fi.
 2. Click **Create link**. The link and a QR code are shown **once**; copy the
@@ -180,7 +185,8 @@ enrollment shows up in the links table like any other.
      once.
    - **Other device** (Android, Windows, Linux): the add-on creates the key
      and certificate and offers a password-protected .p12 for 10 minutes,
-     plus the root CA certificate. The password is shown only once.
+     plus the root CA certificate and `ca-bundle.pem`. The password is shown
+     only once.
 4. Pending, used, expired, and cancelled links are listed on the page. Cancel
    a pending link to make it unusable.
 
@@ -197,11 +203,47 @@ devices can import them.
 
 Set `wifi.ssid` to add an EAP-TLS Wi-Fi payload to Apple profiles. It uses the
 certificate from the profile's SCEP payload and trusts the root and
-intermediate CA for the RADIUS server's certificate. List your RADIUS server
+intermediate CA, and any CAs added under **CA & downloads**, for the RADIUS
+server's certificate. List your RADIUS server
 certificate names in `wifi.radius_server_names` (e.g. `radius.example.com`)
 so devices do not ask to trust the server. For .p12 devices the page shows the
 settings to enter by hand (EAP method TLS, CA certificate, identity, and
 domain).
+
+### Subject alternative names
+
+Enrollment links, **Enroll this device**, and **Issue a certificate now**
+take optional **Alternative names**: email addresses, DNS names, and IP
+addresses separated by commas (e.g. `josh@example.com, laptop.example.com,
+192.0.2.10`). The type of each entry is detected automatically. Only
+administrators can set them; people opening an enrollment link cannot.
+
+Apple profiles support email addresses and DNS names only, so IP addresses
+are left out of certificates requested by iPhones, iPads, and Macs. .p12
+certificates get all three.
+
+### RADIUS server CA and other trusted CAs
+
+If your RADIUS server's certificate comes from another CA (for example a
+public CA or your network's own CA), add that CA so devices trust the server:
+
+1. Open **Certificates → CA & downloads**.
+2. Under **Other trusted CAs**, choose the certificate file (PEM or DER,
+   `.pem`, `.crt`, `.cer`) or paste the PEM, and click **Add**. A PEM file may
+   hold several certificates. Only CA certificates are accepted.
+
+Added CAs are included in:
+
+- **Apple profiles** (iPhone, iPad, Mac): as a certificate payload, and
+  trusted for the Wi-Fi network's RADIUS server;
+- **.p12 files**, together with the root and intermediate;
+- **ca-bundle.pem**: root, intermediate, and the added CAs in one PEM file,
+  on the **CA & downloads** page and on the .p12 page of enrollment links.
+  On Android, install it as a CA certificate and pick it as the Wi-Fi
+  network's CA certificate.
+
+Remove a CA with its **Remove** button. Changes apply to profiles and .p12
+files created afterwards; devices already enrolled keep what they got.
 
 ### Profile signing
 

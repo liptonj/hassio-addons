@@ -14,6 +14,7 @@ Link tokens and SCEP challenges are stored only as SHA-256 hashes.
 
 import datetime
 import hashlib
+import ipaddress
 import json
 import os
 import plistlib
@@ -33,6 +34,8 @@ from cryptography.x509.oid import NameOID
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
 STATE_FILE = f"{STEP_PATH}/enroll/links.json"
+# Other CAs devices must trust, e.g. the RADIUS server's CA for EAP-TLS.
+EXTRA_CA_FILE = f"{STEP_PATH}/enroll/extra_cas.pem"
 ENROLL_PROVISIONER = "enrollment"
 ENROLL_PASSWORD = f"{STEP_PATH}/secrets/enrollment_password"
 # Public URLs, relative to the Home Assistant origin (see the integration).
@@ -59,6 +62,44 @@ def _now():
 def normalize_base_url(value):
     value = (value or "").strip().rstrip("/")
     return value if BASE_URL_RE.match(value) else ""
+
+
+DNS_RE = re.compile(r"^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+$")
+MAX_SANS = 20
+
+
+def parse_sans(text):
+    """Split optional subject alternative names (comma, space, or newline separated).
+
+    Each entry is an IP address, an email address, or a DNS name. Returns the
+    normalized list; raises ValueError naming the first invalid entry.
+    """
+    sans = []
+    for entry in re.split(r"[\s,]+", text or ""):
+        if not entry:
+            continue
+        try:
+            entry = str(ipaddress.ip_address(entry))
+        except ValueError:
+            if not (EMAIL_RE.match(entry) or (DNS_RE.match(entry) and len(entry) <= 253)):
+                raise ValueError(f"{entry[:64]} is not an email address, DNS name, or IP address.") from None
+        if entry not in sans:
+            sans.append(entry)
+    if len(sans) > MAX_SANS:
+        raise ValueError(f"Enter at most {MAX_SANS} alternative names.")
+    return sans
+
+
+def split_sans(sans):
+    """Group SANs into (emails, dns_names, ip_addresses)."""
+    emails, dns, ips = [], [], []
+    for entry in sans or ():
+        try:
+            ips.append(ipaddress.ip_address(entry))
+        except ValueError:
+            (emails if "@" in entry else dns).append(entry)
+    return emails, dns, ips
 
 
 def valid_cn(value):
@@ -95,7 +136,7 @@ class LinkStore:
             return "expired"
         return link["status"]
 
-    def create(self, *, label, cn, base_url, wifi, hours, created_by):
+    def create(self, *, label, cn, base_url, wifi, hours, created_by, sans=()):
         token = secrets.token_urlsafe(32)
         now = _now()
         with self._lock:
@@ -103,6 +144,7 @@ class LinkStore:
             links[_hash(token)] = {
                 "label": label,
                 "cn": cn,
+                "sans": list(sans),
                 "base_url": base_url,
                 "wifi": wifi,
                 "created": now,
@@ -231,6 +273,60 @@ def _load_chain(path):
         return x509.load_pem_x509_certificates(handle.read())
 
 
+def parse_ca_certs(data):
+    """Parse uploaded CA certificates (PEM, possibly several, or one DER)."""
+    try:
+        if b"-----BEGIN" in data:
+            certs = x509.load_pem_x509_certificates(data)
+        else:
+            certs = [x509.load_der_x509_certificate(data)]
+    except ValueError as err:
+        raise ValueError("The file is not a PEM or DER certificate.") from err
+    for cert in certs:
+        try:
+            is_ca = cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca
+        except x509.ExtensionNotFound:
+            is_ca = cert.issuer == cert.subject
+        if not is_ca:
+            raise ValueError(f"{cert.subject.rfc4514_string()} is not a CA certificate.")
+    return certs
+
+
+def load_extra_cas(path=EXTRA_CA_FILE):
+    try:
+        return _load_chain(path)
+    except (FileNotFoundError, ValueError):
+        return []
+
+
+def save_extra_cas(certs, path=EXTRA_CA_FILE):
+    tmp = f"{path}.tmp"
+    with open(tmp, "wb") as handle:
+        for cert in certs:
+            handle.write(cert.public_bytes(serialization.Encoding.PEM))
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+
+
+def fingerprint(cert):
+    return cert.fingerprint(hashes.SHA256()).hex()
+
+
+def ca_bundle(certs):
+    """PEM bundle of the given certificates without duplicates."""
+    seen, out = set(), b""
+    for cert in certs:
+        if fingerprint(cert) not in seen:
+            seen.add(fingerprint(cert))
+            out += cert.public_bytes(serialization.Encoding.PEM)
+    return out
+
+
+def _common_name(cert):
+    names = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    return str(names[0].value) if names else cert.subject.rfc4514_string()
+
+
 def _spki(public_key):
     return public_key.public_bytes(
         serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
@@ -289,7 +385,8 @@ def _identifier_part(value):
     return re.sub(r"[^A-Za-z0-9-]+", "-", value).strip("-").lower() or "device"
 
 
-def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi):
+def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi,
+                  extra_cas=(), sans=()):
     """Return an unsigned .mobileconfig (XML plist) for SCEP enrollment."""
     root_uuid, inter_uuid, scep_uuid = (str(uuid.uuid4()).upper() for _ in range(3))
     prefix = f"io.home-assistant.step-ca.{_identifier_part(ca_name)}"
@@ -334,7 +431,26 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             },
         },
     ]
-    if wifi and wifi.get("ssid"):
+    emails, dns, _ = split_sans(sans)  # Apple's SCEP payload has no IP address SANs.
+    alt_names = {k: v for k, v in (("rfc822Name", emails), ("dNSName", dns)) if v}
+    if alt_names:
+        payloads[2]["PayloadContent"]["SubjectAltName"] = alt_names
+    anchors = [root_uuid, inter_uuid]
+    for index, cert in enumerate(extra_cas, 1):
+        extra_uuid = str(uuid.uuid4()).upper()
+        anchors.append(extra_uuid)
+        self_signed = cert.issuer == cert.subject
+        payloads.append({
+            "PayloadType": "com.apple.security.root" if self_signed else "com.apple.security.pkcs1",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.extra-ca.{fingerprint(cert)[:16]}",
+            "PayloadUUID": extra_uuid,
+            "PayloadDisplayName": _common_name(cert),
+            "PayloadCertificateFileName": f"extra_ca_{index}.cer",
+            "PayloadContent": cert.public_bytes(serialization.Encoding.DER),
+        })
+    has_wifi = bool(wifi and wifi.get("ssid"))
+    if has_wifi:
         eap = {"AcceptEAPTypes": [13], "UserName": cn, "TLSMinimumVersion": "1.2"}
         server_names = [n for n in wifi.get("radius_server_names") or [] if n]
         if server_names:
@@ -352,9 +468,9 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "IsHotspot": False,
             "EAPClientConfiguration": eap,
             # The identity comes from the SCEP payload; the RADIUS server's
-            # certificate must chain to this CA.
+            # certificate must chain to this CA or an uploaded extra CA.
             "PayloadCertificateUUID": scep_uuid,
-            "PayloadCertificateAnchorUUID": [root_uuid, inter_uuid],
+            "PayloadCertificateAnchorUUID": anchors,
         })
     profile = {
         "PayloadType": "Configuration",
@@ -363,7 +479,7 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
         "PayloadUUID": str(uuid.uuid4()).upper(),
         "PayloadDisplayName": f"{ca_name}: {cn}",
         "PayloadDescription": "Installs the certificate authority, requests a device "
-                              "certificate" + (" and configures Wi-Fi." if len(payloads) > 3 else "."),
+                              "certificate" + (" and configures Wi-Fi." if has_wifi else "."),
         "PayloadRemovalDisallowed": False,
         "PayloadContent": payloads,
     }
@@ -377,17 +493,20 @@ def p12_password():
     return "-".join(groups)
 
 
-def issue_p12(cn, *, ca_url, root_cert):
+def issue_p12(cn, *, ca_url, root_cert, extra_cas=(), sans=()):
     """Issue a certificate for a server-generated key and bundle it as .p12.
 
     Returns (p12_bytes, password, certificate). The key never touches disk.
     """
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    csr = (
-        x509.CertificateSigningRequestBuilder()
-        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)]))
-        .sign(key, hashes.SHA256())
-    )
+    builder = x509.CertificateSigningRequestBuilder().subject_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)]))
+    emails, dns, ips = split_sans(sans)
+    names = ([x509.RFC822Name(e) for e in emails] + [x509.DNSName(d) for d in dns]
+             + [x509.IPAddress(i) for i in ips])
+    if names:
+        builder = builder.add_extension(x509.SubjectAlternativeName(names), critical=False)
+    csr = builder.sign(key, hashes.SHA256())
     with tempfile.TemporaryDirectory() as tmp:
         csr_path = os.path.join(tmp, "req.csr")
         crt_path = os.path.join(tmp, "cert.crt")
@@ -407,6 +526,8 @@ def issue_p12(cn, *, ca_url, root_cert):
     leaf, extra = chain[0], chain[1:]
     if all(c.fingerprint(hashes.SHA256()) != root.fingerprint(hashes.SHA256()) for c in extra):
         extra.append(root)
+    known = {fingerprint(c) for c in extra}
+    extra += [c for c in extra_cas if fingerprint(c) not in known]
     password = p12_password()
     # 3DES/SHA-1 keeps the bundle importable on older Windows, Android, and
     # macOS Keychain, which reject AES-based PKCS#12.

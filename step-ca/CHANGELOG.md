@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.30.2-11
+
+- Add other CAs devices must trust, such as the RADIUS server's CA, under
+  **Certificates → CA & downloads**. They are included in Apple profiles
+  (and trusted for the Wi-Fi network), .p12 files, and a new
+  `ca-bundle.pem` download.
+- Optional subject alternative names (email addresses, DNS names, IP
+  addresses) for enrollment links, **Enroll this device**, and direct .p12
+  issuing.
+- **CA & downloads** shows the SCEP, root, and CRL URLs with your Home
+  Assistant URL.
+- Explain the browser's "insecure download" warning when Home Assistant is
+  opened over HTTP, with a link to the HTTPS URL.
+
 ## 0.30.2-10
 
 - The Certificates panel shows errors (for example database errors) on the

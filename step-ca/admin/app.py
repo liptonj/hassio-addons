@@ -12,6 +12,8 @@ Assistant container, and a loopback-only SCEPCHALLENGE webhook for step-ca.
 
 import asyncio
 import datetime
+import email
+import email.policy
 import html
 import json
 import os
@@ -283,6 +285,11 @@ def cert_chain():
     return root, inter
 
 
+def full_bundle():
+    """Root, intermediate, and uploaded extra CAs as one PEM file."""
+    return enroll.ca_bundle([*cert_chain(), *enroll.load_extra_cas()])
+
+
 def wifi_enabled():
     return bool(WIFI.get("ssid"))
 
@@ -338,7 +345,7 @@ def signer_status():
     )
 
 
-def profile_for(cn, challenge, base_url, wifi):
+def profile_for(cn, challenge, base_url, wifi, sans=()):
     root, inter = cert_chain()
     organization = ""
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
@@ -348,9 +355,19 @@ def profile_for(cn, challenge, base_url, wifi):
         cn=cn, challenge=challenge,
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{SCEP_PROVISIONER}",
         ca_name=CA_NAME, organization=organization, root=root, intermediate=inter,
-        wifi=WIFI if wifi else None,
+        wifi=WIFI if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
     )
     return SIGNER.sign(xml)
+
+
+def sans_input(value=""):
+    return (
+        '<label for="sans">Alternative names (optional)</label>'
+        f'<input id="sans" name="sans" maxlength="2000" value="{esc(value)}" '
+        'placeholder="e.g. josh@example.com, host.example.com, 192.0.2.10" autocapitalize="off">'
+        '<p class="muted">Email addresses, DNS names, and IP addresses, separated by commas. '
+        "Apple profiles support email and DNS names only.</p>"
+    )
 
 
 def safe_filename(cn):
@@ -365,7 +382,9 @@ def wifi_help():
     rows = [
         ("Network (SSID)", esc(WIFI["ssid"])),
         ("Security", f'{esc(WIFI.get("security", "WPA2"))} Enterprise, EAP method <b>TLS</b>'),
-        ("CA certificate", "the root CA above (Android: install it as a CA certificate)"),
+        ("CA certificate", "ca-bundle.pem above (Android: install it as a CA certificate)"
+         if enroll.load_extra_cas() else
+         "the root CA above (Android: install it as a CA certificate)"),
         ("Identity", "your certificate name"),
     ]
     if names:
@@ -508,7 +527,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/":
                 self.list_page(query)
             elif path == "/ca":
-                self.ca_page()
+                self.ca_page(query)
             elif path == "/enroll":
                 self.enroll_page()
             elif path == "/enroll/self":
@@ -522,6 +541,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/download/intermediate_ca.pem":
                 self.download(open(INTERMEDIATE_CERT, "rb").read(), "intermediate_ca.pem",
                               "application/x-pem-file")
+            elif path == "/download/ca-bundle.pem":
+                self.download(full_bundle(), "ca-bundle.pem", "application/x-pem-file")
             elif path == "/download/crl.pem":
                 with urllib.request.urlopen(CRL_URL, timeout=10) as resp:
                     self.download(resp.read(), "crl.pem", "application/x-pem-file")
@@ -553,12 +574,25 @@ class Handler(BaseHTTPRequestHandler):
     def handle_post(self):
         path = urllib.parse.urlsplit(self.path).path
         length = int(self.headers.get("Content-Length") or 0)
-        if length > 4096:
+        if length > (UPLOAD_LIMIT if path == "/ca/extra" else 4096):
             self.send(413, "Request too large", "text/plain")
             return
-        form = urllib.parse.parse_qs(self.rfile.read(length).decode(errors="replace"))
-        if not secrets.compare_digest(form.get("csrf", [""])[0], CSRF_TOKEN):
+        body = self.rfile.read(length)
+        content_type = self.headers.get("Content-Type", "")
+        if content_type.startswith("multipart/form-data"):
+            form = parse_multipart(content_type, body)
+        else:
+            form = urllib.parse.parse_qs(body.decode(errors="replace"))
+        if not secrets.compare_digest(str(form.get("csrf", [""])[0]), CSRF_TOKEN):
             self.send(403, "Invalid form token; reload the page and try again.", "text/plain")
+            return
+        if path == "/ca/extra":
+            self.extra_ca_add(form)
+            return
+        if m := re.fullmatch(r"/ca/extra/([0-9a-f]{64})/remove", path):
+            enroll.save_extra_cas([c for c in enroll.load_extra_cas()
+                                   if enroll.fingerprint(c) != m.group(1)])
+            self.redirect("/ca")
             return
         if path == "/enroll/self":
             self.self_enroll(form)
@@ -722,6 +756,16 @@ class Handler(BaseHTTPRequestHandler):
         """URL prefix under which /<token>/file/<id> and /<token>/root_ca.crt are served."""
         return self.url("/enroll/self")
 
+    def insecure_note(self):
+        """Browsers flag downloads from a Home Assistant opened over plain HTTP."""
+        if self.headers.get("X-Forwarded-Proto", "http") != "http":
+            return ""
+        base_url = default_base_url(self.headers)
+        https = (f' or open Home Assistant at <a href="{esc(base_url)}">{esc(base_url)}</a>'
+                 if base_url.startswith("https://") else "")
+        return ('<div class="msg">Home Assistant is open over HTTP, so your browser may warn that '
+                f"the download is insecure. Choose <b>Keep</b>{https}.</div>")
+
     def gone(self):
         self.page("Link not valid", "<h1>This enrollment link is not valid</h1>"
                   "<p>It may have expired, been used already, or been cancelled. Ask your "
@@ -740,7 +784,7 @@ class Handler(BaseHTTPRequestHandler):
         data, filename, content_type = entry
         self.download(data, filename, content_type)
 
-    def form_page(self, action, link, error="", cn="", hidden=""):
+    def form_page(self, action, link, error="", cn="", hidden="", extra=""):
         apple = bool(APPLE_UA_RE.search(self.headers.get("User-Agent", "")))
         cn = link["cn"] or cn
         if link["cn"]:
@@ -758,7 +802,7 @@ class Handler(BaseHTTPRequestHandler):
             f"<h1>Get a certificate from {esc(CA_NAME)}</h1>"
             + (f'<div class="msg error">{esc(error)}</div>' if error else "")
             + f'<div class="card"><form method="post" action="{esc(action)}">'
-            + hidden + name
+            + hidden + name + extra
             + "<label>Device</label>"
             f'<label class="choice"><input type="radio" name="kind" value="apple"{" checked" if apple else ""}> '
             "<span><b>iPhone, iPad, or Mac</b><br><span class=muted>Installs a profile. The device "
@@ -776,7 +820,8 @@ class Handler(BaseHTTPRequestHandler):
             self.gone()
             return
         try:
-            data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled())
+            data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled(),
+                               link.get("sans") or ())
         except (RuntimeError, OSError, ValueError) as err:
             print(f"Could not build profile: {err}", flush=True)
             self.page("Error", '<div class="msg error">The profile could not be created. '
@@ -786,7 +831,7 @@ class Handler(BaseHTTPRequestHandler):
                                  "application/x-apple-aspen-config")
         href = f"{self.enroll_prefix()}/{token}/file/{download}"
         body = (
-            f"<h1>Install the profile</h1>"
+            f"<h1>Install the profile</h1>{self.insecure_note()}"
             f'<div class="card"><p><a class="btn" href="{esc(href)}">Download profile</a></p>'
             "<ol>"
             "<li>Tap <b>Download profile</b> and choose <b>Allow</b>.</li>"
@@ -806,7 +851,9 @@ class Handler(BaseHTTPRequestHandler):
             self.gone()
             return
         try:
-            data, password, _ = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT)
+            data, password, _ = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT,
+                                                 extra_cas=enroll.load_extra_cas(),
+                                                 sans=link.get("sans") or ())
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
             LINKS.release(link_id)
             print(f"Could not issue certificate for {cn!r}: {err}", flush=True)
@@ -814,14 +861,20 @@ class Handler(BaseHTTPRequestHandler):
                       "Ask your administrator to check the add-on log.</div>", 500)
             return
         download = DOWNLOADS.add(link_id, data, f"{safe_filename(cn)}.p12", "application/x-pkcs12")
+        bundle = ""
+        if enroll.load_extra_cas():
+            bundle = DOWNLOADS.add(link_id, full_bundle(), "ca-bundle.pem", "application/x-pem-file")
         body = (
-            f"<h1>Certificate for {esc(cn)}</h1>"
+            f"<h1>Certificate for {esc(cn)}</h1>{self.insecure_note()}"
             '<div class="card"><p>Password for the .p12 file. Write it down now; it is not shown again:</p>'
             f'<p class="big mono">{esc(password)}</p>'
             f'<p><a class="btn" href="{esc(f"{self.enroll_prefix()}/{token}/file/{download}")}">'
             f"Download {esc(safe_filename(cn))}.p12</a></p>"
             f'<p><a href="{esc(f"{self.enroll_prefix()}/{token}/root_ca.crt")}">Download the root CA '
-            "certificate</a> separately if your device asks for a CA certificate.</p>"
+            "certificate</a> separately if your device asks for a CA certificate"
+            + (f', or <a href="{esc(f"{self.enroll_prefix()}/{token}/file/{bundle}")}">ca-bundle.pem</a> '
+               "with all CA certificates, including the Wi-Fi (RADIUS) server CA" if bundle else "")
+            + ".</p>"
             '<p class="muted">The download is available for 10 minutes. Android: Settings &rsaquo; '
             "Security &rsaquo; Encryption &amp; credentials &rsaquo; Install a certificate. Windows: "
             "double-click the file, choose <b>Current User</b>, and keep the default store choices. "
@@ -832,16 +885,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- enrollment (admin) ------------------------------------------------------
 
-    def self_enroll_page(self, error="", cn=""):
+    def self_enroll_page(self, error="", cn="", sans=""):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
-        self.form_page(self.url("/enroll/self"), {"cn": "", "wifi": wifi_enabled()}, error, cn, csrf)
+        self.form_page(self.url("/enroll/self"), {"cn": "", "wifi": wifi_enabled()}, error, cn,
+                       csrf, sans_input(sans))
 
     def self_enroll(self, form):
         """Enroll the computer the panel is open on (e.g. a Mac or Windows PC)."""
         cn = form.get("cn", [""])[0].strip()
+        sans_text = form.get("sans", [""])[0].strip()
         if not enroll.valid_cn(cn):
             self.self_enroll_page("Enter a certificate name using letters, digits, spaces, "
-                                  "and . _ @ - (up to 64 characters).", cn)
+                                  "and . _ @ - (up to 64 characters).", cn, sans_text)
+            return
+        try:
+            sans = enroll.parse_sans(sans_text)
+        except ValueError as err:
+            self.self_enroll_page(str(err), cn, sans_text)
             return
         base_url = default_base_url(self.headers)
         if not base_url:
@@ -849,7 +909,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label="This device (panel)", cn=cn, base_url=base_url,
-                             wifi=wifi_enabled(), hours=1, created_by=who)
+                             wifi=wifi_enabled(), hours=1, created_by=who, sans=sans)
         link_id, link = LINKS.get(token)
         if form.get("kind", [""])[0] == "apple":
             self.apple_result(token, link_id, link, cn)
@@ -880,7 +940,8 @@ class Handler(BaseHTTPRequestHandler):
             rows += (
                 f"<tr><td>{esc(link['label'] or '—')}<div class=muted>{esc(link['created_by'])}</div></td>"
                 f"<td>{esc(link['issued_cn'] or link['cn'] or 'chosen on device')}"
-                f"<div class=muted>{esc(link['method'])}</div></td>"
+                + (f"<div class=muted>{esc(', '.join(link['sans']))}</div>" if link.get("sans") else "")
+                + f"<div class=muted>{esc(link['method'])}</div></td>"
                 f'<td><span class="pill {pill}">{esc(state)}</span></td>'
                 f"<td>{esc(fmt_time(when))}</td><td>{cancel}</td></tr>"
             )
@@ -900,6 +961,7 @@ class Handler(BaseHTTPRequestHandler):
             'placeholder="e.g. Josh&#39;s iPhone">'
             '<label for="cn">Certificate name (CN)</label><input id="cn" name="cn" maxlength="64" '
             'placeholder="Leave empty to let the device owner choose">'
+            + sans_input() +
             '<label for="base">Home Assistant URL the device will use</label>'
             f'<input id="base" name="base_url" type="url" required value="{esc(base_url)}" '
             'placeholder="https://home.example.com">'
@@ -914,7 +976,10 @@ class Handler(BaseHTTPRequestHandler):
             '<p class="muted">Creates a key and certificate here and gives you a .p12 to hand over.</p>'
             f'<form class="bar" method="post" action="{esc(self.url("/issue"))}">{csrf}'
             '<input class="grow" name="cn" maxlength="64" required placeholder="Certificate name (CN)">'
-            "<button>Issue .p12</button></form></div>"
+            "<button>Issue .p12</button>"
+            '<input class="grow" name="sans" maxlength="2000" autocapitalize="off" '
+            'placeholder="Alternative names (optional): email, DNS names, IP addresses">'
+            "</form></div>"
             '<div class="card tablewrap"><h2 style="margin-top:0">Links</h2><table><thead><tr>'
             "<th>Label</th><th>Certificate</th><th>Status</th><th>Expires</th><th></th></tr></thead>"
             f"<tbody>{rows}</tbody></table></div>"
@@ -934,12 +999,18 @@ class Handler(BaseHTTPRequestHandler):
             error = "The certificate name may use letters, digits, spaces, and . _ @ - (up to 64)."
         elif not base_url:
             error = "Enter the Home Assistant URL as scheme and host only, e.g. https://home.example.com."
+        sans = []
+        if not error:
+            try:
+                sans = enroll.parse_sans(field("sans"))
+            except ValueError as err:
+                error = str(err)
         if error:
             self.enroll_page(f'<div class="msg error">{esc(error)}</div>')
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label=label, cn=cn, base_url=base_url, wifi=field("wifi") == "1" and wifi_enabled(),
-                             hours=hours, created_by=who)
+                             hours=hours, created_by=who, sans=sans)
         link = f"{base_url}{enroll.PUBLIC_BASE}/enroll/{token}"
         body = (
             f"<h1>Enrollment link{': ' + esc(label) if label else ''}</h1>"
@@ -962,19 +1033,26 @@ class Handler(BaseHTTPRequestHandler):
                              "spaces, and . _ @ - (up to 64).</div>")
             return
         try:
-            data, password, cert = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT)
+            sans = enroll.parse_sans(form.get("sans", [""])[0])
+        except ValueError as err:
+            self.enroll_page(f'<div class="msg error">{esc(err)}</div>')
+            return
+        try:
+            data, password, cert = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT,
+                                                    extra_cas=enroll.load_extra_cas(), sans=sans)
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
             self.enroll_page(f'<div class="msg error">Could not issue the certificate: {esc(err)}</div>')
             return
         download = DOWNLOADS.add("admin", data, f"{safe_filename(cn)}.p12", "application/x-pkcs12")
         serial = str(cert.serial_number)
         body = (
-            f"<h1>Certificate for {esc(cn)}</h1>"
+            f"<h1>Certificate for {esc(cn)}</h1>{self.insecure_note()}"
             '<div class="card"><p>Password for the .p12 file (shown only once):</p>'
             f'<p class="big mono">{esc(password)}</p>'
             f'<p><a class="btn" href="{esc(self.url("/issue/file/" + download))}">Download {esc(safe_filename(cn))}.p12</a></p>'
             '<p class="muted">The download is available for 10 minutes. The file contains the private '
-            "key, the certificate, and the intermediate and root CA certificates.</p>"
+            "key, the certificate, and the intermediate and root CA certificates"
+            + (" plus the other trusted CAs" if enroll.load_extra_cas() else "") + ".</p>"
             + (f'<p><a href="{esc(self.url("/cert/" + serial))}">View certificate</a></p>' if db_enabled() else "")
             + "</div>"
         )
@@ -988,30 +1066,83 @@ class Handler(BaseHTTPRequestHandler):
         data, filename, content_type = entry
         self.download(data, filename, content_type)
 
-    def ca_page(self):
-        root = x509.load_pem_x509_certificate(open(ROOT_CERT, "rb").read())
-        inter = x509.load_pem_x509_certificate(open(INTERMEDIATE_CERT, "rb").read())
+    def extra_ca_add(self, form):
+        data = form.get("file", [b""])[0]
+        if not data.strip():
+            data = str(form.get("pem", [""])[0]).encode()
+        if not data.strip():
+            self.redirect("/ca?error=" + urllib.parse.quote("Choose a certificate file or paste a PEM."))
+            return
+        try:
+            new = enroll.parse_ca_certs(data if isinstance(data, bytes) else data.encode())
+        except ValueError as err:
+            self.redirect("/ca?error=" + urllib.parse.quote(str(err)[:300]))
+            return
+        certs = enroll.load_extra_cas()
+        known = {enroll.fingerprint(c) for c in certs}
+        certs += [c for c in new if enroll.fingerprint(c) not in known]
+        enroll.save_extra_cas(certs)
+        self.redirect("/ca?added=1")
+
+    def ca_page(self, query=None):
+        query = query or {}
+        root, inter = cert_chain()
+        extra = enroll.load_extra_cas()
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+
+        def details(cert):
+            return (
+                f"<dt>Subject</dt><dd>{esc(cert.subject.rfc4514_string())}</dd>"
+                f"<dt>Issuer</dt><dd>{esc(cert.issuer.rfc4514_string())}</dd>"
+                f"<dt>Valid until</dt><dd>{esc(fmt_time(cert.not_valid_after_utc))}</dd>"
+                f'<dt>SHA-256</dt><dd class="mono">{esc(enroll.fingerprint(cert))}</dd>'
+            )
+
         def block(title, cert, link, filename):
             return (
-                f'<div class="card"><h2 style="margin-top:0">{title}</h2><dl>'
-                f"<dt>Subject</dt><dd>{esc(cert.subject.rfc4514_string())}</dd>"
-                f"<dt>Valid until</dt><dd>{esc(fmt_time(cert.not_valid_after_utc))}</dd>"
-                f'<dt>SHA-256</dt><dd class="mono">{esc(cert.fingerprint(hashes.SHA256()).hex())}</dd></dl>'
+                f'<div class="card"><h2 style="margin-top:0">{title}</h2><dl>{details(cert)}</dl>'
                 f'<div style="margin-top:12px"><a href="{esc(self.url(link))}">Download {filename}</a></div></div>'
             )
 
+        extra_rows = "".join(
+            f'<div class="card"><dl>{details(cert)}</dl>'
+            f'<form method="post" action="{esc(self.url(f"/ca/extra/{enroll.fingerprint(cert)}/remove"))}" '
+            f'style="margin-top:12px">{csrf}<button class="btn">Remove</button></form></div>'
+            for cert in extra
+        )
+        notice = ""
+        if query.get("error"):
+            notice = f'<div class="msg error">{esc(query["error"][0])}</div>'
+        elif query.get("added"):
+            notice = '<div class="msg">Certificate added. New profiles and .p12 files include it.</div>'
+        base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
+        base = esc(base) if not base.startswith("&lt;") else base
         body = (
-            "<h1>CA &amp; downloads</h1>"
+            "<h1>CA &amp; downloads</h1>" + notice
             + block("Root CA", root, "/download/root_ca.pem", "root_ca.pem")
             + block("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem")
+            + '<div class="card"><h2 style="margin-top:0">Other trusted CAs (e.g. RADIUS server)</h2>'
+            "<p>CA certificates devices must also trust, such as the CA that issued your RADIUS "
+            "server's certificate for EAP-TLS Wi-Fi. They are added to Apple profiles (and trusted "
+            "for the Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p>"
+            f'<form method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/extra"))}">'
+            f'{csrf}<label for="file">Certificate file (.pem, .crt, .cer)</label>'
+            '<input id="file" type="file" name="file" accept=".pem,.crt,.cer,.der">'
+            '<label for="pem">or paste PEM</label>'
+            '<textarea id="pem" name="pem" rows="4" class="mono" style="width:100%" '
+            'placeholder="-----BEGIN CERTIFICATE-----"></textarea>'
+            '<div style="margin-top:12px"><button class="btn">Add</button></div></form></div>'
+            + extra_rows
+            + '<div class="card"><h2 style="margin-top:0">Full CA bundle</h2>'
+            f'<p><a href="{esc(self.url("/download/ca-bundle.pem"))}">Download ca-bundle.pem</a></p>'
+            '<p class="muted">Root, intermediate' + (", and the other trusted CAs" if extra else "")
+            + " in one PEM file, for devices and servers that take a CA bundle.</p></div>"
             + '<div class="card"><h2 style="margin-top:0">Certificate revocation list</h2>'
             f'<p><a href="{esc(self.url("/download/crl.pem"))}">Download crl.pem</a></p>'
-            '<p class="muted">Also served without login at '
-            "<span class=mono>&lt;Home Assistant URL&gt;/api/step_ca_scep/crl</span> (DER).</p></div>"
+            f'<p class="muted">Also served without login at <span class=mono>{base}/api/step_ca_scep/crl</span> (DER).</p></div>'
             '<div class="card"><h2 style="margin-top:0">SCEP</h2><dl>'
-            "<dt>URL</dt><dd class=mono>&lt;Home Assistant URL&gt;/api/step_ca_scep/scep/"
-            f"{esc(SCEP_PROVISIONER)}</dd>"
-            "<dt>Root download</dt><dd class=mono>&lt;Home Assistant URL&gt;/api/step_ca_scep/roots.pem</dd>"
+            f"<dt>URL</dt><dd class=mono>{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}</dd>"
+            f"<dt>Root download</dt><dd class=mono>{base}/api/step_ca_scep/roots.pem</dd>"
             "<dt>Issued subject</dt><dd>"
             + (esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
             + "</dd>"
@@ -1019,6 +1150,24 @@ class Handler(BaseHTTPRequestHandler):
             "</dl></div>"
         )
         self.page("CA & downloads", body)
+
+
+UPLOAD_LIMIT = 65536
+
+
+def parse_multipart(content_type, body):
+    """Parse a multipart/form-data body into {name: [value]}; files stay bytes."""
+    message = email.message_from_bytes(
+        f"Content-Type: {content_type}\r\n\r\n".encode() + body, policy=email.policy.HTTP)
+    form = {}
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        if not name:
+            continue
+        data = part.get_payload(decode=True) or b""
+        value = data if part.get_filename() is not None else data.decode(errors="replace")
+        form.setdefault(name, []).append(value)
+    return form
 
 
 APPLE_UA_RE = re.compile(r"iPhone|iPad|iPod|Macintosh|Mac OS X")
@@ -1053,6 +1202,9 @@ class EnrollHandler(Handler):
 
     def enroll_prefix(self):
         return self.public("/enroll")
+
+    def insecure_note(self):
+        return ""
 
     def route(self):
         match = ENROLL_PATH_RE.match(urllib.parse.urlsplit(self.path).path.rstrip("/"))
