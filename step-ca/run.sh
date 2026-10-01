@@ -84,7 +84,8 @@ signing_cert_name="$(option '.profile_signing.ssl_certificate // "fullchain.pem"
 signing_key_name="$(option '.profile_signing.ssl_key // "privkey.pem"')"
 wifi_json="$(option '.wifi // {} | {ssid: (.ssid // ""),
   authentication: (.authentication // "eap_tls"), password: (.password // ""), security: (.security // "WPA2"),
-  hidden: (.hidden // false), auto_join: (.auto_join // true), radius_server: (.radius_server // "custom"),
+  hidden: (.hidden // false), auto_join: (.auto_join // true),
+  disable_mac_randomization: (.disable_mac_randomization // false), radius_server: (.radius_server // "custom"),
   radius_server_names: [(.radius_server_names // [])[] | select(. != null and . != "")]}' \
   | jq --compact-output .)"
 # Subject attributes (O, OU, L, ST, C) as an x509util subject object; empty

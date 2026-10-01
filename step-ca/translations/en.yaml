@@ -146,6 +146,11 @@ configuration:
         description: The network does not broadcast its name.
       auto_join:
         name: Join automatically
+      disable_mac_randomization:
+        name: Fixed Wi-Fi address
+        description: >-
+          Turns off Private Wi-Fi Address (MAC randomization) for this network on iOS 14 and
+          macOS 15 or later, so devices use their real MAC address.
       radius_server:
         name: RADIUS server
         description: >-

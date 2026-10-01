@@ -528,6 +528,7 @@ def wifi_settings(option):
     return {"ssid": option.get("ssid") or "", "authentication": option.get("authentication") or "eap_tls",
             "password": option.get("password") or "", "security": option.get("security") or "WPA2",
             "hidden": bool(option.get("hidden", False)), "auto_join": bool(option.get("auto_join", True)),
+            "disable_mac_randomization": bool(option.get("disable_mac_randomization", False)),
             "radius_server": option.get("radius_server") or "custom",
             "radius_server_names": [n for n in option.get("radius_server_names") or [] if n]}
 
@@ -2528,6 +2529,11 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="field"><label class="check"><input type="checkbox" name="hidden" value="1"'
             f'{check("hidden")}>Hidden network</label>'
             '<p class="hint">Turn on when the SSID is not broadcast.</p></div>'
+            '<div class="field"><label class="check"><input type="checkbox" name="disable_mac_randomization" '
+            f'value="1"{check("disable_mac_randomization")}>Fixed Wi-Fi address</label>'
+            '<p class="hint">Turns off Private Wi-Fi Address for this network, so the device always uses its '
+            "real MAC address here (for DHCP reservations or MAC-based rules). iOS 14, iPadOS 14, and macOS 15 "
+            "or later; devices show a privacy warning for the network.</p></div>"
             '<div data-show-when="w-auth=eap_tls">'
             '<div class="field"><label for="w-radius">RADIUS server</label>'
             f'<select id="w-radius" name="radius_server">{radius}</select>'
@@ -2556,6 +2562,7 @@ class Handler(BaseHTTPRequestHandler):
         values = {"ssid": field("ssid").strip(), "authentication": field("authentication") or "eap_tls",
                   "password": field("password"), "security": field("security"),
                   "hidden": field("hidden") == "1", "auto_join": field("auto_join") == "1",
+                  "disable_mac_randomization": field("disable_mac_randomization") == "1",
                   "radius_server": field("radius_server") or "custom",
                   "radius_server_names": list(dict.fromkeys(names))}
         try:

@@ -686,6 +686,10 @@ devices or uploaded to an MDM keep the old settings until you replace them.
 - `security`: `WPA2`, `WPA3`, or `Any`.
 - `hidden`: the network does not broadcast its name.
 - `auto_join`: join automatically.
+- `disable_mac_randomization`: turns off Private Wi-Fi Address for this
+  network, so devices use their real MAC address on it (for DHCP
+  reservations or MAC-based rules). iOS and iPadOS 14, macOS 15, and later;
+  the device shows a privacy warning for the network.
 - `radius_server`: `custom` (default) for your own RADIUS server, whose CA
   you add under **Tools > Other trusted CAs**; or `meraki_access_manager`,
   which makes devices trust Meraki Access Manager's RADIUS certificate. See

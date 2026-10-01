@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.38
+
+- **Wi-Fi network**: new **Fixed Wi-Fi address** setting
+  (`disable_mac_randomization`) turns off Private Wi-Fi Address for the
+  profile's network, so devices use their real MAC address on it.
+
 ## 0.30.2.37
 
 - **Serial number enrollment**: the add-on log shows each step (profile
