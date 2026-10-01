@@ -655,6 +655,11 @@ and used by new profiles right away, without a restart. Profiles already on
 devices or uploaded to an MDM keep the old settings until you replace them.
 
 - `ssid`: network name.
+- `authentication`: `eap_tls` (default), where each device signs in with the
+  certificate from this CA through a RADIUS server (WPA Enterprise); or
+  `psk`, one shared password (WPA Personal).
+- `password`: the network password for `psk`, 8 to 63 characters (or 64
+  hex digits). Profiles with the network include it.
 - `security`: `WPA2`, `WPA3`, or `Any`.
 - `hidden`: the network does not broadcast its name.
 - `auto_join`: join automatically.
@@ -662,8 +667,11 @@ devices or uploaded to an MDM keep the old settings until you replace them.
   you add under **Tools > Other trusted CAs**; or `meraki_access_manager`,
   which makes devices trust Meraki Access Manager's RADIUS certificate. See
   [Cisco Meraki Access Manager](#cisco-meraki-access-manager).
-- `radius_server_names`: names in your RADIUS server's certificate that
-  devices should trust.
+- `radius_server_names`: optional. Pins the names in the RADIUS server's
+  certificate that devices accept. Without it, devices accept any server
+  certificate issued by the CAs the profile trusts, which is fine when that
+  is this CA. It matters only when the CA also issues certificates to other
+  servers, such as a public CA; Meraki's name is added for you.
 
 Apple profiles trust only the CAs they install for the Wi-Fi server's
 certificate and do not ask the user. If the RADIUS server's certificate does

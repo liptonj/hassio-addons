@@ -525,7 +525,8 @@ SERVER_NAME_RE = re.compile(r"^[A-Za-z0-9*][A-Za-z0-9*._-]{0,252}$")
 def wifi_settings(option):
     """A saved wifi option in the form of WIFI (the defaults run.sh fills in)."""
     option = option or {}
-    return {"ssid": option.get("ssid") or "", "security": option.get("security") or "WPA2",
+    return {"ssid": option.get("ssid") or "", "authentication": option.get("authentication") or "eap_tls",
+            "password": option.get("password") or "", "security": option.get("security") or "WPA2",
             "hidden": bool(option.get("hidden", False)), "auto_join": bool(option.get("auto_join", True)),
             "radius_server": option.get("radius_server") or "custom",
             "radius_server_names": [n for n in option.get("radius_server_names") or [] if n]}
@@ -535,6 +536,12 @@ def check_wifi_option(wifi):
     """Raise ValueError when a wifi option would not pass the add-on's schema."""
     if len(wifi["ssid"]) > 32 or len(wifi["ssid"].encode()) > 32:
         raise ValueError("The network name (SSID) can be at most 32 bytes.")
+    if wifi["authentication"] not in ("eap_tls", "psk"):
+        raise ValueError("Choose EAP-TLS or a pre-shared key for authentication.")
+    if wifi["authentication"] == "psk" and wifi["ssid"] and not (
+            8 <= len(wifi["password"]) <= 63 and wifi["password"].isascii() and wifi["password"].isprintable()
+            or re.fullmatch(r"[0-9A-Fa-f]{64}", wifi["password"])):
+        raise ValueError("The Wi-Fi password must be 8 to 63 characters (or 64 hex digits).")
     if wifi["security"] not in WIFI_SECURITY:
         raise ValueError("Choose WPA2, WPA3, or Any for security.")
     if wifi["radius_server"] != "custom" and wifi["radius_server"] not in enroll.RADIUS_SERVICES:
@@ -839,6 +846,15 @@ def wifi_help():
     """Manual Wi-Fi settings for devices that installed a .p12."""
     if not wifi_enabled():
         return ""
+    if WIFI.get("authentication") == "psk":
+        rows = [("Network (SSID)", esc(WIFI["ssid"])),
+                ("Security", f'{esc(WIFI.get("security", "WPA2"))} Personal'),
+                ("Password", f'<span class="mono">{esc(WIFI.get("password", ""))}</span>')]
+        return (
+            '<div class="card"><div class="card-header"><h2>Connect to Wi-Fi</h2></div>'
+            '<dl class="card-content flush rows">'
+            + "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl></div>"
+        )
     names = WIFI.get("radius_server_names") or []
     service = enroll.radius_service(WIFI)
     if service:
@@ -2405,19 +2421,20 @@ class Handler(BaseHTTPRequestHandler):
                                    "unavailable.", "Could not read the saved add-on options")
         values = wifi_settings(values)
         v = lambda name: esc(values.get(name, ""))  # noqa: E731
-        security = "".join(f'<option value="{s}"{" selected" if values["security"] == s else ""}>{label}</option>'
-                           for s, label in (("WPA2", "WPA2 Enterprise"), ("WPA3", "WPA3 Enterprise"),
-                                            ("Any", "Any (WPA2 or WPA3 Enterprise)")))
-        servers = [("custom", "My own RADIUS server")] + [(key, service["label"])
-                                                          for key, service in enroll.RADIUS_SERVICES.items()]
-        radius = "".join(f'<option value="{key}"{" selected" if values["radius_server"] == key else ""}>'
-                         f"{esc(label)}</option>" for key, label in servers)
+        select = lambda name, choices: "".join(  # noqa: E731
+            f'<option value="{key}"{" selected" if values[name] == key else ""}>{esc(label)}</option>'
+            for key, label in choices)
+        auth = select("authentication", (("eap_tls", "EAP-TLS (certificate, WPA Enterprise)"),
+                                         ("psk", "Pre-shared key (password, WPA Personal)")))
+        security = select("security", (("WPA2", "WPA2"), ("WPA3", "WPA3"), ("Any", "Any (WPA2 or WPA3)")))
+        radius = select("radius_server", [("custom", "My own RADIUS server")]
+                        + [(key, service["label"]) for key, service in enroll.RADIUS_SERVICES.items()])
         check = lambda name: " checked" if values.get(name) else ""  # noqa: E731
         body = (
             notice
             + f'<form class="card" method="post" action="{esc(self.url("/tools/wifi/save"))}">{csrf}'
             '<div class="card-header"><h2>Wi-Fi network</h2>'
-            '<p class="muted">The EAP-TLS network that Apple profiles set up, and that the setup help on the '
+            '<p class="muted">The network that Apple profiles set up, and that the setup help on the '
             "certificate pages describes. Saved to the add-on options and used right away; no restart.</p></div>"
             '<div class="card-content">'
             '<div class="field"><label for="w-ssid">Network name (SSID)</label>'
@@ -2425,31 +2442,38 @@ class Handler(BaseHTTPRequestHandler):
             f'value="{v("ssid")}" placeholder="Empty turns Wi-Fi off">'
             '<p class="hint">Exactly as the network broadcasts it, including case. Empty leaves Wi-Fi out of '
             "profiles.</p></div>"
+            '<div class="field"><label for="w-auth">Authentication</label>'
+            f'<select id="w-auth" name="authentication">{auth}</select>'
+            '<p class="hint">EAP-TLS signs each device in with the certificate this CA issues, through a RADIUS '
+            "server. A pre-shared key is one password for everyone.</p></div>"
             '<div class="field"><label for="w-security">Security</label>'
             f'<select id="w-security" name="security">{security}</select>'
             '<p class="hint">Match the SSID\'s setting. Any lets the device use either.</p></div>'
-            '<div class="field"><label for="w-eap">EAP type</label>'
-            '<select id="w-eap" disabled><option selected>EAP-TLS (certificate)</option></select>'
-            '<p class="hint">Devices sign in with the certificate this CA issues, so EAP-TLS is the only type. '
-            "PEAP and EAP-TTLS use passwords instead.</p></div>"
+            '<div class="field" data-show-when="w-auth=psk"><label for="w-password">Password</label>'
+            '<input id="w-password" name="password" type="password" maxlength="64" autocomplete="new-password" '
+            f'placeholder="{"Leave empty to keep the saved password" if values["password"] else "8 to 63 characters"}">'
+            '<p class="hint">The network password. Profiles with this network include it.</p></div>'
             '<div class="field"><label class="check"><input type="checkbox" name="auto_join" value="1"'
             f'{check("auto_join")}>Join automatically</label></div>'
             '<div class="field"><label class="check"><input type="checkbox" name="hidden" value="1"'
             f'{check("hidden")}>Hidden network</label>'
             '<p class="hint">Turn on when the SSID is not broadcast.</p></div>'
+            '<div data-show-when="w-auth=eap_tls">'
             '<div class="field"><label for="w-radius">RADIUS server</label>'
             f'<select id="w-radius" name="radius_server">{radius}</select>'
             '<p class="hint">With Cisco Meraki Access Manager, profiles trust its server '
             "(eap.meraki.com, under IdenTrust Commercial Root CA 1) without anything else to add. With your "
             f'own server, add the CA that issued its certificate under <a href="{esc(self.url("/tools/cas"))}">'
-            "Other trusted CAs</a>.</p></div>"
-            '<div class="field"><label for="w-names">RADIUS server names</label>'
+            "Other trusted CAs</a> if it is not this CA.</p></div>"
+            f'<details class="field"{" open" if values["radius_server_names"] else ""}><summary>Advanced</summary>'
+            '<label for="w-names">RADIUS server names (optional)</label>'
             f'<textarea id="w-names" name="radius_server_names" rows="3" class="mono" autocapitalize="off" '
             f'spellcheck="false" placeholder="radius.example.com">{esc(chr(10).join(values["radius_server_names"]))}'
             "</textarea>"
-            '<p class="hint">One per line: the names in your RADIUS server\'s certificate that devices accept. '
-            "Wildcards such as *.example.com work. Leave empty to accept any server certificate from a trusted "
-            "CA.</p></div>"
+            '<p class="hint">Usually leave this empty. Devices then accept any RADIUS certificate issued by a '
+            "trusted CA above. Listing names (one per line, wildcards such as *.example.com work) pins the "
+            "server, which matters only when that CA also issues certificates to other servers, such as a "
+            "public CA. Meraki's name is added for you.</p></details></div>"
             '</div><div class="card-actions">'
             + (f'<button class="btn">{ui.icon("check")}Save</button>' if readable else "")
             + "</div></form>"
@@ -2459,13 +2483,16 @@ class Handler(BaseHTTPRequestHandler):
     def wifi_save(self, form):
         field = lambda name: str(form.get(name, [""])[0])  # noqa: E731
         names = [n.strip() for n in re.split(r"[\s,]+", field("radius_server_names")) if n.strip()]
-        values = {"ssid": field("ssid").strip(), "security": field("security"),
+        values = {"ssid": field("ssid").strip(), "authentication": field("authentication") or "eap_tls",
+                  "password": field("password"), "security": field("security"),
                   "hidden": field("hidden") == "1", "auto_join": field("auto_join") == "1",
                   "radius_server": field("radius_server") or "custom",
                   "radius_server_names": list(dict.fromkeys(names))}
         try:
-            check_wifi_option(values)
             options = saved_options()
+            if not values["password"]:
+                values["password"] = wifi_settings(options.get("wifi"))["password"]
+            check_wifi_option(values)
             options["wifi"] = {**(options.get("wifi") or {}), **values}
             supervisor("POST", "/addons/self/options", {"options": options})
         except (ValueError, RuntimeError) as err:
@@ -2473,8 +2500,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         WIFI.clear()
         WIFI.update(wifi_settings(values))
-        print(f"Saved the Wi-Fi settings (SSID {values['ssid']!r}, {values['security']}, "
-              f"RADIUS {values['radius_server']})", flush=True)
+        print(f"Saved the Wi-Fi settings (SSID {values['ssid']!r}, {values['authentication']}, "
+              f"{values['security']}, RADIUS {values['radius_server']})", flush=True)
         self.redirect("/tools/wifi?saved=1")
 
     # -- other tools ---------------------------------------------------------------
@@ -2486,9 +2513,10 @@ class Handler(BaseHTTPRequestHandler):
         challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
                      ui.chip("warn", "Not set") + " Needed for MDM profiles in the default group")
         service = enroll.radius_service(WIFI)
-        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, EAP-TLS"
+        psk = WIFI.get("authentication") == "psk"
+        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, " + ("pre-shared key" if psk else "EAP-TLS")
                 + (f", RADIUS {esc(service['label'])} ({esc(', '.join(service['server_names']))})"
-                   if service else "")
+                   if service and not psk else "")
                 if wifi_enabled() else "Off")
         groups = "<br>".join(
             f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
@@ -2645,7 +2673,10 @@ class Handler(BaseHTTPRequestHandler):
             ("Key", "RSA, 2048 bits or more, usage signing and encryption, not exportable", None),
             ("Fingerprint", "Leave empty", None),
         ]
-        if wifi_enabled():
+        if wifi_enabled() and WIFI.get("authentication") == "psk":
+            rows.append(("Wi-Fi", f"SSID <b>{esc(WIFI['ssid'])}</b>, {esc(WIFI.get('security', 'WPA2'))} "
+                         "Personal with the saved password", None))
+        elif wifi_enabled():
             names = ", ".join(WIFI.get("radius_server_names") or []) or "the names in your RADIUS certificate"
             rows.append(("Wi-Fi", f"SSID <b>{esc(WIFI['ssid'])}</b>, EAP-TLS, identity = the SCEP payload, trusted "
                          f"certificates = the certificate payloads above, trusted server names = {esc(names)}", None))

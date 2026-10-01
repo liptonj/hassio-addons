@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.30.2.35
+
+- **Wi-Fi**: pre-shared key networks. Choose **Pre-shared key** under
+  **Tools > Wi-Fi network** (or set `wifi.authentication: psk` and
+  `wifi.password`), and profiles set up a WPA Personal network with the
+  password instead of EAP-TLS.
+- **Tools > Wi-Fi network**: authentication, security, and RADIUS server are
+  menus; the password and RADIUS fields show only for the chosen
+  authentication; RADIUS server names moved under **Advanced**, since they
+  are optional.
+
 ## 0.30.2.34
 
 - **Tools > Wi-Fi network**: edit the SSID, security, auto-join, hidden,

@@ -704,7 +704,21 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "PayloadContent": cert.public_bytes(serialization.Encoding.DER),
         })
     has_wifi = bool(wifi and wifi.get("ssid"))
-    if has_wifi:
+    if has_wifi and wifi.get("authentication") == "psk":
+        payloads.append({
+            "PayloadType": "com.apple.wifi.managed",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.wifi.{_identifier_part(wifi['ssid'])}",
+            "PayloadUUID": str(uuid.uuid4()).upper(),
+            "PayloadDisplayName": f"Wi-Fi {wifi['ssid']}",
+            "SSID_STR": wifi["ssid"],
+            "HIDDEN_NETWORK": bool(wifi.get("hidden")),
+            "AutoJoin": bool(wifi.get("auto_join", True)),
+            "EncryptionType": wifi.get("security") or "WPA2",
+            "IsHotspot": False,
+            "Password": wifi.get("password") or "",
+        })
+    elif has_wifi:
         eap = {"AcceptEAPTypes": [13], "UserName": cn, "TLSMinimumVersion": "1.2"}
         server_names = [n for n in wifi.get("radius_server_names") or [] if n]
         service = radius_service(wifi)

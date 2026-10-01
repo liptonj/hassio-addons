@@ -124,11 +124,21 @@ configuration:
         description: File name in /ssl.
   wifi:
     name: Wi-Fi
-    description: EAP-TLS Wi-Fi network added to Apple profiles. Leave the SSID empty for none.
+    description: >-
+      Wi-Fi network added to Apple profiles. Leave the SSID empty for none. Also editable in the
+      panel under Tools > Wi-Fi network.
     fields:
       ssid:
         name: SSID
         description: Network name.
+      authentication:
+        name: Authentication
+        description: >-
+          eap_tls: devices sign in with the certificate from this CA (WPA Enterprise).
+          psk: a shared network password (WPA Personal).
+      password:
+        name: Password
+        description: The network password when authentication is psk (8 to 63 characters).
       security:
         name: Security
       hidden:
@@ -144,4 +154,6 @@ configuration:
           certificate (eap.meraki.com) without an upload.
       radius_server_names:
         name: RADIUS server names
-        description: Names in your RADIUS server's certificate that devices should trust.
+        description: >-
+          Optional. Pins which RADIUS server certificate names devices accept. Not needed with your
+          own CA or meraki_access_manager.

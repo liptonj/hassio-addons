@@ -296,6 +296,8 @@ a.icon-btn:hover { text-decoration: none; }
 /* Form fields */
 .field { margin-bottom: 16px; }
 .field:last-child { margin-bottom: 0; }
+details.field > summary { cursor: pointer; width: fit-content; color: var(--primary-color); font-weight: 500; }
+details.field[open] > summary { margin-bottom: 12px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 label, .label { display: block; font-weight: 500; margin-bottom: 6px; }
 fieldset { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
@@ -779,6 +781,16 @@ SCRIPT = r"""
     if (saved && picker.querySelector('option[value="' + saved + '"]')) picker.value = saved;
     apply(false);
     picker.addEventListener("change", function () { apply(false); });
+  });
+
+  // Fields shown only for one choice of a menu: data-show-when="select-id=value".
+  document.querySelectorAll("[data-show-when]").forEach(function (block) {
+    var rule = block.getAttribute("data-show-when").split("=");
+    var select = document.getElementById(rule[0]);
+    if (!select) return;
+    function apply() { block.hidden = select.value !== rule[1]; }
+    apply();
+    select.addEventListener("change", apply);
   });
 
   // Groups that require an email address make the email field required.
