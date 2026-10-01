@@ -518,6 +518,32 @@ def supervisor(method, path, payload=None):
     return body.get("data") or {}
 
 
+WIFI_SECURITY = ("WPA2", "WPA3", "Any")
+SERVER_NAME_RE = re.compile(r"^[A-Za-z0-9*][A-Za-z0-9*._-]{0,252}$")
+
+
+def wifi_settings(option):
+    """A saved wifi option in the form of WIFI (the defaults run.sh fills in)."""
+    option = option or {}
+    return {"ssid": option.get("ssid") or "", "security": option.get("security") or "WPA2",
+            "hidden": bool(option.get("hidden", False)), "auto_join": bool(option.get("auto_join", True)),
+            "radius_server": option.get("radius_server") or "custom",
+            "radius_server_names": [n for n in option.get("radius_server_names") or [] if n]}
+
+
+def check_wifi_option(wifi):
+    """Raise ValueError when a wifi option would not pass the add-on's schema."""
+    if len(wifi["ssid"]) > 32 or len(wifi["ssid"].encode()) > 32:
+        raise ValueError("The network name (SSID) can be at most 32 bytes.")
+    if wifi["security"] not in WIFI_SECURITY:
+        raise ValueError("Choose WPA2, WPA3, or Any for security.")
+    if wifi["radius_server"] != "custom" and wifi["radius_server"] not in enroll.RADIUS_SERVICES:
+        raise ValueError("Choose a RADIUS server from the list.")
+    for name in wifi["radius_server_names"]:
+        if not SERVER_NAME_RE.fullmatch(name):
+            raise ValueError(f"{name!r} is not a server name, such as radius.example.com.")
+
+
 def saved_options():
     """The add-on options as saved (they apply on the next start)."""
     return dict(supervisor("GET", "/addons/self/info").get("options") or {})
@@ -1034,6 +1060,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.sign_page(query)
             elif path == "/tools/cas":
                 self.cas_page(query)
+            elif path == "/tools/wifi":
+                self.wifi_page(query)
             elif path == "/tools/options":
                 self.options_page()
             elif path == "/enroll":
@@ -1116,6 +1144,9 @@ class Handler(BaseHTTPRequestHandler):
             enroll.save_extra_cas([c for c in enroll.load_extra_cas()
                                    if enroll.fingerprint(c) != m.group(1)])
             self.redirect("/tools/cas")
+            return
+        if path == "/tools/wifi/save":
+            self.wifi_save(form)
             return
         if path == "/tools/groups/save":
             self.group_save(form)
@@ -2074,6 +2105,7 @@ class Handler(BaseHTTPRequestHandler):
 
     TOOLS_MENU = (
         ("/tools/groups", "Groups", "account-group", "OUs, SCEP URLs, and challenges"),
+        ("/tools/wifi", "Wi-Fi network", "wifi", "SSID, security, and RADIUS trust"),
         ("/tools/mdm", "MDM profiles", "cellphone", "SCEP values and ready-made profiles"),
         ("/tools/sign", "Sign a request", "file-sign", "CSRs from servers or another CA"),
         ("/tools/cas", "Other trusted CAs", "server-security", "CAs enrolled devices also trust"),
@@ -2353,6 +2385,98 @@ class Handler(BaseHTTPRequestHandler):
 
         threading.Thread(target=restart, name="restart", daemon=True).start()
 
+    # -- Wi-Fi network ------------------------------------------------------------
+
+    def wifi_page(self, query, error="", values=None):
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        notice = ui.alert("error", esc(error), "The Wi-Fi settings were not saved") if error else ""
+        if query.get("saved"):
+            notice = ui.alert("success", "New profiles use the saved Wi-Fi settings now. Profiles already on "
+                              "devices or uploaded to an MDM keep the old ones until you replace them.", "Saved")
+        elif query.get("error"):
+            notice = ui.alert("error", esc(query["error"][0]), "That did not work")
+        readable = True
+        if values is None:
+            try:
+                values = wifi_settings(saved_options().get("wifi"))
+            except RuntimeError as err:
+                values, readable = dict(WIFI), False
+                notice += ui.alert("warning", f"{esc(err)}<br>These are the running settings; saving is "
+                                   "unavailable.", "Could not read the saved add-on options")
+        values = wifi_settings(values)
+        v = lambda name: esc(values.get(name, ""))  # noqa: E731
+        security = "".join(f'<option value="{s}"{" selected" if values["security"] == s else ""}>{label}</option>'
+                           for s, label in (("WPA2", "WPA2 Enterprise"), ("WPA3", "WPA3 Enterprise"),
+                                            ("Any", "Any (WPA2 or WPA3 Enterprise)")))
+        servers = [("custom", "My own RADIUS server")] + [(key, service["label"])
+                                                          for key, service in enroll.RADIUS_SERVICES.items()]
+        radius = "".join(f'<option value="{key}"{" selected" if values["radius_server"] == key else ""}>'
+                         f"{esc(label)}</option>" for key, label in servers)
+        check = lambda name: " checked" if values.get(name) else ""  # noqa: E731
+        body = (
+            notice
+            + f'<form class="card" method="post" action="{esc(self.url("/tools/wifi/save"))}">{csrf}'
+            '<div class="card-header"><h2>Wi-Fi network</h2>'
+            '<p class="muted">The EAP-TLS network that Apple profiles set up, and that the setup help on the '
+            "certificate pages describes. Saved to the add-on options and used right away; no restart.</p></div>"
+            '<div class="card-content">'
+            '<div class="field"><label for="w-ssid">Network name (SSID)</label>'
+            f'<input id="w-ssid" name="ssid" maxlength="32" autocapitalize="off" spellcheck="false" '
+            f'value="{v("ssid")}" placeholder="Empty turns Wi-Fi off">'
+            '<p class="hint">Exactly as the network broadcasts it, including case. Empty leaves Wi-Fi out of '
+            "profiles.</p></div>"
+            '<div class="field"><label for="w-security">Security</label>'
+            f'<select id="w-security" name="security">{security}</select>'
+            '<p class="hint">Match the SSID\'s setting. Any lets the device use either.</p></div>'
+            '<div class="field"><label for="w-eap">EAP type</label>'
+            '<select id="w-eap" disabled><option selected>EAP-TLS (certificate)</option></select>'
+            '<p class="hint">Devices sign in with the certificate this CA issues, so EAP-TLS is the only type. '
+            "PEAP and EAP-TTLS use passwords instead.</p></div>"
+            '<div class="field"><label class="check"><input type="checkbox" name="auto_join" value="1"'
+            f'{check("auto_join")}>Join automatically</label></div>'
+            '<div class="field"><label class="check"><input type="checkbox" name="hidden" value="1"'
+            f'{check("hidden")}>Hidden network</label>'
+            '<p class="hint">Turn on when the SSID is not broadcast.</p></div>'
+            '<div class="field"><label for="w-radius">RADIUS server</label>'
+            f'<select id="w-radius" name="radius_server">{radius}</select>'
+            '<p class="hint">With Cisco Meraki Access Manager, profiles trust its server '
+            "(eap.meraki.com, under IdenTrust Commercial Root CA 1) without anything else to add. With your "
+            f'own server, add the CA that issued its certificate under <a href="{esc(self.url("/tools/cas"))}">'
+            "Other trusted CAs</a>.</p></div>"
+            '<div class="field"><label for="w-names">RADIUS server names</label>'
+            f'<textarea id="w-names" name="radius_server_names" rows="3" class="mono" autocapitalize="off" '
+            f'spellcheck="false" placeholder="radius.example.com">{esc(chr(10).join(values["radius_server_names"]))}'
+            "</textarea>"
+            '<p class="hint">One per line: the names in your RADIUS server\'s certificate that devices accept. '
+            "Wildcards such as *.example.com work. Leave empty to accept any server certificate from a trusted "
+            "CA.</p></div>"
+            '</div><div class="card-actions">'
+            + (f'<button class="btn">{ui.icon("check")}Save</button>' if readable else "")
+            + "</div></form>"
+        )
+        self.page("Wi-Fi network", body, narrow=True)
+
+    def wifi_save(self, form):
+        field = lambda name: str(form.get(name, [""])[0])  # noqa: E731
+        names = [n.strip() for n in re.split(r"[\s,]+", field("radius_server_names")) if n.strip()]
+        values = {"ssid": field("ssid").strip(), "security": field("security"),
+                  "hidden": field("hidden") == "1", "auto_join": field("auto_join") == "1",
+                  "radius_server": field("radius_server") or "custom",
+                  "radius_server_names": list(dict.fromkeys(names))}
+        try:
+            check_wifi_option(values)
+            options = saved_options()
+            options["wifi"] = {**(options.get("wifi") or {}), **values}
+            supervisor("POST", "/addons/self/options", {"options": options})
+        except (ValueError, RuntimeError) as err:
+            self.wifi_page({}, str(err), values)
+            return
+        WIFI.clear()
+        WIFI.update(wifi_settings(values))
+        print(f"Saved the Wi-Fi settings (SSID {values['ssid']!r}, {values['security']}, "
+              f"RADIUS {values['radius_server']})", flush=True)
+        self.redirect("/tools/wifi?saved=1")
+
     # -- other tools ---------------------------------------------------------------
 
     def options_page(self):
@@ -2375,7 +2499,8 @@ class Handler(BaseHTTPRequestHandler):
         body = (
             '<div class="card"><div class="card-header"><h2>Add-on options</h2>'
             f'<p class="muted">The running configuration. Edit groups under <a href="{esc(self.url("/tools/groups"))}">'
-            "Groups</a>; change the rest on the add-on's Configuration tab in Home Assistant.</p></div>"
+            f'Groups</a> and the network under <a href="{esc(self.url("/tools/wifi"))}">Wi-Fi network</a>; '
+            "change the rest on the add-on's Configuration tab in Home Assistant.</p></div>"
             '<dl class="rows">'
             + option("Issued subject", esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
             + option("SCEP challenge", challenge)

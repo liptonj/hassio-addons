@@ -308,7 +308,8 @@ devices can import them.
 
 ### Wi-Fi in the profile
 
-Set `wifi.ssid` to add an EAP-TLS Wi-Fi payload to Apple profiles. It uses the
+Set the SSID under **Tools → Wi-Fi network** (or `wifi.ssid`) to add an EAP-TLS
+Wi-Fi payload to Apple profiles. It uses the
 certificate from the profile's SCEP payload and trusts the root and
 intermediate CA, and any CAs added under **Tools → Other trusted CAs**, for the RADIUS
 server's certificate. List your RADIUS server
@@ -649,6 +650,9 @@ Publicly trusted certificate for signing Apple profiles. See
 ### `wifi`
 
 Wi-Fi network added to Apple profiles. Leave `ssid` empty for none.
+Edit it in the panel under **Tools > Wi-Fi network**: changes are saved here
+and used by new profiles right away, without a restart. Profiles already on
+devices or uploaded to an MDM keep the old settings until you replace them.
 
 - `ssid`: network name.
 - `security`: `WPA2`, `WPA3`, or `Any`.

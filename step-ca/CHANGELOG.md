@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2.34
+
+- **Tools > Wi-Fi network**: edit the SSID, security, auto-join, hidden,
+  RADIUS server, and RADIUS server names in the panel. Saved to the add-on
+  options and used by new profiles right away, with no restart. Before, these
+  could only be changed on the add-on's Configuration tab.
+
 ## 0.30.2.33
 
 - **Authority**: new **Meraki Access Manager** download, the CA chain as a
