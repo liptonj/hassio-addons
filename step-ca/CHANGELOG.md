@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.40
+
+- **MDM profiles**: separate **iPhone and iPad profile** and **Mac profile**
+  downloads replace the Platform menu. Each leaves out the Wi-Fi settings the
+  other device type alone uses, and an iPhone profile no longer installs for
+  the system when a network connects at the Mac login window.
 ## 0.30.2.39
 
 - **Wi-Fi networks**: profiles can set up more than one network. **Tools >

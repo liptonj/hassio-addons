@@ -655,8 +655,17 @@ def wifi_name(wifi):
     return wifi.get("ssid") or (wifi.get("passpoint_domain") if wifi.get("passpoint") else "") or ""
 
 
-def wifi_payload(wifi, prefix, identifiers):
-    """A com.apple.wifi.managed payload without its credentials (Password or EAP)."""
+# Keys Apple supports on one platform only, left out of the other's profiles.
+IOS_ONLY_WIFI_KEYS = ("CaptiveBypass", "MCCAndMNCs", "HESSID")
+MACOS_ONLY_WIFI_KEYS = ("SetupModes",)
+
+
+def wifi_payload(wifi, prefix, identifiers, platform=None):
+    """A com.apple.wifi.managed payload without its credentials (Password or EAP).
+
+    platform "ios" or "macos" leaves out the keys the other platform alone uses;
+    None (a profile for any Apple device) keeps them all.
+    """
     name = wifi_name(wifi)
     identifier = f"{prefix}.wifi.{_identifier_part(name)}"
     while identifier in identifiers:
@@ -712,18 +721,22 @@ def wifi_payload(wifi, prefix, identifiers):
             if values:
                 payload[key] = values
         payload["ServiceProviderRoamingEnabled"] = bool(wifi.get("passpoint_roaming"))
+    for key in {"ios": MACOS_ONLY_WIFI_KEYS, "macos": IOS_ONLY_WIFI_KEYS}.get(platform, ()):
+        payload.pop(key, None)
     return payload
 
 
 def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi,
                   extra_cas=(), sans=(), include_scep=True, system_scope=False, identifier=None,
-                  display_name=None, email_sans=()):
+                  display_name=None, email_sans=(), platform=None):
     """Return an unsigned .mobileconfig (XML plist) for SCEP enrollment.
 
     With include_scep=False only the certificate payloads are included (and no
     Wi-Fi, which needs the SCEP identity). system_scope installs the profile
     for the whole Mac (System keychain) rather than the user; iOS ignores it.
     email_sans are added as email SANs as given, so they may be MDM variables.
+    platform "ios" or "macos" builds the profile for that platform only (see
+    wifi_payload); None makes one profile that suits both.
     """
     root_uuid, inter_uuid, scep_uuid = (str(uuid.uuid4()).upper() for _ in range(3))
     prefix = f"io.home-assistant.step-ca.{_identifier_part(ca_name)}"
@@ -797,7 +810,7 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
     known = {fingerprint(c) for c in extra_cas}
     identifiers = set()
     for network in networks:
-        payload = wifi_payload(network, prefix, identifiers)
+        payload = wifi_payload(network, prefix, identifiers, platform)
         if network.get("authentication") == "psk":
             payload["Password"] = network.get("password") or ""
             payloads.append(payload)
@@ -833,7 +846,7 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "PayloadCertificateAnchorUUID": anchors,
         })
         payloads.append(payload)
-    if any(n.get("mac_login_window") for n in networks):
+    if platform != "ios" and any(n.get("mac_login_window") for n in networks):
         # Joining at the Mac login window needs the identity in the System keychain.
         system_scope = True
     profile = {

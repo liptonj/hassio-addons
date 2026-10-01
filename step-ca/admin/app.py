@@ -837,7 +837,7 @@ def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
 
 
 MDM_CN_RE = re.compile(r"^[A-Za-z0-9 ._@$%{}()-]{1,64}$")
-MDM_PLATFORMS = {"ios": "iOS and iPadOS", "macos": "macOS"}
+MDM_PLATFORMS = {"ios": "iPhone and iPad", "macos": "Mac"}
 MDM_CONTENTS = ("trust", "scep", "wifi")
 
 
@@ -882,7 +882,7 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=match.group(1) if match else "", root=root, intermediate=inter,
         wifi=WIFI_NETWORKS if contents == "wifi" else None, extra_cas=enroll.load_extra_cas(),
-        include_scep=contents != "trust", system_scope=platform == "macos", email_sans=[email],
+        include_scep=contents != "trust", system_scope=platform == "macos", email_sans=[email], platform=platform,
         identifier=f"mdm.{group + '.' if group else ''}{contents}.{platform}",
         display_name=f"{CA_NAME}: {names[contents]}{', ' + group if group else ''} ({MDM_PLATFORMS[platform]})",
     )
@@ -3064,7 +3064,9 @@ class Handler(BaseHTTPRequestHandler):
             options.insert(0, ("wifi", "Certificates, SCEP, and Wi-Fi "
                                + esc(", ".join(enroll.wifi_name(w) for w in WIFI_NETWORKS))))
         contents = "".join(f'<option value="{v}">{label}</option>' for v, label in options)
-        platforms = "".join(f'<option value="{v}">{label}</option>' for v, label in MDM_PLATFORMS.items())
+        buttons = "".join(
+            f'<button class="btn" name="platform" value="{v}">{ui.icon(icon)}{esc(label)} profile</button>'
+            for (v, label), icon in zip(MDM_PLATFORMS.items(), ("cellphone", "laptop")))
         mdms = "".join(f'<option value="{key}">{esc(name)}</option>' for key, name, _, _ in MDM_VARIABLES)
 
         def presets(index):
@@ -3079,12 +3081,12 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="card-header"><h2>Download a profile for your MDM</h2>'
             '<p class="muted">A standard, unsigned Apple configuration profile (.mobileconfig) with the CA '
             "certificates, the SCEP payload, and optionally Wi-Fi. Upload it to your MDM as a custom profile; "
-            "it is unsigned so the MDM can replace its variables and sign it. The macOS profile installs for "
-            "the whole Mac (System keychain).</p></div><div class=\"card-content\">"
-            '<div class="field-row">'
-            f'<div class="field"><label for="mdm-platform">Platform</label><select id="mdm-platform" name="platform">{platforms}</select></div>'
+            "it is unsigned so the MDM can replace its variables and sign it.</p>"
+            '<p class="muted">Download one for each device type and assign each to those devices in your MDM. '
+            "The iPhone and iPad profile installs for the user and leaves out Mac-only settings (login window). "
+            "The Mac profile installs for the whole Mac (System keychain) and leaves out iPhone-only settings "
+            "(captive portal bypass, Passpoint MCC/MNC and HESSID).</p></div><div class=\"card-content\">"
             f'<div class="field"><label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select></div>'
-            "</div>"
             '<div class="field js-only"><label for="mdm-kind">Your MDM</label>'
             f'<select id="mdm-kind" data-mdm-switch>{mdms}<option value="other">Another MDM</option></select>'
             '<p class="hint">Lists its variables below. The MDM replaces them with each device&#39;s or '
@@ -3113,8 +3115,7 @@ class Handler(BaseHTTPRequestHandler):
                + ", ".join(f"<b>{esc(g)}</b>" for g in email_groups) + "." if email_groups else "")
             + "</p></div>"
             + ui.alert("warning", "SCEP profiles contain the challenge, so keep them private.")
-            + f'</div><div class="card-actions"><button class="btn">{ui.icon("download")}Download .mobileconfig'
-            "</button></div></form>"
+            + f'</div><div class="card-actions">{buttons}</div></form>'
         )
 
 

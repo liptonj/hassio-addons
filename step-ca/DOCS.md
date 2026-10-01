@@ -442,10 +442,18 @@ Before you start:
 
 Instead of entering the values by hand, download a profile under
 **Certificates → Tools → MDM profiles → Download a profile for your
-MDM** and upload it to your MDM as a custom profile. Choose:
+MDM** and upload it to your MDM as a custom profile. There is a separate
+download for each device type: **iPhone and iPad profile** and **Mac
+profile**. Upload both and assign each to those devices.
 
-- **Platform**: iOS and iPadOS, or macOS. The macOS profile installs for the
-  whole Mac (`PayloadScope` `System`, so the System keychain).
+- The iPhone and iPad profile installs for the user and leaves out Mac-only
+  Wi-Fi settings (connect at the login window).
+- The Mac profile installs for the whole Mac (`PayloadScope` `System`, so the
+  System keychain) and leaves out iPhone-only Wi-Fi settings (captive portal
+  bypass, Passpoint MCC/MNC and HESSID).
+
+Choose:
+
 - **Contents**: certificates only; certificates and SCEP; or certificates,
   SCEP, and Wi-Fi when a network is set up. Every certificate is included: the
   root CA, the intermediate CA, and each of the **Other trusted CAs**.
