@@ -1,0 +1,102 @@
+{
+  "title": "Choose the visual world for Certificates",
+  "question": "The roll assigned the Circulation Desk. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Circulation Desk",
+      "kicker": "THE ROLL",
+      "lineage": "Library circulation: date-due cards, book pockets, and violet rubber stamps",
+      "thesis": "Every certificate is a card with its dates stamped on it, and revoking one stamps it WITHDRAWN.",
+      "palette": ["#fbfaf6", "#1d2a44", "#5b3fa8", "#c2362b", "#d9c48f"],
+      "materials": ["ruled index-card stock with a red header rule", "violet date-stamp ink", "manila book pocket for one-time secrets"],
+      "viewport": "The inventory is the circulation ledger: one bar of counts stamped across the top (active, due within 30 days, withdrawn, CA valid until), then ruled rows with each expiry stamped in violet. The Enroll button is the one filled stamp.",
+      "risk": "Can read as a nostalgic costume if the stamps decorate. It works only if every stamp is a real date or state.",
+      "raised": [
+        {"from": "Datamatics field", "raise": "Serials, fingerprints, and dates are set as full-length tabular monospace columns, never truncated to look tidy."},
+        {"from": "Centre-rail reference setting", "raise": "States are printed marks with no corner radius: a hairline at rest, filled when pressed, struck through when spent."},
+        {"from": "Orienteering map", "raise": "Violet belongs only to validity dates and the one live task, and red belongs only to revocation."},
+        {"from": "Zoo guide map", "raise": "Each screen has one dominant object: the ledger, the enroll slip, or the CA authority card. Reference values sit in a drawer below."}
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Breaker Panel Directory",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "The house electrical panel and its handwritten circuit directory",
+      "thesis": "Every certificate is a labelled circuit in the house panel, and revoking one throws its breaker.",
+      "palette": ["#e9ebe8", "#26292b", "#f2b705", "#b8312f"],
+      "materials": ["powder-coated steel", "directory card in the panel door", "toggle handles"],
+      "viewport": "A two-column panel schedule of certificates with toggle-state glyphs and a main-breaker block for the CA at the top.",
+      "risk": "Industrial control-panel styling is close to where homelab dashboards already land, so it is the familiar choice."
+    },
+    {
+      "id": "challenger-centre-rail",
+      "label": "Centre-rail reference setting",
+      "verdict": "declined",
+      "lineage": "Wide-margin editions laid out with a ruling engine",
+      "thesis": "Two short columns around a central rail of keys, with the apparatus hanging in the margin.",
+      "palette": ["#1a1714", "#c23b22", "#ece4d4"],
+      "materials": ["hairline rules", "small caps"],
+      "viewport": "Certificate facts in twin columns around a rail of status keys.",
+      "case": "Loses on both axes: admins don't recognise a scholarly edition, and the rail hides the table they scan.",
+      "kept": "States as printed marks, with no radius anywhere.",
+      "risk": "Reads as a book instead of a tool.",
+      "hero": "https://impeccable.style/worlds/cards/rw-centre-rail-reference-setting-hero.webp"
+    },
+    {
+      "id": "challenger-datamatics",
+      "label": "Datamatics field",
+      "verdict": "declined",
+      "lineage": "Ikeda's black-and-white data installations",
+      "thesis": "Certificates as barcode columns in a strobing data field.",
+      "palette": ["#000000", "#ffffff"],
+      "materials": ["hairline bars", "monospace numerics"],
+      "viewport": "Serial numbers as a barcode wall.",
+      "case": "Loses on both axes: strobing is hostile in an admin panel, and pure black and white cannot separate active, expired, and revoked.",
+      "kept": "Full tabular numeric density.",
+      "risk": "Spectacle over task.",
+      "hero": "https://impeccable.style/worlds/cards/ikeda-datamatics-hero.webp"
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Orienteering map",
+      "verdict": "declined",
+      "lineage": "ISOM orienteering maps and course overprint",
+      "thesis": "Fixed terrain colours, with the active course riding over them in purple.",
+      "palette": ["#ffffff", "#8a5a2b", "#f6d65a", "#a020a0"],
+      "materials": ["contour texture", "control circles"],
+      "viewport": "Enrollment as a numbered course from control to control.",
+      "case": "Loses on both axes: no admin thinks of a CA as terrain.",
+      "kept": "One ink reserved for the active path.",
+      "risk": "Map costume on a table app.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-orienteering-map-hero.webp"
+    },
+    {
+      "id": "challenger-zoo-map",
+      "label": "Zoo guide map",
+      "verdict": "declined",
+      "lineage": "Flat-colour park guide maps",
+      "thesis": "Swelling colour lobes divide the page.",
+      "palette": ["#8ed462", "#f5f1e4", "#2c2e2a", "#ff705d"],
+      "materials": ["flat colour lobes", "capsule controls"],
+      "viewport": "One green lobe per task.",
+      "case": "Loses on both axes: playful overshoot undercuts the trust a CA needs.",
+      "kept": "One dominant object per screen.",
+      "risk": "Toy-like.",
+      "hero": "https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map-hero.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code", "toggle": false},
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "Home Assistant-native admin: a top bar, stat tiles, rounded cards, and a data table, at full craft.",
+    "palette": ["#ffffff", "#212121", "#03a9f4"],
+    "materials": ["rounded cards", "Material-style controls"],
+    "viewport": "Stat tiles across the top, a certificate table below, and an Enroll button at top right.",
+    "risk": "Indistinguishable from every other add-on panel by design."
+  },
+  "steer": true
+}

@@ -3,7 +3,7 @@
     "step": {
       "hassio_confirm": {
         "title": "Step CA SCEP",
-        "description": "Serve SCEP from the Step CA SCEP add-on on Home Assistant's own port at /api/step_ca_scep/scep/<provisioner>. These URLs do not require a Home Assistant login."
+        "description": "Serve SCEP from the Step CA SCEP add-on on Home Assistant's own port under /api/step_ca_scep/. These URLs do not require a Home Assistant login."
       },
       "user": {
         "title": "Step CA SCEP",

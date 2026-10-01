@@ -37,6 +37,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509.oid import ExtensionOID, NameOID
 
 import enroll
+import ui
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
 ROOT_CERT = f"{STEP_PATH}/certs/root_ca.crt"
@@ -388,7 +389,7 @@ def base_url_hint(url, source):
         hint += (" Devices away from home need a public HTTPS URL: set the <b>External URL</b> under "
                  "Settings &rsaquo; System &rsaquo; Network, or the <b>enrollment.public_url</b> add-on "
                  "option, or type it here.")
-    return f'<p class="muted">{hint}</p>'
+    return f'<p class="hint">{hint}</p>'
 
 
 def signer_status():
@@ -396,19 +397,20 @@ def signer_status():
     try:
         label, cert, _, _ = SIGNER.signer()
     except RuntimeError as err:
-        return False, f'<span class="revoked pill">unavailable</span> {esc(err)}'
+        return False, ui.alert("error", esc(err), "Profiles cannot be signed")
     issuer = cert.issuer.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
     issuer = issuer[0].value if issuer else cert.issuer.rfc4514_string()
-    who = f"{esc(cert.subject.rfc4514_string())} <span class=muted>issued by {esc(issuer)}, " \
-          f"valid until {esc(fmt_time(cert.not_valid_after_utc))}</span>"
+    who = (f'<span class="mono">{esc(cert.subject.rfc4514_string())}</span><br>'
+           f"Issued by {esc(issuer)}, valid until {esc(fmt_time(cert.not_valid_after_utc))}.")
     if label == "public":
-        return True, f'<span class="active pill">Verified</span> {who}'
-    return False, (
-        f'<span class="expired pill">Not Verified</span> {who}<br><span class="muted">Signed by '
-        "this CA because no publicly trusted certificate is available"
+        return True, ui.alert("success", who, "Profiles are signed and verified")
+    return False, ui.alert(
+        "warning",
+        f"{who} Signed by this CA because no publicly trusted certificate is available"
         + (f" ({esc(PUBLIC_SIGNER_LABEL)} was not found)" if PUBLIC_SIGNER_LABEL else "")
-        + ". Install and start the <b>Let&#39;s Encrypt</b> add-on; its certificate in /ssl is picked up "
-        "within an hour.</span>"
+        + ", so devices show the profile as <b>Not Verified</b>. Install and start the <b>Let&#39;s "
+        "Encrypt</b> add-on; its certificate in /ssl is picked up within an hour.",
+        "Profiles are signed but not verified",
     )
 
 
@@ -472,11 +474,11 @@ def mdm_profile(platform, contents, cn, base_url, email=""):
 
 def sans_input(value=""):
     return (
-        '<label for="sans">Alternative names (optional)</label>'
+        '<div class="field"><label for="sans">Alternative names (optional)</label>'
         f'<input id="sans" name="sans" maxlength="2000" value="{esc(value)}" '
         'placeholder="e.g. josh@example.com, host.example.com, 192.0.2.10" autocapitalize="off">'
-        '<p class="muted">Email addresses, DNS names, and IP addresses, separated by commas. '
-        "Apple profiles support email and DNS names only.</p>"
+        '<p class="hint">Email addresses, DNS names, and IP addresses, separated by commas. '
+        "Apple profiles support email and DNS names only.</p></div>"
     )
 
 
@@ -500,58 +502,25 @@ def wifi_help():
     if names:
         rows.append(("Domain / server name", esc(names[0])))
     return (
-        '<div class="card"><h2 style="margin-top:0">Connect to Wi-Fi</h2><dl>'
-        + "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows) + "</dl></div>"
+        '<div class="card"><div class="card-header"><h2>Connect to Wi-Fi</h2></div>'
+        '<dl class="card-content flush rows">'
+        + "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl></div>"
     )
 
 
-STYLE = """
-:root { color-scheme: light dark; --bg:#fafafa; --fg:#1c1c1c; --muted:#6b6b6b;
-  --card:#fff; --line:#e3e3e3; --accent:#03a9f4; --ok:#2e7d32; --warn:#b26a00; --bad:#c62828; }
-@media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#e6e6e6; --muted:#9a9a9a;
-  --card:#1c1c1c; --line:#333; --ok:#66bb6a; --warn:#ffa726; --bad:#ef5350; } }
-* { box-sizing: border-box; }
-body { margin:0; font:14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background:var(--bg); color:var(--fg); }
-main { max-width:1100px; margin:0 auto; padding:16px; }
-h1 { font-size:20px; margin:4px 0 16px; }
-h2 { font-size:16px; margin:24px 0 8px; }
-a { color:var(--accent); text-decoration:none; }
-a:hover { text-decoration:underline; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
-.bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.grow { flex:1; }
-input, select, button { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:6px;
-  background:var(--card); color:var(--fg); }
-button { cursor:pointer; }
-button.danger { background:var(--bad); color:#fff; border-color:var(--bad); }
-.tabs a { padding:4px 10px; border-radius:6px; color:var(--fg); }
-.tabs a.on { background:var(--accent); color:#fff; }
-.tablewrap { overflow-x:auto; }
-table { width:100%; border-collapse:collapse; }
-th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
-th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
-.mono { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; word-break:break-all; }
-.muted { color:var(--muted); }
-.pill { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; font-weight:600; }
-.active { color:var(--ok); border:1px solid var(--ok); }
-.expired { color:var(--warn); border:1px solid var(--warn); }
-.revoked { color:var(--bad); border:1px solid var(--bad); }
-dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0; }
-dt { color:var(--muted); }
-dd { margin:0; word-break:break-word; }
-.msg { padding:10px 14px; border-radius:6px; margin-bottom:16px; border:1px solid var(--line); }
-.msg.error { border-color:var(--bad); color:var(--bad); }
-.msg.ok { border-color:var(--ok); color:var(--ok); }
-pre { white-space:pre-wrap; margin:0; }
-.qr { background:#fff; padding:12px; border-radius:8px; display:inline-block; }
-.qr svg { width:240px; height:240px; display:block; }
-.big { font-size:18px; font-weight:600; letter-spacing:1px; }
-label { display:block; margin:12px 0 4px; font-weight:600; }
-.choice { display:flex; gap:8px; align-items:flex-start; margin:8px 0; font-weight:normal; }
-input[type=text], input[type=url], input:not([type]) { width:100%; }
-.btn { display:inline-block; padding:8px 14px; border-radius:6px; background:var(--accent); color:#fff; }
-"""
+def expiring(c, now=None):
+    """True for an active certificate that expires within EXPIRING_DAYS."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return c["status"] == "active" and c["not_after"] - now < datetime.timedelta(days=EXPIRING_DAYS)
+
+
+def status_chip(c, now=None):
+    if c["status"] == "active":
+        return ui.chip("warn", "Expiring") if expiring(c, now) else ui.chip("ok", "Active")
+    return ui.chip("bad" if c["status"] == "revoked" else "neutral", c["status"].title())
+
+
+EXPIRING_DAYS = 30
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -570,7 +539,7 @@ class Handler(BaseHTTPRequestHandler):
     def url(self, path):
         return f"{self.base()}/{path.lstrip('/')}"
 
-    def send(self, status, body, content_type="text/html; charset=utf-8", headers=None):
+    def send(self, status, body, content_type="text/html; charset=utf-8", headers=None, nonce=None):
         data = body.encode() if isinstance(body, str) else body
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -578,9 +547,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
+        script = f" script-src 'nonce-{nonce}';" if nonce else ""
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'self'",
+            f"default-src 'none'; style-src 'unsafe-inline';{script} img-src data:; form-action 'self'; "
+            "frame-ancestors 'self'",
         )
         for key, value in (headers or {}).items():
             self.send_header(key, value)
@@ -594,19 +565,53 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def page(self, title, body, status=200):
-        nav = (
-            f'<div class="bar" style="margin-bottom:8px"><a href="{esc(self.url("/"))}">Certificates</a>'
-            f'<span class="muted">·</span><a href="{esc(self.url("/enroll"))}">Enroll devices</a>'
-            f'<span class="muted">·</span><a href="{esc(self.url("/ca"))}">CA &amp; downloads</a></div>'
-        )
+    TABS = (("/", "Certificates", "certificate"), ("/enroll", "Enroll", "qrcode"),
+            ("/ca", "Authority", "shield-check"), ("/tools", "Tools", "wrench"))
+
+    def current_tab(self):
+        path = urllib.parse.urlsplit(self.path).path
+        if path.startswith(("/enroll", "/issue")):
+            return "/enroll"
+        if path.startswith("/ca"):
+            return "/ca"
+        if path.startswith("/tools"):
+            return "/tools"
+        return "/"
+
+    def document(self, title, body, status=200, head="", body_class=""):
+        nonce = secrets.token_urlsafe(16)
         self.send(
             status,
             f"<!doctype html><html lang=en><head><meta charset=utf-8>"
-            f'<meta name=viewport content="width=device-width, initial-scale=1">'
-            f"<title>{esc(title)}</title><style>{STYLE}</style></head>"
-            f"<body><main>{nav}{body}</main></body></html>",
+            f'<meta name=viewport content="width=device-width, initial-scale=1">{head}'
+            f"<title>{esc(title)}</title><style>{ui.STYLE}</style></head>"
+            f'<body class="{body_class}">{body}<script nonce="{nonce}">{ui.SCRIPT}</script></body></html>',
+            nonce=nonce,
         )
+
+    def page(self, title, body, status=200, back=None, narrow=False, heading=None):
+        """A panel page: tabs on top-level pages, a back arrow on subpages."""
+        if back:
+            bar = (f'<a class="icon-btn back" href="{esc(self.url(back))}" aria-label="Back">'
+                   f'{ui.icon("arrow-left")}</a><h1 class="toolbar-title">{esc(heading or title)}</h1>')
+        else:
+            current = self.current_tab()
+            tabs = "".join(
+                f'<a class="tab" href="{esc(self.url(path))}"'
+                f'{" aria-current=page" if path == current else ""}>{ui.icon(icon)}<span>{label}</span></a>'
+                for path, label, icon in self.TABS
+            )
+            bar = f'<h1 class="toolbar-title">Certificates</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
+        self.document(
+            title,
+            f'<header class="toolbar">{bar}</header>'
+            f'<main class="content{" narrow" if narrow else ""}">{body}</main>',
+            status, body_class="" if back else "has-tabs",
+        )
+
+    def not_found(self, title="Not found", body="The page you asked for does not exist."):
+        self.page(title, '<div class="card">' + ui.empty_state("alert-circle-outline", title, body)
+                  + "</div>", 404, back="/")
 
     def download(self, data, filename, content_type):
         self.send(200, data, content_type,
@@ -637,7 +642,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/":
                 self.list_page(query)
             elif path == "/ca":
-                self.ca_page(query)
+                self.ca_page()
+            elif path == "/tools":
+                self.tools_page(query)
             elif path == "/enroll":
                 self.enroll_page()
             elif path == "/enroll/self":
@@ -654,7 +661,7 @@ class Handler(BaseHTTPRequestHandler):
             elif m := re.fullmatch(r"/download/extra/([0-9a-f]{64})\.pem", path):
                 certs = [c for c in enroll.load_extra_cas() if enroll.fingerprint(c) == m.group(1)]
                 if not certs:
-                    self.page("Not found", "<h1>Not found</h1>", 404)
+                    self.not_found()
                 else:
                     self.download(extra_chain(certs[0]),
                                   f"{safe_filename(enroll.common_name(certs[0]))}.pem", "application/x-pem-file")
@@ -672,7 +679,7 @@ class Handler(BaseHTTPRequestHandler):
             elif m := re.fullmatch(r"/cert/([0-9]+)", path):
                 self.detail_page(m.group(1), query)
             else:
-                self.page("Not found", "<h1>Not found</h1>", 404)
+                self.not_found()
         except Exception as err:  # noqa: BLE001 - shown on the page
             self.error_page(err)
 
@@ -680,9 +687,8 @@ class Handler(BaseHTTPRequestHandler):
         # Home Assistant shows "The app is starting" and retries for 5xx
         # ingress responses, hiding the error, so errors are shown with 200.
         traceback.print_exc()
-        title = "Database error" if isinstance(err, pymysql.MySQLError) else "Error"
-        self.page(title, f'<h1>{title}</h1><div class="msg error">{esc(err)}</div>'
-                  '<p class="muted">Details are in the add-on log.</p>')
+        title = "Database error" if isinstance(err, pymysql.MySQLError) else "Something went wrong"
+        self.page(title, ui.alert("error", f"{esc(err)}<br>Details are in the add-on log.", title))
 
     def do_POST(self):
         if not self.allowed():
@@ -716,7 +722,7 @@ class Handler(BaseHTTPRequestHandler):
         if m := re.fullmatch(r"/ca/extra/([0-9a-f]{64})/remove", path):
             enroll.save_extra_cas([c for c in enroll.load_extra_cas()
                                    if enroll.fingerprint(c) != m.group(1)])
-            self.redirect("/ca")
+            self.redirect("/tools#trusted")
             return
         if path == "/enroll/self":
             self.self_enroll(form)
@@ -753,24 +759,66 @@ class Handler(BaseHTTPRequestHandler):
 
     def no_db(self):
         return (
-            '<div class="msg">The certificate list needs step-ca to store its records in MariaDB. '
-            "Set the add-on option <b>database</b> to <b>mariadb</b> and install the MariaDB add-on. "
-            'CA certificates and the CRL are still available under '
-            f'<a href="{esc(self.url("/ca"))}">CA &amp; downloads</a>.</div>'
+            '<div class="card">' + ui.empty_state(
+                "certificate", "The certificate list needs MariaDB",
+                "Set the add-on option <b>database</b> to <b>mariadb</b> and install the MariaDB add-on. "
+                "CA certificates and the CRL are still available under "
+                f'<a href="{esc(self.url("/ca"))}">Authority</a>.') + "</div>"
+        )
+
+    def health(self, certs, counts, now):
+        """One row of tiles: the CA's validity, then what needs attention."""
+        try:
+            root, inter = cert_chain()
+            until = min(root.not_valid_after_utc, inter.not_valid_after_utc)
+            left = until - now
+            kind, glyph = ("ok", "shield-check")
+            if left.days < 0:
+                kind, glyph = ("bad", "shield-alert-outline")
+            elif left.days < 180:
+                kind, glyph = ("warn", "shield-alert-outline")
+            ca = (f'<a class="tile {kind}" href="{esc(self.url("/ca"))}"><span class="tile-icon">{ui.icon(glyph)}</span>'
+                  f'<span class="tile-text"><span class="tile-primary">'
+                  f'{"Authority expired" if left.days < 0 else "Authority valid"}</span>'
+                  f'<span class="tile-secondary">until {until:%Y-%m-%d}</span></span></a>')
+        except (OSError, ValueError):
+            ca = (f'<div class="tile bad"><span class="tile-icon">{ui.icon("shield-alert-outline")}</span>'
+                  '<span class="tile-text"><span class="tile-primary">Authority unavailable</span>'
+                  '<span class="tile-secondary">see the add-on log</span></span></div>')
+
+        def tile(kind, glyph, primary, secondary, status):
+            href = esc(self.url("/") + "?" + urllib.parse.urlencode({"status": status}))
+            return (f'<a class="tile {kind}" href="{href}"><span class="tile-icon">{ui.icon(glyph)}</span>'
+                    f'<span class="tile-text"><span class="tile-primary">{primary}</span>'
+                    f'<span class="tile-secondary">{secondary}</span></span></a>')
+
+        soon = counts["expiring"]
+        return (
+            '<section class="card health" aria-label="Health">' + ca
+            + tile("info", "certificate", f'{counts["active"]} active', "certificates in use", "active")
+            + tile("warn" if soon else "neutral", "clock-alert-outline", f"{soon} expiring",
+                   f"within {EXPIRING_DAYS} days", "expiring")
+            + tile("neutral", "cancel", f'{counts["revoked"]} revoked', "listed on the CRL", "revoked")
+            + "</section>"
         )
 
     def list_page(self, query):
         if not db_enabled():
-            self.page("Certificates", "<h1>Certificates</h1>" + self.no_db())
+            self.page("Certificates", self.no_db())
             return
         status = query.get("status", ["active"])[0]
-        if status not in ("all", "active", "expired", "revoked"):
+        if status not in ("all", "active", "expiring", "expired", "revoked"):
             status = "active"
         search = query.get("q", [""])[0].strip()
         certs = fetch_certs()
+        now = datetime.datetime.now(datetime.timezone.utc)
         counts = {s: sum(1 for c in certs if c["status"] == s) for s in ("active", "expired", "revoked")}
+        counts["expiring"] = sum(1 for c in certs if expiring(c, now))
         counts["all"] = len(certs)
-        shown = [c for c in certs if status == "all" or c["status"] == status]
+        if status == "expiring":
+            shown = sorted((c for c in certs if expiring(c, now)), key=lambda c: c["not_after"])
+        else:
+            shown = [c for c in certs if status == "all" or c["status"] == status]
         if search:
             needle = search.lower()
             shown = [
@@ -779,97 +827,156 @@ class Handler(BaseHTTPRequestHandler):
                 or needle in c["subject"].lower() or any(needle in s.lower() for s in c["sans"])
             ]
 
-        tabs = "".join(
-            f'<a class="{"on" if s == status else ""}" '
-            f'href="{esc(self.url("/") + "?" + urllib.parse.urlencode({"status": s, "q": search}))}">'
-            f"{s.title()} ({counts[s]})</a>"
-            for s in ("active", "expired", "revoked", "all")
+        labels = {"active": "Active", "expiring": "Expiring", "expired": "Expired", "revoked": "Revoked", "all": "All"}
+        filters = "".join(
+            f'<a class="filter" href="{esc(self.url("/") + "?" + urllib.parse.urlencode({"status": s, "q": search}))}"'
+            f'{" aria-current=true" if s == status else ""}>'
+            f'{ui.icon("check") if s == status else ""}{labels[s]} <span class="count">{counts[s]}</span></a>'
+            for s in labels
         )
-        rows = "".join(
-            f"<tr><td><a href=\"{esc(self.url('/cert/' + c['serial']))}\">{esc(c['cn'] or '(no CN)')}</a>"
-            f"<div class=\"muted\">{esc(', '.join(c['sans'][:3]))}</div></td>"
-            f"<td><span class=\"pill {c['status']}\">{c['status']}</span></td>"
-            f"<td>{esc(fmt_time(c['not_before']))}</td><td>{esc(fmt_time(c['not_after']))}</td>"
-            f"<td>{esc(c['provisioner'])}</td>"
-            f"<td class=\"mono\">{esc(c['serial'][:24])}{'…' if len(c['serial']) > 24 else ''}</td></tr>"
-            for c in shown
-        ) or '<tr><td colspan="6" class="muted">No certificates.</td></tr>'
+
+        def row(c):
+            soon = expiring(c, now)
+            rel_class = "warn" if soon else "bad" if c["status"] == "expired" else ""
+            expires = ui.when(c["not_after"], now).replace('class="rel"', f'class="rel {rel_class}"')
+            haystack = " ".join([c["cn"], c["serial"], c["subject"], *c["sans"]]).lower()
+            sans = ", ".join(c["sans"][:3]) + (f" +{len(c['sans']) - 3}" if len(c["sans"]) > 3 else "")
+            return (
+                f'<tr class="link-row" data-search="{esc(haystack)}">'
+                f"<td><a class=\"row-link\" href=\"{esc(self.url('/cert/' + c['serial']))}\">"
+                f"{esc(c['cn'] or '(no name)')}</a>"
+                + (f'<span class="sub">{esc(sans)}</span>' if sans else "")
+                + f'<span class="sub only-mobile">Expires {expires}</span></td>'
+                f"<td>{status_chip(c, now)}</td>"
+                f'<td class="hide-mobile nowrap">{expires}</td>'
+                f'<td class="hide-mobile nowrap">{c["not_before"]:%Y-%m-%d}</td>'
+                f'<td class="hide-mobile">{esc(c["provisioner"])}</td>'
+                f'<td class="hide-mobile mono nowrap">{esc(c["serial"][:12])}{"…" if len(c["serial"]) > 12 else ""}</td>'
+                "</tr>"
+            )
+
+        empty_titles = {"active": "No active certificates", "expiring": "Nothing expires soon",
+                        "expired": "No expired certificates", "revoked": "No revoked certificates",
+                        "all": "No certificates yet"}
+        if shown:
+            rows = "".join(row(c) for c in shown)
+        elif search:
+            rows = (f'<tr><td colspan="6">{ui.empty_state("magnify", "No certificates match", f"Nothing matches “{esc(search)}” here. Try All.")}</td></tr>')
+        else:
+            rows = (f'<tr><td colspan="6">{ui.empty_state("certificate", empty_titles[status], "Enroll a device to issue one." if status in ("active", "all") else "")}</td></tr>')
+        rows += (f'<tr class="no-match" hidden><td colspan="6">'
+                 f'{ui.empty_state("magnify", "No certificates match", "Try another name, alternative name, or serial.")}</td></tr>')
         body = (
-            "<h1>Certificates</h1>"
-            '<div class="card"><form class="bar" method="get" action="'
-            f'{esc(self.url("/"))}"><input type="hidden" name="status" value="{esc(status)}">'
-            f'<input class="grow" type="search" name="q" value="{esc(search)}" '
-            'placeholder="Search name, SAN, or serial"><button>Search</button></form>'
-            f'<div class="bar tabs" style="margin-top:12px">{tabs}</div></div>'
-            '<div class="card tablewrap"><table><thead><tr><th>Name</th><th>Status</th>'
-            "<th>Issued</th><th>Expires</th><th>Provisioner</th><th>Serial</th></tr></thead>"
-            f"<tbody>{rows}</tbody></table></div>"
+            self.health(certs, counts, now)
+            + '<div class="card">'
+            f'<form class="list-tools" method="get" action="{esc(self.url("/"))}" role="search">'
+            f'<input type="hidden" name="status" value="{esc(status)}">'
+            f'<div class="search">{ui.icon("magnify")}'
+            f'<input type="search" name="q" value="{esc(search)}" aria-label="Search certificates" '
+            'placeholder="Search name, alternative name, or serial" data-filter-table="certs" autocomplete="off"></div>'
+            f'<a class="btn" href="{esc(self.url("/enroll"))}">{ui.icon("plus")}Enroll device</a></form>'
+            f'<nav class="filters" aria-label="Status">{filters}</nav>'
+            '<div class="table-wrap"><table id="certs"><thead><tr><th>Name</th><th>Status</th>'
+            '<th class="hide-mobile">Expires</th><th class="hide-mobile">Issued</th>'
+            '<th class="hide-mobile">Provisioner</th><th class="hide-mobile">Serial</th></tr></thead>'
+            f"<tbody>{rows}</tbody></table></div></div>"
         )
         self.page("Certificates", body)
 
     def detail_page(self, serial, query):
         if not db_enabled():
-            self.page("Certificate", self.no_db())
+            self.page("Certificate", self.no_db(), back="/")
             return
         certs = fetch_certs(serial)
         if not certs:
-            self.page("Not found", "<h1>Certificate not found</h1>", 404)
+            self.not_found("Certificate not found", "No certificate has this serial number.")
             return
         c = certs[0]
+        now = datetime.datetime.now(datetime.timezone.utc)
         msg = ""
         if "error" in query:
-            msg = f'<div class="msg error">Revocation failed: {esc(query["error"][0])}</div>'
+            msg = ui.alert("error", esc(query["error"][0]), "Revocation failed")
         elif "revoked" in query:
-            msg = '<div class="msg ok">Certificate revoked. The CRL has been updated.</div>'
+            msg = ui.alert("success", "The CRL has been updated.", "Certificate revoked")
         fingerprint = c["cert"].fingerprint(hashes.SHA256()).hex()
         details = [
-            ("Status", f'<span class="pill {c["status"]}">{c["status"]}</span>'),
-            ("Subject", esc(c["subject"])),
-            ("SANs", esc(", ".join(c["sans"])) or '<span class="muted">none</span>'),
-            ("Issuer", esc(c["issuer"])),
-            ("Valid from", esc(fmt_time(c["not_before"]))),
-            ("Valid until", esc(fmt_time(c["not_after"]))),
-            ("Provisioner", esc(c["provisioner"] + (f' ({c["provisioner_type"]})' if c["provisioner_type"] else ""))),
-            ("Serial", f'<span class="mono">{esc(c["serial"])}</span>'),
-            ("SHA-256", f'<span class="mono">{esc(fingerprint)}</span>'),
+            ("Subject", f'<span class="mono">{esc(c["subject"])}</span>', ""),
+            ("Alternative names", esc(", ".join(c["sans"])) or '<span class="muted">None</span>', ""),
+            ("Issuer", f'<span class="mono">{esc(c["issuer"])}</span>', ""),
+            ("Valid from", esc(fmt_time(c["not_before"])), ""),
+            ("Valid until", esc(fmt_time(c["not_after"])), ""),
+            ("Provisioner", esc(c["provisioner"] + (f' ({c["provisioner_type"]})' if c["provisioner_type"] else "")), ""),
+            ("Serial", f'<span class="mono">{esc(c["serial"])}</span>', ui.copy_button(c["serial"], "serial")),
+            ("SHA-256", f'<span class="mono">{esc(fingerprint)}</span>', ui.copy_button(fingerprint, "SHA-256 fingerprint")),
         ]
+        revoked_note = ""
         if c["revoked"]:
             r = c["revoked"]
             code = r.get("ReasonCode", 0)
-            details += [
-                ("Revoked at", esc(r.get("RevokedAt", ""))),
-                ("Reason", esc(f'{REASONS.get(code, code)}' + (f' — {r["Reason"]}' if r.get("Reason") else ""))),
-            ]
-        dl = "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in details)
+            reason = f"{REASONS.get(code, code)}" + (f' — {r["Reason"]}' if r.get("Reason") else "")
+            details += [("Revoked at", esc(r.get("RevokedAt", "")), ""), ("Reason", esc(reason), "")]
+            revoked_note = ui.alert("error", f"Reason: {esc(reason)}. Relying systems reject it once they load the CRL.",
+                                    "This certificate is revoked")
+        dl = "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd>{b or "<span></span>"}</div>' for k, v, b in details)
+
+        span = (c["not_after"] - c["not_before"]).total_seconds() or 1
+        done = min(max((now - c["not_before"]).total_seconds() / span, 0), 1)
+        bar = ("var(--secondary-text-color)" if c["status"] == "revoked" else "var(--error-color)"
+               if c["status"] == "expired" else "var(--warning-color)" if expiring(c, now) else "var(--primary-color)")
+        ends = "Expired" if c["not_after"] < now else "Expires"
+        validity = (
+            f'<div class="validity" style="--bar:{bar}"><div class="validity-track" role="img" '
+            f'aria-label="{round(done * 100)}% of the validity period has passed">'
+            f'<div class="validity-fill" style="width:{done * 100:.1f}%"></div>'
+            + (f'<div class="validity-now" style="left:{done * 100:.1f}%"></div>' if 0 < done < 1 else "")
+            + f'</div><div class="validity-labels"><span>Issued {c["not_before"]:%Y-%m-%d}</span>'
+            f'<span>{ends} {ui.when(c["not_after"], now)}</span></div></div>'
+        )
+
         revoke_form = ""
         if c["status"] != "revoked":
             options = "".join(f'<option value="{k}">{esc(v)}</option>' for k, v in REASONS.items())
+            name = esc(c["cn"] or "this certificate")
             revoke_form = (
-                '<div class="card"><h2 style="margin-top:0">Revoke</h2>'
-                '<p class="muted">Revocation cannot be undone. Relying systems such as RADIUS must '
-                "load the updated CRL to reject the certificate.</p>"
-                f'<form class="bar" method="post" action="{esc(self.url("/cert/" + serial + "/revoke"))}">'
+                '<div class="card danger-zone"><div class="card-header"><h2>Revoke certificate</h2></div>'
+                '<div class="card-content"><p class="muted">Revocation cannot be undone. Relying systems such as '
+                "RADIUS must load the updated CRL to reject the certificate.</p>"
+                f'<form class="revoke-form" method="post" action="{esc(self.url("/cert/" + serial + "/revoke"))}" '
+                'data-confirm="revoke-dialog">'
                 f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
-                f'<select name="reasonCode">{options}</select>'
-                '<input class="grow" name="reason" maxlength="200" placeholder="Note (optional)">'
-                '<button class="danger">Revoke certificate</button></form></div>'
+                f'<div class="field"><label for="reasonCode">Reason</label><select id="reasonCode" name="reasonCode">{options}</select></div>'
+                '<div class="field"><label for="reason">Note (optional)</label>'
+                '<input id="reason" name="reason" maxlength="200" placeholder="e.g. phone lost"></div>'
+                '<button class="btn danger">Revoke</button></form></div></div>'
+                '<dialog id="revoke-dialog" aria-labelledby="revoke-title">'
+                f'<h2 id="revoke-title">Revoke {name}?</h2>'
+                "<p>This cannot be undone. The CRL is regenerated, and relying systems such as RADIUS "
+                "reject the certificate once they load it.</p>"
+                '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                '<button type="button" class="btn danger" data-confirm-yes>Revoke</button></div></dialog>'
             )
         body = (
-            f"<h1>{esc(c['cn'] or '(no CN)')}</h1>{msg}"
-            f'<div class="card"><dl>{dl}</dl>'
-            f'<div class="bar" style="margin-top:16px"><a href="{esc(self.url("/cert/" + serial + ".pem"))}">'
-            "Download certificate (PEM)</a></div></div>"
-            f"{revoke_form}"
+            msg + revoked_note
+            + '<div class="card"><div class="cert-head">'
+            f"<h2>{esc(c['cn'] or '(no name)')}</h2>"
+            f'<div class="cert-meta">{status_chip(c, now)}'
+            + (f'<span class="muted">Issued by provisioner {esc(c["provisioner"])}</span>' if c["provisioner"] else "")
+            + f"</div>{validity}</div>"
+            f'<div class="card-actions"><a class="btn text" href="{esc(self.url("/cert/" + serial + ".pem"))}">'
+            f'{ui.icon("download")}Download PEM</a></div></div>'
+            '<div class="card"><div class="card-header"><h2>Details</h2></div>'
+            f'<dl class="card-content flush rows">{dl}</dl></div>'
+            + revoke_form
         )
-        self.page(c["cn"] or "Certificate", body)
+        self.page(c["cn"] or "Certificate", body, back="/", narrow=True, heading="Certificate")
 
     def cert_pem(self, serial):
         if not db_enabled() or not SERIAL_RE.match(serial):
-            self.page("Not found", "<h1>Not found</h1>", 404)
+            self.not_found()
             return
         certs = fetch_certs(serial)
         if not certs:
-            self.page("Not found", "<h1>Certificate not found</h1>", 404)
+            self.not_found("Certificate not found", "No certificate has this serial number.")
             return
         pem = certs[0]["cert"].public_bytes(serialization.Encoding.PEM)
         self.download(pem, f"{serial}.pem", "application/x-pem-file")
@@ -887,13 +994,14 @@ class Handler(BaseHTTPRequestHandler):
         base_url = default_base_url(self.headers)
         https = (f' or open Home Assistant at <a href="{esc(base_url)}">{esc(base_url)}</a>'
                  if base_url.startswith("https://") else "")
-        return ('<div class="msg">Home Assistant is open over HTTP, so your browser may warn that '
-                f"the download is insecure. Choose <b>Keep</b>{https}.</div>")
+        return ui.alert("info", "Home Assistant is open over HTTP, so your browser may warn that "
+                        f"the download is insecure. Choose <b>Keep</b>{https}.")
 
     def gone(self):
-        self.page("Link not valid", "<h1>This enrollment link is not valid</h1>"
-                  "<p>It may have expired, been used already, or been cancelled. Ask your "
-                  "Home Assistant administrator for a new one.</p>", 404)
+        self.page("Link not valid", '<div class="card">' + ui.empty_state(
+            "link-variant", "This enrollment link is not valid",
+            "It may have expired, been used already, or been cancelled. Ask your "
+            "Home Assistant administrator for a new one.") + "</div>", 404)
 
     def enroll_file(self, token, sub):
         if sub == "root_ca.crt":
@@ -902,8 +1010,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         entry = DOWNLOADS.get(enroll._hash(token), sub[len("file/"):])
         if entry is None:
-            self.page("Expired", "<h1>This download has expired</h1><p>Start the enrollment "
-                      "again to get a new one.</p>", 404)
+            self.page("Download expired", '<div class="card">' + ui.empty_state(
+                "clock-alert-outline", "This download has expired",
+                "Start the enrollment again to get a new one.") + "</div>", 404)
             return
         data, filename, content_type = entry
         self.download(data, filename, content_type)
@@ -912,31 +1021,38 @@ class Handler(BaseHTTPRequestHandler):
         apple = bool(APPLE_UA_RE.search(self.headers.get("User-Agent", "")))
         cn = link["cn"] or cn
         if link["cn"]:
-            name = (f'<p>Certificate name: <b>{esc(link["cn"])}</b></p>'
+            name = (f'<div class="field"><span class="label">Certificate name</span>'
+                    f'<span class="mono">{esc(link["cn"])}</span></div>'
                     f'<input type="hidden" name="cn" value="{esc(link["cn"])}">')
         else:
-            name = ('<label for="cn">Certificate name</label>'
+            name = ('<div class="field"><label for="cn">Certificate name</label>'
                     f'<input id="cn" name="cn" maxlength="64" required value="{esc(cn)}" '
                     'placeholder="e.g. josh-iphone" autocapitalize="off" autocorrect="off">'
-                    '<p class="muted">Letters, digits, spaces, and . _ @ - only.</p>')
+                    '<p class="hint">Letters, digits, spaces, and . _ @ - only.</p></div>')
+        if extra:
+            extra = f'<div class="field">{extra}</div>' if 'class="field"' not in extra else extra
         wifi = ""
         if link["wifi"] and wifi_enabled():
             wifi = f' It also sets up Wi-Fi network <b>{esc(WIFI["ssid"])}</b>.'
         body = (
-            f"<h1>Get a certificate from {esc(CA_NAME)}</h1>"
-            + (f'<div class="msg error">{esc(error)}</div>' if error else "")
-            + f'<div class="card"><form method="post" action="{esc(action)}">'
-            + hidden + name + extra
-            + "<label>Device</label>"
-            f'<label class="choice"><input type="radio" name="kind" value="apple"{" checked" if apple else ""}> '
-            "<span><b>iPhone, iPad, or Mac</b><br><span class=muted>Installs a profile. The device "
-            f"creates its own private key and requests the certificate itself.{wifi}</span></span></label>"
-            f'<label class="choice"><input type="radio" name="kind" value="p12"{"" if apple else " checked"}> '
-            "<span><b>Other device</b> (Android, Windows, Linux, ...)<br><span class=muted>Downloads a "
-            "password-protected .p12 file with the certificate, its key, and the CA chain.</span></span></label>"
-            '<div style="margin-top:16px"><button class="btn">Continue</button></div></form></div>'
+            (ui.alert("error", esc(error)) if error else "")
+            + f'<form class="card" method="post" action="{esc(action)}">'
+            f'<div class="card-header"><h1>Get a certificate</h1>'
+            f'<p class="muted">From {esc(CA_NAME)}. Pick the kind of device you are enrolling.</p></div>'
+            '<div class="card-content">' + hidden + name + extra
+            + '<fieldset class="field"><legend class="label">Device</legend><div class="choices">'
+            f'<label class="choice"><input type="radio" name="kind" value="apple"{" checked" if apple else ""}>'
+            f'<span class="choice-icon">{ui.icon("apple")}</span><span>'
+            '<span class="choice-title">iPhone, iPad, or Mac</span><span class="muted">Installs a profile. '
+            f"The device creates its own private key and requests the certificate itself.{wifi}</span></span></label>"
+            f'<label class="choice"><input type="radio" name="kind" value="p12"{"" if apple else " checked"}>'
+            f'<span class="choice-icon">{ui.icon("cellphone")}</span><span>'
+            '<span class="choice-title">Other device</span><span class="muted">Android, Windows, Linux, and others. '
+            "Downloads a password-protected .p12 file with the certificate, its key, and the CA chain."
+            "</span></span></label></div></fieldset></div>"
+            '<div class="card-actions"><button class="btn">Continue</button></div></form>'
         )
-        self.page("Enroll device", body)
+        self.page("Enroll device", body, back="/enroll", narrow=True)
 
     def apple_result(self, token, link_id, link, cn):
         challenge = LINKS.new_challenge(link_id, cn)
@@ -948,27 +1064,29 @@ class Handler(BaseHTTPRequestHandler):
                                link.get("sans") or ())
         except (RuntimeError, OSError, ValueError) as err:
             print(f"Could not build profile: {err}", flush=True)
-            self.page("Error", '<div class="msg error">The profile could not be created. '
-                      "Ask your administrator to check the add-on log.</div>", 500)
+            self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
+                                        "The profile could not be created"), 500)
             return
         download = DOWNLOADS.add(link_id, data, f"{safe_filename(cn)}.mobileconfig",
                                  "application/x-apple-aspen-config")
         href = f"{self.enroll_prefix()}/{token}/file/{download}"
         body = (
-            f"<h1>Install the profile</h1>{self.insecure_note()}"
-            f'<div class="card"><p><a class="btn" href="{esc(href)}">Download profile</a></p>'
-            "<ol>"
-            "<li>Tap <b>Download profile</b> and choose <b>Allow</b>.</li>"
-            "<li>iPhone / iPad: open <b>Settings</b>, tap <b>Profile Downloaded</b> near the top, "
+            self.insecure_note()
+            + '<div class="card"><div class="card-header"><h1>Install the profile</h1>'
+            f'<p class="muted">For the certificate <b>{esc(cn)}</b>.</p></div>'
+            '<div class="card-content"><ol class="steps">'
+            f'<li>Tap <b>Download profile</b> and choose <b>Allow</b>.<p class="step-action">'
+            f'<a class="btn" href="{esc(href)}">{ui.icon("download")}Download profile</a></p></li>'
+            "<li>iPhone or iPad: open <b>Settings</b>, tap <b>Profile Downloaded</b> near the top, "
             "then <b>Install</b>. Mac: open <b>System Settings &rsaquo; General &rsaquo; Device "
             "Management</b> and double-click the profile.</li>"
             "<li>Enter your device passcode and confirm. The device creates its key and requests "
-            f"the certificate <b>{esc(cn)}</b>. This needs a connection to Home Assistant.</li>"
-            "</ol>"
-            '<p class="muted">The profile works once and must be installed within an hour. If the '
-            "install fails, start the enrollment again to get a fresh profile.</p></div>"
+            "the certificate. This needs a connection to Home Assistant.</li>"
+            "</ol></div></div>"
+            + ui.alert("info", "The profile works once and must be installed within an hour. If the "
+                       "install fails, start the enrollment again to get a fresh profile.")
         )
-        self.page("Install the profile", body)
+        self.page("Install the profile", body, back="/enroll", narrow=True)
 
     def p12_result(self, token, link_id, link, cn):
         if not LINKS.claim(link_id, cn, ".p12 download"):
@@ -981,30 +1099,33 @@ class Handler(BaseHTTPRequestHandler):
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
             LINKS.release(link_id)
             print(f"Could not issue certificate for {cn!r}: {err}", flush=True)
-            self.page("Error", '<div class="msg error">The certificate could not be issued. '
-                      "Ask your administrator to check the add-on log.</div>", 500)
+            self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
+                                        "The certificate could not be issued"), 500)
             return
         download = DOWNLOADS.add(link_id, data, f"{safe_filename(cn)}.p12", "application/x-pkcs12")
         bundle = DOWNLOADS.add(link_id, full_bundle(), "ca-bundle.pem", "application/x-pem-file")
         radius = ", including the Wi-Fi (RADIUS) server CA" if enroll.load_extra_cas() else ""
         body = (
-            f"<h1>Certificate for {esc(cn)}</h1>{self.insecure_note()}"
-            '<div class="card"><p>Password for the .p12 file. Write it down now; it is not shown again:</p>'
-            f'<p class="big mono">{esc(password)}</p>'
-            f'<p><a class="btn" href="{esc(f"{self.enroll_prefix()}/{token}/file/{download}")}">'
-            f"Download {esc(safe_filename(cn))}.p12</a></p>"
-            f'<p><a href="{esc(f"{self.enroll_prefix()}/{token}/root_ca.crt")}">Download the root CA '
-            "certificate</a> separately if your device asks for a CA certificate"
-            + f', or <a href="{esc(f"{self.enroll_prefix()}/{token}/file/{bundle}")}">ca-bundle.pem</a> '
-            f"with all CA certificates{radius}"
-            + ".</p>"
-            '<p class="muted">The download is available for 10 minutes. Android: Settings &rsaquo; '
-            "Security &rsaquo; Encryption &amp; credentials &rsaquo; Install a certificate. Windows: "
-            "double-click the file, choose <b>Current User</b>, and keep the default store choices. "
-            "macOS: open it in Keychain Access.</p></div>"
+            self.insecure_note()
+            + '<div class="card"><div class="card-header"><h1>Your certificate is ready</h1>'
+            f'<p class="muted">For <b>{esc(cn)}</b>.</p></div><div class="card-content">'
+            '<div class="field"><span class="label">Password for the .p12 file</span>'
+            + ui.copy_field(password, "password", "secret") + "</div>"
+            + ui.alert("warning", "Write the password down now. It is not shown again.")
+            + '<ol class="steps steps-gap">'
+            f'<li>Download the file. It is available for 10 minutes.<p class="step-action">'
+            f'<a class="btn" href="{esc(f"{self.enroll_prefix()}/{token}/file/{download}")}">'
+            f'{ui.icon("download")}Download {esc(safe_filename(cn))}.p12</a></p></li>'
+            "<li>Install it. Android: Settings &rsaquo; Security &rsaquo; Encryption &amp; credentials "
+            "&rsaquo; Install a certificate. Windows: double-click the file, choose <b>Current User</b>, and "
+            "keep the default store choices. macOS: open it in Keychain Access.</li>"
+            "<li>If your device asks for a CA certificate, use "
+            f'<a href="{esc(f"{self.enroll_prefix()}/{token}/root_ca.crt")}">the root CA certificate</a>, or '
+            f'<a href="{esc(f"{self.enroll_prefix()}/{token}/file/{bundle}")}">ca-bundle.pem</a> '
+            f"with all CA certificates{radius}.</li></ol></div></div>"
             + wifi_help()
         )
-        self.page(f"Certificate for {cn}", body)
+        self.page(f"Certificate for {cn}", body, back="/enroll", narrow=True)
 
     # -- enrollment (admin) ------------------------------------------------------
 
@@ -1045,68 +1166,85 @@ class Handler(BaseHTTPRequestHandler):
         wifi_opt = ""
         if wifi_enabled():
             wifi_opt = (
-                '<label class="choice"><input type="checkbox" name="wifi" value="1" checked> '
-                f'Apple profile also configures Wi-Fi <b>{esc(WIFI["ssid"])}</b></label>'
+                '<div class="field"><label class="check"><input type="checkbox" name="wifi" value="1" checked>'
+                f'Apple profiles also configure Wi-Fi <b>{esc(WIFI["ssid"])}</b></label></div>'
             )
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        now = datetime.datetime.now(datetime.timezone.utc)
         rows = ""
         for link in LINKS.all():
             state = link["state"]
-            pill = {"pending": "active", "issued": "active", "expired": "expired"}.get(state, "revoked")
+            kind = {"pending": "info", "issued": "ok", "expired": "neutral"}.get(state, "bad")
             cancel = ""
             if state == "pending":
                 cancel = (
                     f'<form method="post" action="{esc(self.url("/enroll/" + link["id"] + "/cancel"))}">'
-                    f'{csrf}<button>Cancel</button></form>'
+                    f'{csrf}<button class="btn text danger">Cancel</button></form>'
                 )
-            when = datetime.datetime.fromtimestamp(link["expires"], datetime.timezone.utc)
+            expires = datetime.datetime.fromtimestamp(link["expires"], datetime.timezone.utc)
             rows += (
-                f"<tr><td>{esc(link['label'] or '—')}<div class=muted>{esc(link['created_by'])}</div></td>"
-                f"<td>{esc(link['issued_cn'] or link['cn'] or 'chosen on device')}"
-                + (f"<div class=muted>{esc(', '.join(link['sans']))}</div>" if link.get("sans") else "")
-                + f"<div class=muted>{esc(link['method'])}</div></td>"
-                f'<td><span class="pill {pill}">{esc(state)}</span></td>'
-                f"<td>{esc(fmt_time(when))}</td><td>{cancel}</td></tr>"
+                f"<tr><td>{esc(link['label'] or 'Untitled link')}"
+                + (f'<span class="sub">{esc(link["created_by"])}</span>' if link["created_by"] else "")
+                + f"</td><td>{esc(link['issued_cn'] or link['cn'] or 'Chosen on the device')}"
+                + (f'<span class="sub">{esc(", ".join(link["sans"]))}</span>' if link.get("sans") else "")
+                + (f'<span class="sub">{esc(link["method"])}</span>' if link["method"] else "")
+                + f"</td><td>{ui.chip(kind, state.title())}</td>"
+                f'<td class="hide-mobile nowrap">{ui.when(expires, now)}</td>'
+                f'<td class="actions">{cancel}</td></tr>'
             )
-        rows = rows or '<tr><td colspan="5" class="muted">No enrollment links yet.</td></tr>'
+        rows = rows or (f'<tr><td colspan="5">{ui.empty_state("link-variant", "No enrollment links yet", "Links you create appear here until they expire.")}</td></tr>')
+        advanced_open = " open" if not base_url.startswith("https://") else ""
         body = (
-            f"<h1>Enroll devices</h1>{notice}"
-            '<div class="card"><h2 style="margin-top:0">This computer</h2>'
-            '<p class="muted">Get a certificate for the Mac or Windows PC you are using right now.</p>'
-            f'<p><a class="btn" href="{esc(self.url("/enroll/self"))}">Enroll this device</a></p></div>'
-            '<div class="card"><h2 style="margin-top:0">New one-time link</h2>'
-            '<p class="muted">Creates a link and QR code for one device. Opened on an iPhone, iPad, or '
-            "Mac it installs a signed profile: the device creates its own key and gets its certificate "
-            "over SCEP. Other devices get a password-protected .p12 file with the full CA chain. "
-            "No MDM is needed.</p>"
-            f'<form method="post" action="{esc(self.url("/enroll/new"))}">{csrf}'
-            '<label for="label">Label</label><input id="label" name="label" maxlength="64" '
-            'placeholder="e.g. Josh&#39;s iPhone">'
-            '<label for="cn">Certificate name (CN)</label><input id="cn" name="cn" maxlength="64" '
-            'placeholder="Leave empty to let the device owner choose">'
-            + sans_input() +
-            '<label for="base">Home Assistant URL the device will use</label>'
+            notice
+            + '<div class="grid"><div>'
+            f'<form class="card" method="post" action="{esc(self.url("/enroll/new"))}">{csrf}'
+            '<div class="card-header"><h2>New one-time link</h2>'
+            '<p class="muted">A link and QR code for one device. On an iPhone, iPad, or Mac it installs a signed '
+            "profile, so the device creates its own key and gets its certificate over SCEP. Other devices get a "
+            "password-protected .p12 file with the full CA chain. No MDM is needed.</p></div>"
+            f'<div class="inline-alert">{signer_html}</div>'
+            '<div class="card-content"><div class="field-row">'
+            '<div class="field"><label for="label">Label</label><input id="label" name="label" maxlength="64" '
+            'placeholder="e.g. Josh&#39;s iPhone"></div>'
+            '<div class="field"><label for="cn">Certificate name (CN)</label><input id="cn" name="cn" maxlength="64" '
+            'autocapitalize="off" placeholder="Chosen on the device"></div></div></div>'
+            f'<details class="expand"{advanced_open}><summary><span class="summary-text">'
+            '<span class="summary-title">More options</span>'
+            f'<span class="summary-sub">Alternative names, Home Assistant URL, validity'
+            f'{", Wi-Fi" if wifi_enabled() else ""}</span></span>{ui.icon("chevron-down", "chev")}</summary>'
+            '<div class="expand-body">'
+            + sans_input()
+            + '<div class="field"><label for="base">Home Assistant URL the device will use</label>'
             f'<input id="base" name="base_url" type="url" required value="{esc(base_url)}" '
             'placeholder="https://home.example.com">'
-            + base_url_hint(base_url, base_source) +
-            '<label for="hours">Valid for (hours)</label>'
+            + base_url_hint(base_url, base_source) + "</div>"
+            '<div class="field"><label for="hours">Valid for (hours)</label>'
             f'<input id="hours" name="hours" type="number" min="1" max="168" value="{ENROLL_LINK_HOURS}" '
-            'style="width:120px">'
-            f"{wifi_opt}"
-            '<div style="margin-top:16px"><button class="btn">Create link</button></div></form></div>'
-            '<div class="card"><h2 style="margin-top:0">Profile signing</h2>'
-            f"<p>{signer_html}</p></div>"
-            '<div class="card"><h2 style="margin-top:0">Issue a certificate now</h2>'
-            '<p class="muted">Creates a key and certificate here and gives you a .p12 to hand over.</p>'
-            f'<form class="bar" method="post" action="{esc(self.url("/issue"))}">{csrf}'
-            '<input class="grow" name="cn" maxlength="64" required placeholder="Certificate name (CN)">'
-            "<button>Issue .p12</button>"
-            '<input class="grow" name="sans" maxlength="2000" autocapitalize="off" '
-            'placeholder="Alternative names (optional): email, DNS names, IP addresses">'
-            "</form></div>"
-            '<div class="card tablewrap"><h2 style="margin-top:0">Links</h2><table><thead><tr>'
-            "<th>Label</th><th>Certificate</th><th>Status</th><th>Expires</th><th></th></tr></thead>"
-            f"<tbody>{rows}</tbody></table></div>"
+            'class="input-short"></div>'
+            + wifi_opt + "</div></details>"
+            f'<div class="card-actions"><button class="btn">{ui.icon("qrcode")}Create link</button></div></form>'
+            '<div class="card"><div class="card-header"><h2>Links</h2></div>'
+            '<div class="table-wrap"><table><thead><tr>'
+            '<th>Label</th><th>Certificate</th><th>Status</th><th class="hide-mobile">Expires</th>'
+            '<th><span class="visually-hidden">Actions</span></th></tr></thead>'
+            f"<tbody>{rows}</tbody></table></div></div>"
+            "</div><div>"
+            '<div class="card"><div class="row">'
+            f'<span class="row-icon">{ui.icon("laptop")}</span><span class="row-text">'
+            '<span class="row-title">This computer</span>'
+            '<span class="row-sub">A certificate for the Mac or Windows PC you are using now</span></span>'
+            f'<span class="row-actions"><a class="btn text" href="{esc(self.url("/enroll/self"))}">Enroll</a>'
+            "</span></div></div>"
+            f'<form class="card" method="post" action="{esc(self.url("/issue"))}">{csrf}'
+            '<div class="card-header"><h2>Issue a certificate now</h2>'
+            '<p class="muted">Creates the key here and gives you a .p12 file to hand over.</p></div>'
+            '<div class="card-content"><div class="field"><label for="issue-cn">Certificate name (CN)</label>'
+            '<input id="issue-cn" name="cn" maxlength="64" required autocapitalize="off" placeholder="e.g. printer"></div>'
+            '<div class="field"><label for="issue-sans">Alternative names (optional)</label>'
+            '<input id="issue-sans" name="sans" maxlength="2000" autocapitalize="off" '
+            'placeholder="Email, DNS names, IP addresses"></div></div>'
+            f'<div class="card-actions"><button class="btn text">{ui.icon("key-variant")}Issue .p12</button></div></form>'
+            "</div></div>"
         )
         self.page("Enroll devices", body)
 
@@ -1130,62 +1268,66 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as err:
                 error = str(err)
         if error:
-            self.enroll_page(f'<div class="msg error">{esc(error)}</div>')
+            self.enroll_page(ui.alert("error", esc(error), "The link was not created"))
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label=label, cn=cn, base_url=base_url, wifi=field("wifi") == "1" and wifi_enabled(),
                              hours=hours, created_by=who, sans=sans)
         link = f"{base_url}{enroll.PUBLIC_BASE}/enroll/{token}"
+        expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=hours)
         body = (
-            f"<h1>Enrollment link{': ' + esc(label) if label else ''}</h1>"
-            '<div class="card" style="text-align:center">'
-            f'<div class="qr">{qr_svg(link)}</div>'
-            f'<p class="mono" style="margin-top:12px">{esc(link)}</p>'
-            f"<p>Scan with the device camera, or open the link in its browser. Valid for {hours} hour"
-            f"{'s' if hours != 1 else ''}, for one certificate"
-            f"{' named <b>' + esc(cn) + '</b>' if cn else ''}.</p>"
-            '<p class="muted">This link is shown only once. Anyone with it can enroll a device, so '
-            "share it only with the device owner.</p></div>"
-            f'<p><a href="{esc(self.url("/enroll"))}">Back to enrollment</a></p>'
+            '<div class="card result"><div class="card-header"><h2>'
+            f"{esc(label) if label else 'Enrollment link'}</h2>"
+            '<p class="muted">Scan with the device camera, or open the link in its browser.</p></div>'
+            f'<div class="card-content"><div class="qr">{qr_svg(link)}</div>'
+            + ui.copy_field(link, "link")
+            + f'<p class="muted">One certificate{" named <b>" + esc(cn) + "</b>" if cn else ""}. '
+            f"Valid for {hours} hour{'s' if hours != 1 else ''}, until {ui.when(expires)}.</p></div></div>"
+            + ui.alert("warning", "Anyone with this link can enroll a device, so share it only with the device "
+                       "owner. It is not shown again.", "Shown only once")
         )
-        self.page("Enrollment link", body)
+        self.page("Enrollment link", body, back="/enroll", narrow=True)
 
     def issue_direct(self, form):
         cn = form.get("cn", [""])[0].strip()
         if not enroll.valid_cn(cn):
-            self.enroll_page('<div class="msg error">The certificate name may use letters, digits, '
-                             "spaces, and . _ @ - (up to 64).</div>")
+            self.enroll_page(ui.alert("error", "The certificate name may use letters, digits, "
+                                      "spaces, and . _ @ - (up to 64).", "Nothing was issued"))
             return
         try:
             sans = enroll.parse_sans(form.get("sans", [""])[0])
         except ValueError as err:
-            self.enroll_page(f'<div class="msg error">{esc(err)}</div>')
+            self.enroll_page(ui.alert("error", esc(err), "Nothing was issued"))
             return
         try:
             data, password, cert = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT,
                                                     extra_cas=enroll.load_extra_cas(), sans=sans)
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
-            self.enroll_page(f'<div class="msg error">Could not issue the certificate: {esc(err)}</div>')
+            self.enroll_page(ui.alert("error", esc(err), "Could not issue the certificate"))
             return
         download = DOWNLOADS.add("admin", data, f"{safe_filename(cn)}.p12", "application/x-pkcs12")
         serial = str(cert.serial_number)
         body = (
-            f"<h1>Certificate for {esc(cn)}</h1>{self.insecure_note()}"
-            '<div class="card"><p>Password for the .p12 file (shown only once):</p>'
-            f'<p class="big mono">{esc(password)}</p>'
-            f'<p><a class="btn" href="{esc(self.url("/issue/file/" + download))}">Download {esc(safe_filename(cn))}.p12</a></p>'
-            '<p class="muted">The download is available for 10 minutes. The file contains the private '
-            "key, the certificate, and the intermediate and root CA certificates"
-            + (" plus the other trusted CAs" if enroll.load_extra_cas() else "") + ".</p>"
-            + (f'<p><a href="{esc(self.url("/cert/" + serial))}">View certificate</a></p>' if db_enabled() else "")
+            self.insecure_note()
+            + '<div class="card"><div class="card-header"><h2>Certificate issued</h2>'
+            f'<p class="muted">For <b>{esc(cn)}</b>. The file holds the private key, the certificate, and the '
+            "intermediate and root CA certificates"
+            + (" plus the other trusted CAs" if enroll.load_extra_cas() else "") + ".</p></div>"
+            '<div class="card-content"><div class="field"><span class="label">Password for the .p12 file</span>'
+            + ui.copy_field(password, "password", "secret") + "</div>"
+            + ui.alert("warning", "The password is shown only once, and the download is available for 10 minutes.")
             + "</div>"
+            '<div class="card-actions">'
+            + (f'<a class="btn text" href="{esc(self.url("/cert/" + serial))}">View certificate</a>' if db_enabled() else "")
+            + f'<a class="btn" href="{esc(self.url("/issue/file/" + download))}">{ui.icon("download")}'
+            f"Download {esc(safe_filename(cn))}.p12</a></div></div>"
         )
-        self.page(f"Certificate for {cn}", body)
+        self.page(f"Certificate for {cn}", body, back="/enroll", narrow=True)
 
     def admin_file(self, download_id):
         entry = DOWNLOADS.get("admin", download_id)
         if entry is None:
-            self.page("Expired", "<h1>This download has expired</h1>", 404)
+            self.not_found("Download expired", "Downloads are available for 10 minutes. Issue the certificate again.")
             return
         data, filename, content_type = entry
         self.download(data, filename, content_type)
@@ -1195,25 +1337,25 @@ class Handler(BaseHTTPRequestHandler):
         if not data.strip():
             data = str(form.get("pem", [""])[0]).encode()
         if not data.strip():
-            self.redirect("/ca?error=" + urllib.parse.quote("Choose a certificate file or paste a PEM."))
+            self.redirect("/tools?error=" + urllib.parse.quote("Choose a certificate file or paste a PEM.") + "#trusted")
             return
         try:
             new = enroll.parse_ca_certs(data if isinstance(data, bytes) else data.encode())
         except ValueError as err:
-            self.redirect("/ca?error=" + urllib.parse.quote(str(err)[:300]))
+            self.redirect("/tools?error=" + urllib.parse.quote(str(err)[:300]) + "#trusted")
             return
         certs = enroll.load_extra_cas()
         known = {enroll.fingerprint(c) for c in certs}
         certs += [c for c in new if enroll.fingerprint(c) not in known]
         enroll.save_extra_cas(certs)
-        self.redirect("/ca?added=1")
+        self.redirect("/tools?added=1#trusted")
 
     def sign_request(self, form):
         data = form.get("file", [b""])[0]
         if not data.strip():
             data = str(form.get("pem", [""])[0]).encode()
         if not data.strip():
-            self.redirect("/ca?error=" + urllib.parse.quote("Choose a certificate request file or paste a PEM."))
+            self.redirect("/tools?error=" + urllib.parse.quote("Choose a certificate request file or paste a PEM.") + "#sign")
             return
         data = data if isinstance(data, bytes) else data.encode()
         try:
@@ -1230,116 +1372,212 @@ class Handler(BaseHTTPRequestHandler):
                 cert = chain[0]
                 signer = "certificate"
         except (ValueError, RuntimeError) as err:
-            self.redirect("/ca?error=" + urllib.parse.quote(str(err)[:300]))
+            self.redirect("/tools?error=" + urllib.parse.quote(str(err)[:300]) + "#sign")
             return
         print(f"Signed {signer} {cert.subject.rfc4514_string()!r} for an uploaded request "
               f"(serial {cert.serial_number}, valid until {cert.not_valid_after_utc:%Y-%m-%d})", flush=True)
         self.download(b"".join(c.public_bytes(serialization.Encoding.PEM) for c in chain),
                       f"{safe_filename(enroll.common_name(cert))}-chain.crt", "application/x-pem-file")
 
-    def ca_page(self, query=None):
-        query = query or {}
+    def ca_page(self):
         root, inter = cert_chain()
+        extra = enroll.load_extra_cas()
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        def kv(label, value, copy=None):
+            button = ui.copy_button(copy, label) if copy else "<span></span>"
+            return f'<div class="kv"><dt>{label}</dt><dd>{value}</dd>{button}</div>'
+
+        def details(cert):
+            fp = enroll.fingerprint(cert)
+            return (
+                kv("Subject", f'<span class="mono">{esc(cert.subject.rfc4514_string())}</span>')
+                + kv("Issuer", f'<span class="mono">{esc(cert.issuer.rfc4514_string())}</span>')
+                + kv("Valid until", ui.when(cert.not_valid_after_utc, now))
+                + kv("SHA-256", f'<span class="mono">{esc(fp)}</span>', fp)
+            )
+
+        def download_row(glyph, title, sub, link, filename):
+            return (
+                f'<div class="row"><span class="row-icon">{ui.icon(glyph)}</span>'
+                f'<span class="row-text"><span class="row-title">{title}</span>'
+                f'<span class="row-sub">{sub}</span></span><span class="row-actions">'
+                f'<a class="icon-btn" href="{esc(self.url(link))}" aria-label="Download {esc(filename)}" '
+                f'title="Download {esc(filename)}">{ui.icon("download")}</a></span></div>'
+            )
+
+        def authority(title, cert, link, filename, opened):
+            left = cert.not_valid_after_utc - now
+            chip = (ui.chip("bad", "Expired") if left.days < 0 else
+                    ui.chip("warn", "Renew soon") if left.days < 180 else ui.chip("ok", "Valid"))
+            return (
+                f'<details class="expand"{" open" if opened else ""}><summary>'
+                f'<span class="row-icon">{ui.icon("shield-check")}</span><span class="summary-text">'
+                f'<span class="summary-title">{title}</span>'
+                f'<span class="summary-sub">{esc(enroll.common_name(cert))}</span></span>{chip}'
+                f'{ui.icon("chevron-down", "chev")}</summary>'
+                f'<dl class="expand-body flush rows">{details(cert)}'
+                f'<div class="kv"><dt>File</dt><dd><a href="{esc(self.url(link))}" download>{esc(filename)}</a></dd>'
+                f'<a class="icon-btn" href="{esc(self.url(link))}" aria-label="Download {esc(filename)}" '
+                f'title="Download {esc(filename)}">{ui.icon("download")}</a></div></dl></details>'
+            )
+
+        base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
+        base = esc(base) if not base.startswith("&lt;") else base
+        scep_url = f"{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}"
+        copyable = not base.startswith("&lt;")
+
+        def url_row(label, url):
+            return kv(label, f'<span class="mono">{url}</span>', html.unescape(url) if copyable else None)
+
+        body = (
+            '<div class="grid"><div>'
+            '<div class="card"><div class="card-header"><h2>' + esc(CA_NAME) + "</h2>"
+            '<p class="muted">The root signs the intermediate; the intermediate signs device certificates.</p></div>'
+            + authority("Root CA", root, "/download/root_ca.pem", "root_ca.pem", False)
+            + authority("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem", False)
+            + '<h3 class="subhead">Downloads</h3><div class="rows">'
+            + download_row("file-certificate-outline", "CA chain",
+                           "Intermediate and root, for MDMs and RADIUS servers",
+                           "/download/ca-chain.pem", "ca-chain.pem")
+            + download_row("file-certificate-outline", "CA bundle",
+                           "Root, intermediate" + (", and the other trusted CAs" if extra else ""),
+                           "/download/ca-bundle.pem", "ca-bundle.pem")
+            + download_row("cancel", "Certificate revocation list", "Revoked certificates",
+                           "/download/crl.pem", "crl.pem")
+            + "</div></div>"
+            "</div><div>"
+            '<div class="card"><div class="card-header"><h2>Endpoints</h2>'
+            '<p class="muted">Served without login through Home Assistant.</p></div><dl class="rows">'
+            + url_row("SCEP URL", scep_url)
+            + url_row("Root download", f"{base}/api/step_ca_scep/roots.pem")
+            + url_row("CRL (DER)", f"{base}/api/step_ca_scep/crl")
+            + "</dl></div></div></div>"
+        )
+        self.page("Authority", body)
+
+    def tools_page(self, query):
         extra = enroll.load_extra_cas()
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
 
-        def details(cert):
-            return (
-                f"<dt>Subject</dt><dd>{esc(cert.subject.rfc4514_string())}</dd>"
-                f"<dt>Issuer</dt><dd>{esc(cert.issuer.rfc4514_string())}</dd>"
-                f"<dt>Valid until</dt><dd>{esc(fmt_time(cert.not_valid_after_utc))}</dd>"
-                f'<dt>SHA-256</dt><dd class="mono">{esc(enroll.fingerprint(cert))}</dd>'
-            )
-
-        def block(title, cert, link, filename):
-            return (
-                f'<div class="card"><h2 style="margin-top:0">{title}</h2><dl>{details(cert)}</dl>'
-                f'<div style="margin-top:12px"><a href="{esc(self.url(link))}">Download {filename}</a></div></div>'
-            )
+        def issuer_name(cert):
+            cn = cert.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)
+            return cn[0].value if cn else cert.issuer.rfc4514_string()
 
         extra_rows = "".join(
-            f'<div class="card"><dl>{details(cert)}</dl>'
-            f'<div style="margin-top:12px"><a href="{esc(self.url(f"/download/extra/{enroll.fingerprint(cert)}.pem"))}">'
-            f"Download {esc(safe_filename(enroll.common_name(cert)))}.pem</a></div>"
-            f'<form method="post" action="{esc(self.url(f"/ca/extra/{enroll.fingerprint(cert)}/remove"))}" '
-            f'style="margin-top:12px">{csrf}<button class="btn">Remove</button></form></div>'
+            f'<div class="row"><span class="row-icon">{ui.icon("server-security")}</span>'
+            f'<span class="row-text"><span class="row-title">{esc(enroll.common_name(cert))}</span>'
+            f'<span class="row-sub">Issued by {esc(issuer_name(cert))}'
+            f' · until {cert.not_valid_after_utc:%Y-%m-%d}</span>'
+            f'<span class="row-sub mono">{esc(enroll.fingerprint(cert)[:32])}…</span></span>'
+            '<span class="row-actions">'
+            f'<a class="icon-btn" href="{esc(self.url(f"/download/extra/{enroll.fingerprint(cert)}.pem"))}" '
+            f'aria-label="Download {esc(safe_filename(enroll.common_name(cert)))}.pem" title="Download">{ui.icon("download")}</a>'
+            f'<form method="post" action="{esc(self.url(f"/ca/extra/{enroll.fingerprint(cert)}/remove"))}">{csrf}'
+            f'<button class="icon-btn" aria-label="Remove {esc(enroll.common_name(cert))}" title="Remove">'
+            f'{ui.icon("delete-outline")}</button></form></span></div>'
             for cert in extra
         )
         notice = ""
         if query.get("error"):
-            notice = f'<div class="msg error">{esc(query["error"][0])}</div>'
+            notice = ui.alert("error", esc(query["error"][0]), "That did not work")
         elif query.get("added"):
-            notice = '<div class="msg">Certificate added. New profiles and .p12 files include it.</div>'
+            notice = ui.alert("success", "New profiles and .p12 files include it.", "Certificate added")
         base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
         base = esc(base) if not base.startswith("&lt;") else base
-        body = (
-            "<h1>CA &amp; downloads</h1>" + notice
-            + block("Root CA", root, "/download/root_ca.pem", "root_ca.pem")
-            + block("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem")
-            + '<div class="card"><h2 style="margin-top:0">Other trusted CAs (e.g. RADIUS server)</h2>'
-            "<p>CA certificates devices must also trust, such as the CA that issued your RADIUS "
-            "server's certificate for EAP-TLS Wi-Fi. They are added to Apple profiles (and trusted "
-            "for the Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p>"
-            f'<form method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/extra"))}">'
-            f'{csrf}<label for="file">Certificate file (.pem, .crt, .cer)</label>'
-            '<input id="file" type="file" name="file" accept=".pem,.crt,.cer,.der">'
-            '<label for="pem">or paste PEM</label>'
-            '<textarea id="pem" name="pem" rows="4" class="mono" style="width:100%" '
-            'placeholder="-----BEGIN CERTIFICATE-----"></textarea>'
-            '<div style="margin-top:12px"><button class="btn">Add</button></div></form></div>'
-            + extra_rows
-            + '<div class="card"><h2 style="margin-top:0">Certificate chain</h2>'
-            f'<p><a href="{esc(self.url("/download/ca-chain.pem"))}">Download ca-chain.pem</a></p>'
-            '<p class="muted">The intermediate and root CA in one PEM file (full trusted chain), '
-            "for MDMs and RADIUS servers.</p></div>"
-            + self.sign_card(csrf)
-            + '<div class="card"><h2 style="margin-top:0">Full CA bundle</h2>'
-            f'<p><a href="{esc(self.url("/download/ca-bundle.pem"))}">Download ca-bundle.pem</a></p>'
-            '<p class="muted">Root, intermediate' + (", and the other trusted CAs" if extra else "")
-            + " in one PEM file, for devices and servers that take a CA bundle.</p></div>"
-            + '<div class="card"><h2 style="margin-top:0">Certificate revocation list</h2>'
-            f'<p><a href="{esc(self.url("/download/crl.pem"))}">Download crl.pem</a></p>'
-            f'<p class="muted">Also served without login at <span class=mono>{base}/api/step_ca_scep/crl</span> (DER).</p></div>'
-            '<div class="card"><h2 style="margin-top:0">SCEP</h2><dl>'
-            f"<dt>URL</dt><dd class=mono>{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}</dd>"
-            f"<dt>Root download</dt><dd class=mono>{base}/api/step_ca_scep/roots.pem</dd>"
-            "<dt>Issued subject</dt><dd>"
-            + (esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
-            + "</dd>"
-            "<dt>Storage</dt><dd>" + ("MariaDB" if db_enabled() else "Embedded database") + "</dd>"
-            "</dl></div>"
-            + self.mdm_card(base, extra)
+        add_form = (
+            f'<form class="expand-body" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/extra"))}">'
+            f'{csrf}<p class="muted">CA certificates devices must also trust, such as the CA that issued your RADIUS '
+            "server's certificate for EAP-TLS Wi-Fi. They are added to Apple profiles (and trusted for the "
+            "Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p>"
+            '<div class="field"><label for="file">Certificate file (.pem, .crt, .cer)</label>'
+            '<input id="file" type="file" name="file" accept=".pem,.crt,.cer,.der"></div>'
+            '<div class="field"><label for="pem">Or paste PEM</label>'
+            '<textarea id="pem" name="pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----"></textarea></div>'
+            f'<button class="btn">{ui.icon("plus")}Add certificate</button></form>'
         )
-        self.page("CA & downloads", body)
+        trusted = (
+            '<details class="expand" id="trusted"><summary>'
+            f'<span class="row-icon">{ui.icon("server-security")}</span><span class="summary-text">'
+            '<span class="summary-title">Other trusted CAs</span>'
+            f'<span class="summary-sub">{len(extra) or "None"} added · trusted by enrolled devices</span></span>'
+            f'{ui.icon("chevron-down", "chev")}</summary>'
+            + (f'<div class="rows">{extra_rows}</div>' if extra else "")
+            + add_form + "</details>"
+        )
+        def option(label, value):
+            return f'<div class="kv"><dt>{label}</dt><dd>{value}</dd><span></span></div>'
+
+        challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
+                     ui.chip("warn", "Not set") + " Needed for MDM profiles")
+        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, EAP-TLS" if wifi_enabled() else "Off")
+        body = (
+            notice
+            + '<div class="grid"><div>'
+            '<div class="card"><div class="card-header"><h2>Tools</h2></div>'
+            + self.sign_card(csrf) + trusted + self.mdm_card(base, extra)
+            + "</div></div><div>"
+            '<div class="card"><div class="card-header"><h2>Options</h2>'
+            "<p class=\"muted\">Change these on the add-on's Configuration tab in Home Assistant.</p></div>"
+            '<dl class="rows">'
+            + option("Issued subject", esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
+            + option("SCEP challenge", challenge)
+            + option("Wi-Fi", wifi)
+            + option("Storage", "MariaDB" if db_enabled() else "Embedded database")
+            + "</dl></div></div></div>"
+        )
+        self.page("Tools", body)
 
     def sign_card(self, csrf):
+        years = enroll.SUBORDINATE_DAYS // 365
+
+        def detail(rows):
+            return '<dl class="choice-detail">' + "".join(
+                f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl>"
+
         return (
-            '<div class="card"><h2 style="margin-top:0">Sign a certificate request</h2>'
-            "<p>Sign a certificate signing request (CSR) created on another system, such as a RADIUS, "
-            "web, or VPN server, or another CA such as Meraki Systems Manager's SCEP CA. The download "
-            "holds the signed certificate followed by its CA chain.</p>"
-            f'<form method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/sign"))}">'
+            '<details class="expand" id="sign"><summary>'
+            f'<span class="row-icon">{ui.icon("file-sign")}</span><span class="summary-text">'
+            '<span class="summary-title">Sign a request</span>'
+            "<span class=\"summary-sub\">CSRs from servers, VPNs, or another CA such as Meraki's SCEP CA</span>"
+            f'</span>{ui.icon("chevron-down", "chev")}</summary>'
+            f'<form class="expand-body" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/sign"))}">'
             f"{csrf}"
-            '<label class="choice"><input type="radio" name="kind" value="leaf" checked> '
-            "<span><b>Server or client certificate</b><br><span class=muted>Signed by the intermediate "
-            "CA for server and client authentication, with the Common Name and subject alternative "
-            "names from the request, valid for the <b>default_cert_duration</b>. It is listed on "
-            "<b>Certificates</b> and can be revoked.</span></span></label>"
-            '<label class="choice"><input type="radio" name="kind" value="ca"> '
-            "<span><b>Subordinate CA</b> (e.g. Meraki SCEP CA)<br><span class=muted>Signed by the root "
-            "CA with the subject kept exactly as requested and the extensions "
-            "<span class=mono>basicConstraints = critical,CA:true,pathlen:0</span> and "
-            "<span class=mono>keyUsage = critical,keyCertSign,digitalSignature</span>, valid for {enroll.SUBORDINATE_DAYS // 365} years or until the root expires. "
-            "Also accepts the other CA's current certificate. For Meraki, download the SCEP CA request "
-            "under <b>Organization &gt; MDM</b> and upload the signed file there.</span></span></label>"
-            '<label for="signfile">Certificate request (.csr, .req, .pem)</label>'
-            '<input id="signfile" type="file" name="file" accept=".csr,.req,.pem,.crt,.cer,.der">'
-            '<label for="signpem">or paste PEM</label>'
-            '<textarea id="signpem" name="pem" rows="4" class="mono" style="width:100%" '
-            'placeholder="-----BEGIN CERTIFICATE REQUEST-----"></textarea>'
-            '<p class="muted">Only sign requests from systems you control; every signing is written to '
-            "the add-on log.</p>"
-            '<div style="margin-top:12px"><button class="btn">Sign and download</button></div></form></div>'
+            '<p class="muted">The download holds the signed certificate followed by its CA chain.</p>'
+            '<div class="choices field">'
+            '<label class="choice"><input type="radio" name="kind" value="leaf" checked>'
+            f'<span class="choice-icon">{ui.icon("server-security")}</span><span>'
+            '<span class="choice-title">Server or client certificate</span>'
+            '<span class="muted">For RADIUS, web, VPN, and other servers and clients.</span>'
+            + detail([
+                ("Signed by", "The intermediate CA"),
+                ("Names", "The name and alternative names from the request"),
+                ("Valid for", "The <b>default_cert_duration</b>"),
+                ("Use", "Server and client authentication. Listed on Certificates and can be revoked."),
+            ])
+            + "</span></label>"
+            '<label class="choice"><input type="radio" name="kind" value="ca">'
+            f'<span class="choice-icon">{ui.icon("shield-check")}</span><span>'
+            '<span class="choice-title">Subordinate CA</span>'
+            "<span class=\"muted\">Another CA, for example Meraki's SCEP CA.</span>"
+            + detail([
+                ("Signed by", "The root CA"),
+                ("Subject", "Kept exactly as requested"),
+                ("Extensions", '<span class="mono">basicConstraints = critical,CA:true,pathlen:0</span><br>'
+                 '<span class="mono">keyUsage = critical,keyCertSign,digitalSignature</span>'),
+                ("Valid for", f"{years} years or until the root expires"),
+                ("Also accepts", "The other CA's current certificate"),
+                ("Meraki", "Download the SCEP CA request under <b>Organization &rsaquo; MDM</b> and upload the "
+                 "signed file there."),
+            ])
+            + "</span></label></div>"
+            '<div class="field"><label for="signfile">Certificate request (.csr, .req, .pem)</label>'
+            '<input id="signfile" type="file" name="file" accept=".csr,.req,.pem,.crt,.cer,.der"></div>'
+            '<div class="field"><label for="signpem">Or paste PEM</label>'
+            '<textarea id="signpem" name="pem" rows="4" placeholder="-----BEGIN CERTIFICATE REQUEST-----"></textarea>'
+            '<p class="hint">Only sign requests from systems you control. Every signing is written to the add-on log.</p>'
+            "</div>"
+            f'<button class="btn">{ui.icon("file-sign")}Sign and download</button></form></details>'
         )
 
     def mdm_download(self, query):
@@ -1348,7 +1586,7 @@ class Handler(BaseHTTPRequestHandler):
             data, filename = mdm_profile(first("platform"), first("contents"), first("cn"),
                                          default_base_url(self.headers), first("email"))
         except ValueError as err:
-            self.redirect("/ca?" + urllib.parse.urlencode({"error": str(err)}) + "#mdm")
+            self.redirect("/tools?" + urllib.parse.urlencode({"error": str(err)}) + "#mdm")
             return
         print(f"Downloaded MDM profile {filename}", flush=True)
         self.download(data, filename, "application/x-apple-aspen-config")
@@ -1362,29 +1600,39 @@ class Handler(BaseHTTPRequestHandler):
         certs += [f'<a href="{esc(self.url(f"/download/extra/{enroll.fingerprint(c)}.pem"))}">'
                   f"{esc(safe_filename(enroll.common_name(c)))}.pem</a>"
                   for c in extra if c.subject not in issuers]
-        challenge = ("the <b>scep_challenge</b> add-on option (static)" if SCEP_CHALLENGE else
-                     '<span style="color:var(--bad)">none set; set <b>scep_challenge</b> before '
-                     "using an MDM</span>")
-        wifi = ""
+        challenge = ("The <b>scep_challenge</b> add-on option (static)" if SCEP_CHALLENGE else
+                     ui.chip("bad", "Not set") + " Set <b>scep_challenge</b> before using an MDM")
+        scep_url = f"{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}"
+        rows = [
+            ("Certificate payloads", f"{'; '.join(certs)}. Each file is a full chain; upload each as one "
+             "certificate payload.", None),
+            ("SCEP URL", f'<span class="mono">{scep_url}</span>',
+             None if base.startswith("&lt;") else html.unescape(scep_url)),
+            ("Challenge", challenge, None),
+            ("Subject", '<span class="mono">CN=&lt;unique device variable&gt;</span>, e.g. '
+             '<span class="mono">CN=$SERIALNUMBER</span>', None),
+            ("Key", "RSA, 2048 bits or more, usage signing and encryption, not exportable", None),
+            ("Fingerprint", "Leave empty", None),
+        ]
         if wifi_enabled():
             names = ", ".join(WIFI.get("radius_server_names") or []) or "the names in your RADIUS certificate"
-            wifi = (f"<dt>Wi-Fi</dt><dd>SSID <b>{esc(WIFI['ssid'])}</b>, EAP-TLS, identity = the SCEP "
-                    f"payload, trusted certificates = the certificate payloads above, trusted server "
-                    f"names = {esc(names)}</dd>")
+            rows.append(("Wi-Fi", f"SSID <b>{esc(WIFI['ssid'])}</b>, EAP-TLS, identity = the SCEP payload, trusted "
+                         f"certificates = the certificate payloads above, trusted server names = {esc(names)}", None))
+        dl = "".join(
+            f'<div class="kv"><dt>{k}</dt><dd>{v}</dd>'
+            + (ui.copy_button(c, k) if c else "<span></span>") + "</div>"
+            for k, v, c in rows
+        )
         return (
-            '<div class="card"><h2 style="margin-top:0">Using an MDM</h2>'
-            "<p>Values for an MDM configuration profile (Jamf Pro, Kandji, Mosyle, and other MDMs with a "
-            "static SCEP challenge). Intune SCEP profiles are not supported; see the add-on "
-            "documentation.</p><dl>"
-            f"<dt>Certificate payloads</dt><dd>{'; '.join(certs)}. Each file is a full chain; "
-            "upload each as one certificate payload.</dd>"
-            f"<dt>SCEP URL</dt><dd class=mono>{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}</dd>"
-            f"<dt>Challenge</dt><dd>{challenge}</dd>"
-            "<dt>Subject</dt><dd class=mono>CN=&lt;unique device variable&gt;, e.g. CN=$SERIALNUMBER</dd>"
-            "<dt>Key</dt><dd>RSA, 2048 bits or more, usage signing and encryption, not exportable</dd>"
-            "<dt>Fingerprint</dt><dd>Leave empty</dd>"
-            + wifi +
-            "</dl>" + self.mdm_profile_form() + "</div>"
+            '<details class="expand" id="mdm"><summary>'
+            f'<span class="row-icon">{ui.icon("cellphone")}</span><span class="summary-text">'
+            '<span class="summary-title">Using an MDM</span>'
+            '<span class="summary-sub">SCEP values and ready-made profiles for Jamf Pro, Kandji, Mosyle, '
+            "Meraki, and other MDMs with a static challenge</span></span>"
+            f'{ui.icon("chevron-down", "chev")}</summary>'
+            '<div class="expand-body flush"><p class="muted expand-note">Intune SCEP profiles are not '
+            "supported; see the add-on documentation.</p>"
+            f'<dl class="rows">{dl}</dl>' + self.mdm_profile_form() + "</div></details>"
         )
 
     def mdm_profile_form(self):
@@ -1396,31 +1644,32 @@ class Handler(BaseHTTPRequestHandler):
         contents = "".join(f'<option value="{v}">{label}</option>' for v, label in options)
         platforms = "".join(f'<option value="{v}">{label}</option>' for v, label in MDM_PLATFORMS.items())
         return (
-            '<h3 id="mdm">Download a profile for your MDM</h3>'
-            "<p>A standard, unsigned Apple configuration profile (.mobileconfig) with the payloads above. "
-            "Upload it to any MDM as a custom profile; it is unsigned so the MDM can replace device "
-            "variables and sign it. The macOS profile installs for the whole Mac (System keychain). "
-            "The SCEP profiles contain the challenge, so keep them private.</p>"
-            f'<form method="get" action="{esc(self.url("/download/mdm.mobileconfig"))}">'
-            f'<label for="mdm-platform">Platform</label><select id="mdm-platform" name="platform">{platforms}</select>'
-            f'<label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select>'
-            '<label for="mdm-cn">Certificate name (Common Name)</label>'
+            f'<form class="mdm-form" method="get" action="{esc(self.url("/download/mdm.mobileconfig"))}">'
+            '<h3>Download a profile for your MDM</h3>'
+            '<p class="muted">A standard, unsigned Apple configuration profile (.mobileconfig) with the payloads '
+            "above. Upload it to any MDM as a custom profile; it is unsigned so the MDM can replace device "
+            "variables and sign it. The macOS profile installs for the whole Mac (System keychain).</p>"
+            '<div class="field-row">'
+            f'<div class="field"><label for="mdm-platform">Platform</label><select id="mdm-platform" name="platform">{platforms}</select></div>'
+            f'<div class="field"><label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select></div>'
+            "</div>"
+            '<div class="field"><label for="mdm-cn">Certificate name (Common Name)</label>'
             '<input id="mdm-cn" name="cn" maxlength="64" autocapitalize="off" '
-            'placeholder="your MDM\'s serial number or user name variable">'
-            '<p class="muted">Your MDM\'s variable for a unique value, which it replaces on each device: the '
-            "serial number for a device certificate (<span class=mono>$SERIALNUMBER</span> in Jamf, "
-            "<span class=mono>$DEVICESERIAL</span> in Meraki, <span class=mono>$SERIAL_NUMBER</span> in "
-            "Kandji) or the user name for a user certificate (<span class=mono>$USERNAME</span> in Jamf, "
-            "<span class=mono>$OWNERUSERNAME</span> in Meraki). Not needed for Certificates only.</p>"
-            '<label for="mdm-email">Email address (optional)</label>'
+            'placeholder="Your MDM\'s serial number or user name variable">'
+            '<p class="hint">Your MDM\'s variable for a unique value, which it replaces on each device: the '
+            'serial number for a device certificate (<span class="mono">$SERIALNUMBER</span> in Jamf, '
+            '<span class="mono">$DEVICESERIAL</span> in Meraki, <span class="mono">$SERIAL_NUMBER</span> in '
+            'Kandji) or the user name for a user certificate (<span class="mono">$USERNAME</span> in Jamf, '
+            '<span class="mono">$OWNERUSERNAME</span> in Meraki). Not needed for Certificates only.</p></div>'
+            '<div class="field"><label for="mdm-email">Email address (optional)</label>'
             '<input id="mdm-email" name="email" maxlength="64" autocapitalize="off" '
-            'placeholder="your MDM\'s email variable">'
-            '<p class="muted">Added to the certificate as an email alternative name, e.g. '
-            "<span class=mono>$EMAIL</span> in Jamf or <span class=mono>$OWNEREMAIL</span> in Meraki. "
-            "The device must have a user assigned in the MDM.</p>"
-            '<div style="margin-top:12px"><button class="btn">Download .mobileconfig</button></div></form>'
+            'placeholder="Your MDM\'s email variable">'
+            '<p class="hint">Added to the certificate as an email alternative name, e.g. '
+            '<span class="mono">$EMAIL</span> in Jamf or <span class="mono">$OWNEREMAIL</span> in Meraki. '
+            "The device must have a user assigned in the MDM.</p></div>"
+            + ui.alert("warning", "SCEP profiles contain the challenge, so keep them private.")
+            + f'<div class="form-submit"><button class="btn">{ui.icon("download")}Download .mobileconfig</button></div></form>'
         )
-
 
 UPLOAD_LIMIT = 65536
 
@@ -1454,14 +1703,13 @@ class EnrollHandler(Handler):
     def public(self, path):
         return f"{enroll.PUBLIC_BASE}/{path.lstrip('/')}"
 
-    def page(self, title, body, status=200):
-        self.send(
-            status,
-            f"<!doctype html><html lang=en><head><meta charset=utf-8>"
-            f'<meta name=viewport content="width=device-width, initial-scale=1">'
-            f'<meta name="referrer" content="no-referrer">'
-            f"<title>{esc(title)}</title><style>{STYLE}</style></head>"
-            f"<body><main>{body}</main></body></html>",
+    def page(self, title, body, status=200, back=None, narrow=False, heading=None):
+        self.document(
+            title,
+            '<main class="public"><div class="brand">'
+            f'<span class="brand-mark">{ui.icon("certificate")}</span><span>{esc(CA_NAME)}</span></div>'
+            f"{body}</main>",
+            status, head='<meta name="referrer" content="no-referrer">',
         )
 
     def allowed(self):

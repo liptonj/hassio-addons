@@ -207,7 +207,7 @@ devices can import them.
 
 Set `wifi.ssid` to add an EAP-TLS Wi-Fi payload to Apple profiles. It uses the
 certificate from the profile's SCEP payload and trusts the root and
-intermediate CA, and any CAs added under **CA & downloads**, for the RADIUS
+intermediate CA, and any CAs added under **Tools → Other trusted CAs**, for the RADIUS
 server's certificate. List your RADIUS server
 certificate names in `wifi.radius_server_names` (e.g. `radius.example.com`)
 so devices do not ask to trust the server. For .p12 devices the page shows the
@@ -231,7 +231,7 @@ certificates get all three.
 If your RADIUS server's certificate comes from another CA (for example a
 public CA or your network's own CA), add that CA so devices trust the server:
 
-1. Open **Certificates → CA & downloads**.
+1. Open **Certificates → Tools**.
 2. Under **Other trusted CAs**, choose the certificate file (PEM or DER,
    `.pem`, `.crt`, `.cer`) or paste the PEM, and click **Add**. A PEM file may
    hold several certificates. Only CA certificates are accepted.
@@ -242,7 +242,7 @@ Added CAs are included in:
   trusted for the Wi-Fi network's RADIUS server;
 - **.p12 files**, together with the root and intermediate;
 - **ca-bundle.pem**: root, intermediate, and the added CAs in one PEM file,
-  on the **CA & downloads** page and on the .p12 page of enrollment links.
+  on the **Authority** page and on the .p12 page of enrollment links.
   On Android, install it as a CA certificate and pick it as the Wi-Fi
   network's CA certificate.
 
@@ -253,7 +253,7 @@ files created afterwards; devices already enrolled keep what they got.
 
 Systems that create their own key, such as a RADIUS, web, or VPN server,
 give you a certificate signing request (CSR). To sign it, open
-**Certificates → CA & downloads → Sign a certificate request**, choose the
+**Certificates → Tools → Sign a request**, choose the
 file (PEM or DER) or paste the PEM, pick the type, and click **Sign and
 download**:
 
@@ -303,7 +303,7 @@ why.
 
 An MDM can deploy the same SCEP enrollment that enrollment links do. The
 values for your installation, and each certificate as a separate download,
-are on **Certificates → CA & downloads → Using an MDM**.
+are on **Certificates → Tools → Using an MDM**.
 
 Before you start:
 
@@ -316,7 +316,7 @@ Before you start:
 ### Download a ready-made profile (Apple devices)
 
 Instead of entering the values by hand, download a profile under
-**Certificates → CA & downloads → Using an MDM → Download a profile for your
+**Certificates → Tools → Using an MDM → Download a profile for your
 MDM** and upload it to your MDM as a custom profile. Choose:
 
 - **Platform**: iOS and iPadOS, or macOS. The macOS profile installs for the
@@ -401,7 +401,7 @@ with these payloads.
   with this CA:
   1. In Meraki, go to **Organization → MDM** and download the SCEP CA
      certificate request (or the current SCEP CA certificate).
-  2. On **Certificates → CA & downloads → Sign a certificate request**,
+  2. On **Certificates → Tools → Sign a request**,
      choose that file, pick **Subordinate CA**, and select **Sign and
      download**. The root CA signs it with the extensions Meraki
      requires (`basicConstraints = critical,CA:true,pathlen:0` and

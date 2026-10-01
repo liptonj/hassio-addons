@@ -1,0 +1,727 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-01T14:58:00Z",
+  "title": "Design System: Step CA SCEP Server",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "HA Light Blue",
+        "canonical": "var(--primary-color)",
+        "oklch": "oklch(69.9% 0.157 239.0)",
+        "tonalRamp": [
+          "#000637",
+          "#002656",
+          "#004388",
+          "#0065ab",
+          "#0086cf",
+          "#04a9f4",
+          "#4cd1ff",
+          "#9ffaff"
+        ]
+      },
+      "accent-fill": {
+        "role": "primary",
+        "displayName": "Deep Accent Fill",
+        "canonical": "color-mix(in srgb, var(--primary-color) 68%, #000)",
+        "oklch": "oklch(52.8% 0.117 238.1)",
+        "tonalRamp": [
+          "#000735",
+          "#002654",
+          "#004575",
+          "#006597",
+          "#2786ba",
+          "#4ea8de",
+          "#76cfff",
+          "#a1faff"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Accent Ink (light)",
+        "canonical": "color-mix(in srgb, var(--primary-color) 66%, #000)",
+        "oklch": "oklch(51.7% 0.113 237.7)",
+        "tonalRamp": [
+          "#000834",
+          "#002753",
+          "#004573",
+          "#006595",
+          "#2a86b8",
+          "#51a8dc",
+          "#78cfff",
+          "#a3faff"
+        ]
+      },
+      "accent-ink-dark": {
+        "role": "primary",
+        "displayName": "Accent Ink (dark)",
+        "canonical": "color-mix(in srgb, var(--primary-color) 82%, #fff)",
+        "oklch": "oklch(74.0% 0.142 234.0)",
+        "tonalRamp": [
+          "#000835",
+          "#002854",
+          "#00467e",
+          "#0067a0",
+          "#0089c4",
+          "#18abe9",
+          "#53d2ff",
+          "#98fcff"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Success Green",
+        "canonical": "var(--success-color)",
+        "oklch": "oklch(67.3% 0.162 144.2)",
+        "tonalRamp": [
+          "#001400",
+          "#003100",
+          "#005300",
+          "#00730c",
+          "#2f9536",
+          "#55b858",
+          "#7cdf7e",
+          "#bdffbb"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning Orange",
+        "canonical": "var(--warning-color)",
+        "oklch": "oklch(77.0% 0.174 64.1)",
+        "tonalRamp": [
+          "#280000",
+          "#480b00",
+          "#791700",
+          "#9c3d00",
+          "#c15f00",
+          "#e78200",
+          "#ffa82b",
+          "#ffdd97"
+        ]
+      },
+      "error": {
+        "role": "status",
+        "displayName": "Error Red",
+        "canonical": "var(--error-color)",
+        "oklch": "oklch(60.2% 0.190 28.9)",
+        "tonalRamp": [
+          "#2d0000",
+          "#4f0000",
+          "#890000",
+          "#b00f0b",
+          "#d74033",
+          "#fe6555",
+          "#ff8d7a",
+          "#ffd0c0"
+        ]
+      },
+      "info": {
+        "role": "status",
+        "displayName": "Info Blue",
+        "canonical": "var(--info-color)",
+        "oklch": "oklch(65.9% 0.152 240.8)",
+        "tonalRamp": [
+          "#000537",
+          "#002557",
+          "#004387",
+          "#0064aa",
+          "#0085ce",
+          "#25a8f3",
+          "#58cfff",
+          "#a2f9ff"
+        ]
+      },
+      "danger-fill": {
+        "role": "status",
+        "displayName": "Danger Fill",
+        "canonical": "color-mix(in srgb, var(--error-color) 86%, #000)",
+        "oklch": "oklch(53.8% 0.168 28.8)",
+        "tonalRamp": [
+          "#2d0000",
+          "#4f0000",
+          "#820000",
+          "#a8251d",
+          "#ce4b3e",
+          "#f56f5f",
+          "#ff9584",
+          "#ffd0c0"
+        ]
+      },
+      "ok-ink": {
+        "role": "status",
+        "displayName": "Success Ink",
+        "canonical": "color-mix(in srgb, var(--success-color) 66%, #000)",
+        "oklch": "oklch(50.0% 0.117 144.4)",
+        "tonalRamp": [
+          "#001400",
+          "#003000",
+          "#024e0e",
+          "#2c6e2f",
+          "#4d8f4f",
+          "#6fb16f",
+          "#94d894",
+          "#beffbd"
+        ]
+      },
+      "warn-ink": {
+        "role": "status",
+        "displayName": "Warning Ink (light)",
+        "canonical": "color-mix(in srgb, var(--warning-color) 58%, #000)",
+        "oklch": "oklch(51.7% 0.115 65.7)",
+        "tonalRamp": [
+          "#270000",
+          "#460f00",
+          "#672e00",
+          "#884d00",
+          "#ab6d25",
+          "#cf8f4a",
+          "#f7b570",
+          "#ffdf9a"
+        ]
+      },
+      "warn-ink-dark": {
+        "role": "status",
+        "displayName": "Warning Ink (dark)",
+        "canonical": "color-mix(in srgb, var(--warning-color) 90%, #fff)",
+        "oklch": "oklch(78.8% 0.168 68.0)",
+        "tonalRamp": [
+          "#270000",
+          "#460e00",
+          "#741f00",
+          "#984200",
+          "#bc6400",
+          "#e18600",
+          "#ffac2d",
+          "#ffdf94"
+        ]
+      },
+      "bad-ink": {
+        "role": "status",
+        "displayName": "Error Ink (light)",
+        "canonical": "color-mix(in srgb, var(--error-color) 66%, #000)",
+        "oklch": "oklch(44.7% 0.136 28.8)",
+        "tonalRamp": [
+          "#2d0000",
+          "#4f0000",
+          "#78120d",
+          "#9c372d",
+          "#c1594c",
+          "#e77b6c",
+          "#ffa091",
+          "#ffd0c0"
+        ]
+      },
+      "bad-ink-dark": {
+        "role": "status",
+        "displayName": "Error Ink (dark)",
+        "canonical": "color-mix(in srgb, var(--error-color) 82%, #fff)",
+        "oklch": "oklch(65.8% 0.156 27.3)",
+        "tonalRamp": [
+          "#2d0000",
+          "#4f0000",
+          "#7e0004",
+          "#a32d28",
+          "#c95047",
+          "#f07367",
+          "#ff998c",
+          "#ffcfc2"
+        ]
+      },
+      "info-ink": {
+        "role": "status",
+        "displayName": "Info Ink",
+        "canonical": "color-mix(in srgb, var(--info-color) 66%, #000)",
+        "oklch": "oklch(48.6% 0.111 239.9)",
+        "tonalRamp": [
+          "#000734",
+          "#002653",
+          "#004573",
+          "#006495",
+          "#3385b8",
+          "#57a7dc",
+          "#7eceff",
+          "#a8f9ff"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Page Gray",
+        "canonical": "var(--primary-background-color)",
+        "oklch": "oklch(98.5% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "background-dark": {
+        "role": "neutral",
+        "displayName": "Page Black",
+        "canonical": "var(--primary-background-color)",
+        "oklch": "oklch(17.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "var(--card-background-color)",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Card Charcoal",
+        "canonical": "var(--card-background-color)",
+        "oklch": "oklch(22.6% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "secondary-background": {
+        "role": "neutral",
+        "displayName": "Recessed Gray",
+        "canonical": "var(--secondary-background-color)",
+        "oklch": "oklch(92.2% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "secondary-background-dark": {
+        "role": "neutral",
+        "displayName": "Recessed Charcoal",
+        "canonical": "var(--secondary-background-color)",
+        "oklch": "oklch(27.7% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "var(--primary-text-color)",
+        "oklch": "oklch(24.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "text-dark": {
+        "role": "neutral",
+        "displayName": "Ink (dark)",
+        "canonical": "var(--primary-text-color)",
+        "oklch": "oklch(91.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "canonical": "var(--secondary-text-color)",
+        "oklch": "oklch(49.3% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "text-secondary-dark": {
+        "role": "neutral",
+        "displayName": "Secondary Ink (dark)",
+        "canonical": "var(--secondary-text-color)",
+        "oklch": "oklch(68.9% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "toast": {
+        "role": "neutral",
+        "displayName": "Snackbar Charcoal",
+        "canonical": "#323232",
+        "oklch": "oklch(31.7% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "Divider",
+        "canonical": "var(--divider-color)"
+      },
+      "divider-dark": {
+        "role": "neutral",
+        "displayName": "Divider (dark)",
+        "canonical": "var(--divider-color)"
+      },
+      "outline": {
+        "role": "neutral",
+        "displayName": "Outline",
+        "canonical": "color-mix(in srgb, var(--primary-text-color) 28%, transparent)"
+      },
+      "outline-dark": {
+        "role": "neutral",
+        "displayName": "Outline (dark)",
+        "canonical": "color-mix(in srgb, var(--primary-text-color) 28%, transparent)"
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover Wash",
+        "canonical": "color-mix(in srgb, var(--primary-text-color) 5%, transparent)"
+      },
+      "hover-dark": {
+        "role": "neutral",
+        "displayName": "Hover Wash (dark)",
+        "canonical": "color-mix(in srgb, var(--primary-text-color) 5%, transparent)"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page heading, certificate name on the detail page, public page heading."
+      },
+      "dialog-headline": {
+        "displayName": "Dialog Headline",
+        "purpose": "Confirm dialog title."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card headers, toolbar title (24px line), panel group title."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Choice-card titles, tile values, MDM form heading; expansion summaries use the size at 400."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text; card descriptions capped at 72ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Form labels, tabs, buttons, filter chips, table headers, subheads."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Hints, stacked key labels, bottom-bar tab labels; status chips at 500."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Serials, fingerprints, URLs, DNs, extensions, PEM, passwords (22px for one-time passwords)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "button-lift",
+        "value": "0 1px 3px rgba(0, 0, 0, .24)",
+        "purpose": "Filled buttons on hover only."
+      },
+      {
+        "name": "toast",
+        "value": "0 4px 12px rgba(0, 0, 0, .3)",
+        "purpose": "Copy confirmation snackbar."
+      },
+      {
+        "name": "dialog",
+        "value": "0 12px 32px rgba(0, 0, 0, .28)",
+        "purpose": "Modal confirm dialog over a rgba(0, 0, 0, .4) scrim."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "Exponential ease-out for the toast, dialog, and chevron."
+      },
+      {
+        "name": "state",
+        "value": "150ms",
+        "purpose": "Border, background, and shadow changes on hover and focus."
+      },
+      {
+        "name": "chevron",
+        "value": "200ms ease-out",
+        "purpose": "Expansion-panel chevron rotates 180 degrees."
+      },
+      {
+        "name": "dialog-in",
+        "value": "280ms ease-out, opacity 0 and scale .94 to rest",
+        "purpose": "Confirm dialog entrance."
+      },
+      {
+        "name": "toast",
+        "value": "transform 400ms ease-out, opacity 250ms ease-out; 2.4s dwell",
+        "purpose": "Toast rises 24px from bottom center."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "none",
+        "purpose": "prefers-reduced-motion removes the dialog animation, toast transition, and chevron rotation."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "card-narrow",
+        "value": "520px (container query on cards)"
+      },
+      {
+        "name": "mobile",
+        "value": "640px"
+      },
+      {
+        "name": "single-column",
+        "value": "860px"
+      }
+    ],
+    "themeAdoption": {
+      "mechanism": "Inside the HA frame, an inline script copies the parent document's computed HA custom properties onto :root and sets data-theme from the background luminance, re-running on parent theme changes. Outside the frame, :root defaults and prefers-color-scheme apply.",
+      "adoptedProperties": [
+        "--primary-color",
+        "--primary-background-color",
+        "--secondary-background-color",
+        "--card-background-color",
+        "--primary-text-color",
+        "--secondary-text-color",
+        "--divider-color",
+        "--success-color",
+        "--warning-color",
+        "--error-color",
+        "--info-color",
+        "--ha-card-border-radius",
+        "--ha-card-border-color",
+        "--app-header-background-color",
+        "--app-header-text-color",
+        "--scrollbar-thumb-color"
+      ]
+    }
+  },
+  "components": [
+    {
+      "name": "Filled Button",
+      "kind": "button",
+      "refersTo": "button-filled",
+      "description": "The default action of a form or card: a deep-accent pill with an optional leading icon.",
+      "html": "<button class=\"ds-btn\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z\"/></svg>Add certificate</button>",
+      "css": ".ds-mdi { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; } .ds-btn { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 20px; border-radius: 20px; border: 0; font-size: 14px; font-weight: 500; letter-spacing: .02em; background: color-mix(in srgb, var(--primary-color, #03a9f4) 68%, #000); color: #fff; cursor: pointer; transition: box-shadow .15s, background-color .15s; } .ds-btn .ds-mdi { width: 18px; height: 18px; } .ds-btn:hover { background: color-mix(in srgb, color-mix(in srgb, var(--primary-color, #03a9f4) 68%, #000) 88%, #000); box-shadow: 0 1px 3px rgba(0,0,0,.24); } .ds-btn:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Secondary actions in card action bars.",
+      "html": "<button class=\"ds-btn-text\">Cancel link</button>",
+      "css": ".ds-btn-text { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; display: inline-flex; align-items: center; height: 40px; padding: 0 12px; border-radius: 20px; border: 0; font-size: 14px; font-weight: 500; letter-spacing: .02em; background: transparent; color: color-mix(in srgb, var(--primary-color, #03a9f4) 66%, #000); cursor: pointer; transition: background-color .15s; } .ds-btn-text:hover { background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent); } .ds-btn-text:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive submit (Revoke); always routed through the confirm dialog.",
+      "html": "<button class=\"ds-btn-danger\">Revoke</button>",
+      "css": ".ds-btn-danger { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; display: inline-flex; align-items: center; height: 40px; padding: 0 20px; border-radius: 20px; border: 0; font-size: 14px; font-weight: 500; letter-spacing: .02em; background: color-mix(in srgb, var(--error-color, #db4437) 86%, #000); color: #fff; cursor: pointer; transition: box-shadow .15s, background-color .15s; } .ds-btn-danger:hover { background: color-mix(in srgb, var(--error-color, #db4437) 74%, #000); box-shadow: 0 1px 3px rgba(0,0,0,.24); } .ds-btn-danger:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Outlined 8px field with a label above and a hint below.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-label\" for=\"ds-label-in\">Label</label><input id=\"ds-label-in\" class=\"ds-input\" placeholder=\"Living room iPad\"><p class=\"ds-hint\">Shown in the link list.</p></div>",
+      "css": ".ds-field { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; font-size: 14px; color: var(--primary-text-color, #212121); } .ds-label { display: block; font-weight: 500; margin-bottom: 6px; } .ds-input { width: 100%; min-height: 44px; padding: 10px 12px; font: inherit; color: var(--primary-text-color, #212121); background: var(--card-background-color, #fff); border: 1px solid color-mix(in srgb, var(--primary-text-color, #212121) 28%, transparent); border-radius: 8px; transition: border-color .15s, box-shadow .15s; } .ds-input::placeholder { color: var(--secondary-text-color, #616161); } .ds-input:hover { border-color: var(--primary-text-color, #212121); } .ds-input:focus { outline: none; border-color: var(--primary-color, #03a9f4); box-shadow: 0 0 0 1px var(--primary-color, #03a9f4); } .ds-hint { color: var(--secondary-text-color, #616161); font-size: 12px; line-height: 16px; margin: 6px 0 0; }"
+    },
+    {
+      "name": "Toolbar and Tabs",
+      "kind": "nav",
+      "refersTo": "toolbar",
+      "description": "Sticky 56px subpage toolbar with icon tabs; the tabs become a bottom bar under 640px.",
+      "html": "<nav class=\"ds-toolbar\"><span class=\"ds-toolbar-title\">Certificates</span><a class=\"ds-tab\" aria-current=\"page\" href=\"#\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4,3C2.89,3 2,3.89 2,5V15A2,2 0 0,0 4,17H12V22L15,19L18,22V17H20A2,2 0 0,0 22,15V8L22,6V5A2,2 0 0,0 20,3H16V3H4M12,5L15,7L18,5V8.5L21,10L18,11.5V15L15,13L12,15V11.5L9,10L12,8.5V5M4,5H9V7H4V5M4,9H7V11H4V9M4,13H9V15H4V13Z\"/></svg>Certificates</a><a class=\"ds-tab\" href=\"#\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3,11H5V13H3V11M11,5H13V9H11V5M9,11H13V15H11V13H9V11M15,11H17V13H19V11H21V13H19V15H21V19H19V21H17V19H13V21H11V17H15V15H17V13H15V11M19,19V15H17V19H19M15,3H21V9H15V3M17,5V7H19V5H17M3,3H9V9H3V3M5,5V7H7V5H5M3,15H9V21H3V15M5,17V19H7V17H5Z\"/></svg>Enroll</a><a class=\"ds-tab\" href=\"#\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1Z\"/></svg>Authority</a></nav>",
+      "css": ".ds-mdi { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; } .ds-toolbar { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; height: 56px; display: flex; align-items: center; padding: 0 12px 0 16px; background: var(--app-header-background-color, var(--primary-background-color, #fafafa)); color: var(--primary-text-color, #212121); border-bottom: 1px solid var(--divider-color, rgba(0,0,0,.12)); font-size: 14px; } .ds-toolbar-title { font-size: 20px; line-height: 24px; margin-right: 24px; } .ds-tab { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 20px; position: relative; color: var(--secondary-text-color, #616161); font-weight: 500; text-decoration: none; } .ds-tab .ds-mdi { width: 20px; height: 20px; } .ds-tab:hover { color: var(--primary-text-color, #212121); background: color-mix(in srgb, var(--primary-text-color, #212121) 5%, transparent); } .ds-tab:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: -2px; } .ds-tab[aria-current=\"page\"] { color: color-mix(in srgb, var(--primary-color, #03a9f4) 66%, #000); } .ds-tab[aria-current=\"page\"]::after { content: \"\"; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: var(--primary-color, #03a9f4); }"
+    },
+    {
+      "name": "Filter and Status Chips",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "8px outlined filter chips (selected: 16% primary tint) and pill status chips with a status dot.",
+      "html": "<div class=\"ds-chips\"><a class=\"ds-filter\" aria-current=\"true\" href=\"#\">Active <span class=\"ds-count\">12</span></a><a class=\"ds-filter\" href=\"#\">Revoked <span class=\"ds-count\">2</span></a><span class=\"ds-chip ds-ok\">Valid</span><span class=\"ds-chip ds-warn\">Renew soon</span><span class=\"ds-chip ds-bad\">Revoked</span></div>",
+      "css": ".ds-chips { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; } .ds-filter { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--primary-text-color, #212121) 28%, transparent); color: var(--primary-text-color, #212121); font-weight: 500; text-decoration: none; } .ds-filter:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 5%, transparent); } .ds-filter:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; } .ds-filter[aria-current=\"true\"] { background: color-mix(in srgb, var(--primary-color, #03a9f4) 16%, transparent); border-color: transparent; } .ds-count { color: var(--secondary-text-color, #616161); font-weight: 400; } .ds-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 8px; border-radius: 12px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--ds-ink); background: color-mix(in srgb, var(--ds-c) 14%, transparent); } .ds-chip::before { content: \"\"; width: 8px; height: 8px; border-radius: 50%; background: var(--ds-c); } .ds-ok { --ds-c: var(--success-color, #4caf50); --ds-ink: color-mix(in srgb, var(--success-color, #4caf50) 66%, #000); } .ds-warn { --ds-c: var(--warning-color, #ff9800); --ds-ink: color-mix(in srgb, var(--warning-color, #ff9800) 58%, #000); } .ds-bad { --ds-c: var(--error-color, #db4437); --ds-ink: color-mix(in srgb, var(--error-color, #db4437) 66%, #000); }"
+    },
+    {
+      "name": "Card with Settings Rows",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Outlined flat 12px card with a header, a subhead, and download rows with icon-button actions.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><h2>Home Assistant CA</h2><p>The root signs the intermediate; the intermediate signs device certificates.</p></div><h3 class=\"ds-subhead\">Downloads</h3><div class=\"ds-row\"><span class=\"ds-row-icon\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M14 13V11L12 12L10 11V13L8 14L10 15V17L12 16L14 17V15L16 14M14 2H7A2 2 0 0 0 5 4V18A2 2 0 0 0 7 20H8V18H7V4H13V8H17V18H16V20H17A2 2 0 0 0 19 18V7M14 13V11L12 12L10 11V13L8 14L10 15V17L12 16L14 17V15L16 14M10 23L12 22L14 23V18H10M14 13V11L12 12L10 11V13L8 14L10 15V17L12 16L14 17V15L16 14Z\"/></svg></span><span class=\"ds-row-text\"><span>CA chain</span><span class=\"ds-row-sub\">Intermediate and root in one file</span></span><button class=\"ds-icon-btn\" aria-label=\"Download ca-chain.pem\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z\"/></svg></button></div></div>",
+      "css": ".ds-mdi { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; } .ds-card { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; font-size: 14px; line-height: 20px; color: var(--primary-text-color, #212121); background: var(--card-background-color, #fff); border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(0,0,0,.12))); border-radius: var(--ha-card-border-radius, 12px); overflow: hidden; } .ds-card-header { padding: 16px 16px 8px; } .ds-card-header h2 { font-size: 20px; line-height: 28px; font-weight: 400; margin: 0; } .ds-card-header p { color: var(--secondary-text-color, #616161); margin: 4px 0 0; max-width: 72ch; } .ds-subhead { margin: 0; padding: 16px 16px 4px; color: var(--secondary-text-color, #616161); font-size: 14px; font-weight: 500; border-top: 1px solid var(--divider-color, rgba(0,0,0,.12)); } .ds-row { display: flex; align-items: center; gap: 16px; padding: 12px 16px; min-height: 64px; } .ds-row-icon { color: var(--secondary-text-color, #616161); } .ds-row-text { flex: 1; display: flex; flex-direction: column; } .ds-row-sub { color: var(--secondary-text-color, #616161); } .ds-icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 0; padding: 0; background: transparent; color: var(--secondary-text-color, #616161); cursor: pointer; } .ds-icon-btn .ds-mdi { width: 20px; height: 20px; } .ds-icon-btn:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 5%, transparent); color: var(--primary-text-color, #212121); } .ds-icon-btn:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: -2px; }"
+    },
+    {
+      "name": "Expansion Panel",
+      "kind": "custom",
+      "refersTo": "expansion-summary",
+      "description": "Collapsed reference or tool inside a card; the URL hash opens a panel by id.",
+      "html": "<div class=\"ds-card\"><details class=\"ds-expand\" id=\"sign\"><summary><span class=\"ds-row-icon\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M19.7 12.9L14 18.6H11.7V16.3L17.4 10.6L19.7 12.9M23.1 12.1C23.1 12.4 22.8 12.7 22.5 13L20 15.5L19.1 14.6L21.7 12L21.1 11.4L20.4 12.1L18.1 9.8L20.3 7.7C20.5 7.5 20.9 7.5 21.2 7.7L22.6 9.1C22.8 9.3 22.8 9.7 22.6 10C22.4 10.2 22.2 10.4 22.2 10.6C22.2 10.8 22.4 11 22.6 11.2C22.9 11.5 23.2 11.8 23.1 12.1M3 20V4H10V9H15V10.5L17 8.5V8L11 2H3C1.9 2 1 2.9 1 4V20C1 21.1 1.9 22 3 22H15C16.1 22 17 21.1 17 20H3M11 17.1C10.8 17.1 10.6 17.2 10.5 17.2L10 15H8.5L6.4 16.7L7 14H5.5L4.5 19H6L8.9 16.4L9.5 18.7H10.5L11 18.6V17.1Z\"/></svg></span><span class=\"ds-sum\"><span class=\"ds-sum-title\">Sign a request</span><span class=\"ds-sum-sub\">CSRs from servers, VPNs, or another CA</span></span><svg class=\"ds-mdi ds-chev\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z\"/></svg></summary><div class=\"ds-expand-body\">The download holds the signed certificate followed by its CA chain.</div></details></div>",
+      "css": ".ds-mdi { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; } .ds-card { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; font-size: 14px; line-height: 20px; color: var(--primary-text-color, #212121); background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, rgba(0,0,0,.12)); border-radius: 12px; overflow: hidden; } .ds-expand > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-height: 56px; cursor: pointer; } .ds-expand > summary::-webkit-details-marker { display: none; } .ds-expand > summary:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 5%, transparent); } .ds-expand > summary:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: -2px; } .ds-row-icon { color: var(--secondary-text-color, #616161); } .ds-sum { display: flex; flex-direction: column; min-width: 0; } .ds-sum-title { font-size: 16px; line-height: 24px; } .ds-sum-sub { color: var(--secondary-text-color, #616161); } .ds-chev { margin-left: auto; color: var(--secondary-text-color, #616161); transition: transform .2s cubic-bezier(.16,1,.3,1); } .ds-expand[open] .ds-chev { transform: rotate(180deg); } .ds-expand-body { padding: 4px 16px 16px; color: var(--secondary-text-color, #616161); } @media (prefers-reduced-motion: reduce) { .ds-chev { transition: none; } }"
+    },
+    {
+      "name": "Choice Card",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Large radio choice; the checked card gets a primary ring and tint, and its detail block appears only while checked.",
+      "html": "<div class=\"ds-choices\"><label class=\"ds-choice\"><input type=\"radio\" name=\"ds-k\" checked><span class=\"ds-choice-icon\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3,1H19A1,1 0 0,1 20,2V6A1,1 0 0,1 19,7H3A1,1 0 0,1 2,6V2A1,1 0 0,1 3,1M3,9H19A1,1 0 0,1 20,10V10.67L17.5,9.56L11,12.44V15H3A1,1 0 0,1 2,14V10A1,1 0 0,1 3,9M3,17H11C11.06,19.25 12,21.4 13.46,23H3A1,1 0 0,1 2,22V18A1,1 0 0,1 3,17M8,5H9V3H8V5M8,13H9V11H8V13M8,21H9V19H8V21M4,3V5H6V3H4M4,11V13H6V11H4M4,19V21H6V19H4M17.5,12L22,14V17C22,19.78 20.08,22.37 17.5,23C14.92,22.37 13,19.78 13,17V14L17.5,12M17.5,13.94L15,15.06V17.72C15,19.26 16.07,20.7 17.5,21.06V13.94Z\"/></svg></span><span><span class=\"ds-choice-title\">Server or client certificate</span><span class=\"ds-muted\">For RADIUS, web, VPN, and other servers.</span><dl class=\"ds-detail\"><dt>Signed by</dt><dd>The intermediate CA</dd></dl></span></label><label class=\"ds-choice\"><input type=\"radio\" name=\"ds-k\"><span class=\"ds-choice-icon\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1Z\"/></svg></span><span><span class=\"ds-choice-title\">Subordinate CA</span><span class=\"ds-muted\">Another CA, for example Meraki's SCEP CA.</span><dl class=\"ds-detail\"><dt>Signed by</dt><dd>The root CA</dd></dl></span></label></div>",
+      "css": ".ds-mdi { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; } .ds-choices { font-family: Roboto, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif; display: grid; gap: 12px; font-size: 14px; line-height: 20px; color: var(--primary-text-color, #212121); } .ds-choice { display: flex; gap: 16px; align-items: flex-start; padding: 16px; border: 1px solid color-mix(in srgb, var(--primary-text-color, #212121) 28%, transparent); border-radius: 12px; cursor: pointer; transition: border-color .15s, background-color .15s; } .ds-choice:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 5%, transparent); } .ds-choice:has(input:checked) { border-color: var(--primary-color, #03a9f4); box-shadow: inset 0 0 0 1px var(--primary-color, #03a9f4); background: color-mix(in srgb, var(--primary-color, #03a9f4) 6%, transparent); } .ds-choice input { accent-color: var(--primary-color, #03a9f4); width: 18px; height: 18px; margin: 3px 0 0; } .ds-choice-icon { color: color-mix(in srgb, var(--primary-color, #03a9f4) 66%, #000); } .ds-choice-title { display: block; font-size: 16px; line-height: 24px; font-weight: 500; } .ds-muted { display: block; color: var(--secondary-text-color, #616161); margin-top: 2px; } .ds-detail { display: none; margin: 8px 0 0; } .ds-choice:has(input:checked) .ds-detail { display: block; } .ds-detail dt { color: var(--secondary-text-color, #616161); font-size: 12px; } .ds-detail dd { margin: 0; }"
+    },
+    {
+      "name": "Copy Field",
+      "kind": "custom",
+      "refersTo": "copy-field",
+      "description": "A whole value to copy (link or one-time password) in a recessed mono well with a copy icon button; copying confirms with the toast.",
+      "html": "<div class=\"ds-copy\"><span class=\"ds-mono\">https://ha.example.net/api/step_ca_scep/enroll/9f2c</span><button class=\"ds-icon-btn\" aria-label=\"Copy link\"><svg class=\"ds-mdi\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z\"/></svg></button></div>",
+      "css": ".ds-mdi { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; } .ds-copy { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; min-height: 48px; border-radius: 8px; background: var(--secondary-background-color, #e5e5e5); color: var(--primary-text-color, #212121); } .ds-mono { flex: 1; min-width: 0; font-family: ui-monospace, \"SF Mono\", \"Roboto Mono\", Menlo, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; } .ds-icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 0; padding: 0; background: transparent; color: var(--secondary-text-color, #616161); cursor: pointer; } .ds-icon-btn .ds-mdi { width: 20px; height: 20px; } .ds-icon-btn:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 5%, transparent); color: var(--primary-text-color, #212121); } .ds-icon-btn:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Settings Page That Was Always There",
+    "overview": "The panel is a native Home Assistant Settings subpage, played straight at Home Assistant's own craft level. It borrows HA's theme custom properties, its Material Design Icons, and the shapes of its own components (hass-tabs-subpage toolbar, ha-card, ha-data-table, ha-settings-row, ha-expansion-panel, ha-alert, ha-dialog). An admin opening it from the sidebar should not be able to find the seam. Inside the HA frame a small script reads the parent document's computed theme variables and copies them onto this page, watching for theme changes, so a custom HA theme recolors the panel live. Outside the frame the page carries HA's own default light and dark values and follows `prefers-color-scheme`.\n\nDensity is Settings-page density: 14px body text, 56–64px rows, outlined cards on a flat page background, a 3:2 two-column grid that collapses to one column. Depth comes from 1px divider outlines and tonal tints, not from shadows. Trust data (fingerprints, serials, URLs, validity) is set in monospace and always sits next to a copy action. Reference material stays collapsed in expansion panels until it is needed.\n\nMotion is small and functional: 150ms state transitions on hover and border, a 200ms chevron rotation on expansion panels, and the panel's one authored motion, the copy toast rising and the confirm dialog scaling in on an exponential ease-out. Reduced motion turns the dialog animation, the toast transition, and the chevron rotation off.",
+    "keyCharacteristics": [
+      "HA custom properties are the only palette; the parent theme overrides them live.",
+      "Light and dark modes, chosen by the parent theme's luminance in the frame and by `prefers-color-scheme` outside it.",
+      "Outlined, flat 12px cards; shadows only on the dialog, the toast, and a filled button on hover.",
+      "MDI icons inlined as SVG paths at 24px (20px in tabs and icon buttons, 18px in buttons and chips).",
+      "Two weights (400 and 500), Roboto stack, monospace kept for literal machine values.",
+      "Mobile moves the tabs into a fixed 56px bottom bar."
+    ],
+    "rules": [
+      {
+        "name": "The Borrowed Theme Rule",
+        "body": "Every color comes from an HA custom property (`--primary-color`, `--primary-background-color`, `--card-background-color`, `--primary-text-color`, `--secondary-text-color`, `--divider-color`, the four status colors) or a `color-mix()` of them. The only fixed values are the toast, the white QR backing, the dialog scrim, and white text on filled buttons.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mixed Ink Rule",
+        "body": "A theme color is never used raw as text or as a fill behind text. Use the ink tokens for text and the fill tokens for button backgrounds; they exist so a custom theme's accent stays legible.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tint-Not-Fill Rule",
+        "body": "Status is shown as a 12–16% tint with an ink-mixed foreground (chips, alerts, tiles). Solid status fills are reserved for the destructive button.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Weights Rule",
+        "body": "Only 400 and 500. `<b>` renders at 500. No bold, no light.",
+        "section": "typography"
+      },
+      {
+        "name": "The Machine Literal Rule",
+        "body": "Monospace is for values a machine reads or a person copies character by character: serials, fingerprints, URLs, distinguished names, extensions, PEM, passwords. Add-on option names in prose are set in medium weight, not monospace.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Dates, times, table cells, and validity labels use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Progressive Reference Rule",
+        "body": "The common job is open; reference values and secondary tools sit in collapsed expansion panels inside a card. A URL hash naming a panel's id opens it, so links and redirects can point straight at a tool.",
+        "section": "layout"
+      },
+      {
+        "name": "The Outlined Not Lifted Rule",
+        "body": "A card is a 1px outline on a flat plane. If something needs more presence, it gets a tint or a heading, not a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** read every color from an HA custom property or a `color-mix()` of one, so the parent theme can override it.",
+      "**Do** use accent ink for themed text and the deep accent fill behind white text; never the raw primary.",
+      "**Do** show status as a 12–16% tint with an ink-mixed foreground and, on chips, an 8px dot.",
+      "**Do** put a copy icon button next to every serial, fingerprint, URL, and password, and confirm it with the toast.",
+      "**Do** inline MDI icons as SVG paths from the shared icon set at 24, 20, or 18px.",
+      "**Do** keep reference values and secondary tools in collapsed expansion panels and give each panel an id the URL hash can open.",
+      "**Do** route every irreversible action through the confirm dialog.",
+      "**Do** turn off the dialog animation, toast transition, and chevron rotation under `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** hard-code a color the HA theme cannot override, beyond the toast, the QR backing, the scrim, and white button text.",
+      "**Don't** add shadows to cards, rows, or panels; use the 1px outline and tonal tints.",
+      "**Don't** use weights other than 400 and 500, or set headings in medium weight.",
+      "**Don't** use monospace for prose, labels, or add-on option names.",
+      "**Don't** fill a status chip, alert, or tile solid with its status color.",
+      "**Don't** load external fonts, icons, scripts, or images; the CSP allows inline CSS and nonce'd inline JS only."
+    ]
+  }
+}

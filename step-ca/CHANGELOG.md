@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.30.2.25
+
+- Redesigned the panel and the enrollment pages to follow Home Assistant's
+  own look, and to take on your Home Assistant theme when opened from the
+  sidebar.
+- **Certificates**: a health bar shows how many certificates are active,
+  expiring soon, expired, and revoked. Each row shows how much of its
+  validity is left.
+- **Enroll**: the one-time link form and the link list sit on the left.
+  Enrolling this computer and issuing a certificate now sit on the right.
+- **Authority** shows only the CA: the root and intermediate (folded into
+  panels), the CA chain, bundle, and CRL downloads, and the endpoint URLs.
+- New **Tools** tab: **Sign a request**, **Other trusted CAs**, and
+  **Using an MDM** as collapsible panels, plus a read-only summary of the
+  add-on options (issued subject, SCEP challenge, Wi-Fi, storage). When
+  signing, choose server certificate or subordinate CA to see what will be
+  signed, including the CA extensions.
+- Step CA SCEP integration 1.2.2: the setup dialog no longer shows
+  "Translation error: UNCLOSED_TAG".
+
 ## 0.30.2.24
 
 - Download ready-made, unsigned `.mobileconfig` profiles for any MDM under
