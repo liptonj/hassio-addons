@@ -250,11 +250,8 @@ sidebar. There are three ways to get a certificate onto a device:
 
 1. On the Mac or PC, open **Certificates → Enroll devices → Enroll this
    device**.
-2. On a Mac, **Certificate name** defaults to **Serial number of this
-   iPhone, iPad, or Mac** (see [Serial number as the certificate
-   name](#serial-number-as-the-certificate-name)); choose **Custom…** to
-   enter a name such as `josh-macbook` instead. The device type is picked
-   from the browser; change it if needed.
+2. Enter a **Certificate name**, such as `josh-macbook`. The device type is
+   picked from the browser; change it if needed.
 3. **Mac**: choose *iPhone, iPad, or Mac*, click **Download profile**, then
    open **System Settings → General → Device Management** and double-click
    the profile to install it. The Mac creates its own private key and
@@ -271,26 +268,6 @@ Optionally enter an **Email address**, pick a **Group (OU)**, and add
 The page creates a one-hour enrollment link behind the scenes, so the
 enrollment shows up in the links table like any other.
 
-### Serial number as the certificate name
-
-Enrollment links and **Enroll this device** can name the certificate after the
-device's serial number, the way an MDM fills in `$SERIALNUMBER`. Choose
-**Device serial number** for the certificate name, or type a name containing
-`$SERIALNUMBER`, such as `mac-$SERIALNUMBER`. On the device, the name can also
-be picked on the enrollment page.
-
-This works on iPhone, iPad, and Mac only. Their first profile is a *profile
-service*: when it is installed, the device sends its serial number to Home
-Assistant (at `/api/step_ca_scep/enroll/<token>/device`) and gets the real
-profile back, which iOS and macOS then offer to install. On other devices,
-enter a name instead.
-
-The serial number is what the device reports; it is not checked against
-Apple. The one-time challenge in the first profile ties the reply to the link,
-which still works only once. This needs version 1.3.0 of the Home Assistant
-integration, which the add-on installs; restart Home Assistant after updating
-the add-on.
-
 ### Enrollment links
 
 1. Under **New one-time link**, optionally enter a label, a fixed
@@ -301,8 +278,8 @@ the add-on.
    24), and choose whether the profile sets up Wi-Fi.
 2. Click **Create link**. The link and a QR code are shown **once**; copy the
    link or scan the QR code with the device. The link can be used once.
-3. On the device, open the link, enter a certificate name if it was not fixed
-   (or choose the device's serial number), and pick the device type:
+3. On the device, open the link, enter a certificate name if it was not fixed,
+   and pick the device type:
    - **iPhone, iPad, or Mac**: downloads a signed configuration profile with
      the root and intermediate CA, a SCEP payload with a one-time challenge,
      and (if configured) the Wi-Fi network. Install it under **Settings →
@@ -342,8 +319,7 @@ To make updates one tap, every Apple profile from an enrollment link or
   installed one (same Wi-Fi networks, a new certificate, and any Wi-Fi or CA
   changes made since).
 - On a **Mac**, which has no Home Screen icon, the result page shows the
-  update link to bookmark. Profiles for a serial-number name on a Mac get no
-  update link; send a new enrollment link instead.
+  update link to bookmark.
 
 An update link starts working once its profile is installed and lasts 400
 days after each install, so a device updated at least once a year never

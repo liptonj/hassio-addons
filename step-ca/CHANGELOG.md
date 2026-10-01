@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.44
+
+- **Serial number enrollment removed**: enrollment links and **Enroll this
+  device** no longer offer the device's serial number as the certificate
+  name; enter a name instead. Links created with `$SERIALNUMBER` as their
+  name stop working. MDM profiles still use your MDM's serial number
+  variable, which the MDM fills in itself.
+
 ## 0.30.2.43
 
 - **One-tap profile updates**: profiles installed on an iPhone or iPad from an
