@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.30
+
+- **Groups**: adding, editing, or removing a group in the panel applies it
+  right away. step-ca reloads its provisioners without restarting, so
+  devices keep enrolling. Groups changed in the Configuration tab show
+  **Groups not applied** with an **Apply now** button; restarting the add-on
+  still works as a fallback.
+
 ## 0.30.2.29
 
 - **Certificates**: delete revoked and expired certificates from the list,

@@ -324,6 +324,7 @@ input[type=radio], input[type=checkbox] { accent-color: var(--primary-color); wi
 /* A text input with a button beside it, e.g. a challenge and Generate. */
 .input-action { display: flex; gap: 8px; align-items: center; }
 .alert-action { margin-top: 8px; }
+span.alert-action { display: flex; flex-wrap: wrap; gap: 8px; }
 .input-action > input { flex: 1; min-width: 0; }
 /* A menu of known values above the text input it fills ("Custom..." shows the input). */
 .preset + input { margin-top: 8px; }

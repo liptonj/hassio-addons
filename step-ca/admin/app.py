@@ -20,6 +20,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import ssl
 import subprocess
 import threading
@@ -546,6 +547,116 @@ def group_key(group):
             bool(group.get("require_email")))
 
 
+CA_CONFIG = f"{STEP_PATH}/config/ca.json"
+LEAF_TEMPLATE = f"{STEP_PATH}/templates/scep_leaf.tpl"
+LEAF_TEMPLATE_DATA = f"{STEP_PATH}/templates/scep_leaf.json"
+APPLY_LOCK = threading.Lock()
+
+
+def go_minutes(value):
+    """Minutes in a Go duration such as 720h, 90m, or 8760h0m0s."""
+    parts = re.findall(r"([0-9.]+)(h|m|s)", value or "")
+    return sum(float(n) * {"h": 60, "m": 1, "s": 1 / 60}[unit] for n, unit in parts)
+
+
+def step_ca_pid():
+    for entry in os.listdir("/proc"):
+        if entry.isdigit():
+            try:
+                with open(f"/proc/{entry}/comm", encoding="utf-8") as handle:
+                    if handle.read().strip() == "step-ca":
+                        return int(entry)
+            except OSError:
+                continue
+    return None
+
+
+def running_provisioners():
+    """Names of the provisioners step-ca is serving."""
+    context = ssl.create_default_context(cafile=ROOT_CERT)
+    with urllib.request.urlopen(f"{CA_URL}/provisioners?limit=1000", context=context, timeout=5) as resp:
+        return {p["name"]: p for p in json.loads(resp.read()).get("provisioners") or []}
+
+
+def apply_groups(option_groups):
+    """Give step-ca one SCEP provisioner per group and reload it, without a restart.
+
+    The add-on's start script builds the same provisioners from the saved
+    options, so a restart gives the same result. Raises RuntimeError.
+    """
+    global GROUPS
+    groups = [running_group(g) for g in option_groups]
+    with APPLY_LOCK:
+        try:
+            with open(CA_CONFIG, encoding="utf-8") as handle:
+                config = json.load(handle)
+            with open(LEAF_TEMPLATE_DATA, encoding="utf-8") as handle:
+                policy = json.load(handle).get("subjectPolicy") or {}
+        except (OSError, ValueError) as err:
+            raise RuntimeError(f"Could not read step-ca's configuration: {err}") from err
+        provisioners = config.get("authority", {}).get("provisioners") or []
+        base = next((p for p in provisioners if p.get("type") == "SCEP" and p.get("name") == SCEP_PROVISIONER), None)
+        if base is None:
+            raise RuntimeError(f"step-ca has no SCEP provisioner named {SCEP_PROVISIONER}.")
+        claims = base.get("claims") or {}
+        base_default = claims.get("defaultTLSCertDuration") or "24h"
+        base_max = claims.get("maxTLSCertDuration") or base_default
+        webhook = ((base.get("options") or {}).get("webhooks") or [{}])[0].get("url") or ""
+        longest = go_minutes(base_max)
+        made = []
+        for g in groups:
+            entry = json.loads(json.dumps(base))
+            entry["name"] = g["name"]
+            entry.pop("challenge", None)
+            entry["claims"] = dict(claims, defaultTLSCertDuration=g["duration"] or base_default,
+                                   maxTLSCertDuration=g["duration"] or base_max)
+            options = entry.setdefault("options", {})
+            options["x509"] = {"templateFile": LEAF_TEMPLATE,
+                               "templateData": {"subjectPolicy": dict(policy, organizationalUnit=[g["ou"]])}}
+            if webhook:
+                options["webhooks"] = [dict(options["webhooks"][0], url=f"{webhook}/{g['name']}")]
+            longest = max(longest, go_minutes(g["duration"]))
+            made.append(entry)
+        kept = [p for p in provisioners if p is base or p.get("type") != "SCEP"]
+        for p in kept:
+            # .p12 issuing for a group must be allowed the group's lifetime.
+            if p.get("type") == "JWK" and p.get("name") == enroll.ENROLL_PROVISIONER:
+                p_claims = p.setdefault("claims", {})
+                p_claims["maxTLSCertDuration"] = f"{int(longest)}m" if longest > go_minutes(base_max) else base_max
+        at = kept.index(base) + 1
+        config["authority"]["provisioners"] = kept[:at] + made + kept[at:]
+
+        pid = step_ca_pid()
+        if pid is None:
+            raise RuntimeError("step-ca is not running.")
+        tmp = f"{CA_CONFIG}.tmp"
+        try:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(config, handle, indent=2)
+            os.replace(tmp, CA_CONFIG)
+        except OSError as err:
+            raise RuntimeError(f"Could not write step-ca's configuration: {err}") from err
+        # The challenge webhook answers for the new groups before step-ca asks.
+        GROUPS = {g["name"]: g for g in groups}
+        os.kill(pid, signal.SIGHUP)
+        wanted = {SCEP_PROVISIONER, *GROUPS}
+        deadline = time.monotonic() + 15
+        while True:
+            time.sleep(0.5)
+            try:
+                running = running_provisioners()
+                scep = {name for name, p in running.items() if p.get("type") == "SCEP"}
+                if scep == wanted:
+                    break
+            except (OSError, ValueError):
+                pass
+            if time.monotonic() > deadline:
+                raise RuntimeError("step-ca did not load the new groups; see the add-on log, "
+                                   "or restart the add-on to apply them.")
+    print(f"Applied certificate groups without a restart: {', '.join(GROUPS) or 'none'}", flush=True)
+
+
 def check_group_option(entry, others, options):
     """ValueError when a groups entry is invalid or clashes with the others."""
     name, ou = entry["name"], entry["organizational_unit"]
@@ -984,6 +1095,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if m := re.fullmatch(r"/tools/groups/([a-z0-9][a-z0-9_-]{0,31})/delete", path):
             self.group_delete(m.group(1))
+            return
+        if path == "/tools/groups/apply":
+            self.groups_apply()
             return
         if path == "/tools/restart":
             self.restart_addon()
@@ -1973,10 +2087,15 @@ class Handler(BaseHTTPRequestHandler):
     def groups_page(self, query, error="", values=None):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         notice = ui.alert("error", esc(error), "The group was not saved") if error else ""
+        failed = query.get("apply_error", [""])[0]
         if query.get("saved"):
-            notice = ui.alert("success", f"Saved the group <b>{esc(query['saved'][0])}</b>.", "Saved")
+            notice = ui.alert("success", f"Saved the group <b>{esc(query['saved'][0])}</b>."
+                              + ("" if failed else " Devices can enroll in it now."), "Saved")
         elif query.get("deleted"):
-            notice = ui.alert("success", f"Removed the group <b>{esc(query['deleted'][0])}</b>.", "Removed")
+            notice = ui.alert("success", f"Removed the group <b>{esc(query['deleted'][0])}</b>."
+                              + ("" if failed else " Its SCEP URL no longer issues certificates."), "Removed")
+        elif query.get("applied"):
+            notice = ui.alert("success", "step-ca now uses the saved groups.", "Applied")
         elif query.get("error"):
             notice = ui.alert("error", esc(query["error"][0]), "That did not work")
         try:
@@ -1991,13 +2110,18 @@ class Handler(BaseHTTPRequestHandler):
         running = {g["name"]: group_key(g) for g in GROUPS.values()}
         saved = {g.get("name", ""): group_key(running_group(g)) for g in groups}
         if readable and saved != running:
+            reason = (f"Applying them failed: {esc(failed)}<br>" if failed
+                      else "The saved groups differ from the ones step-ca is using, for example after an edit "
+                           "in the Configuration tab. ")
             notice += ui.alert(
                 "warning",
-                "The saved groups differ from the running ones. Restart the add-on to apply them; "
-                "devices cannot enroll while it restarts (about a minute)."
-                f'<form method="post" action="{esc(self.url("/tools/restart"))}" class="alert-action">{csrf}'
-                f'<button class="btn">{ui.icon("restart")}Restart add-on</button></form>',
-                "Restart needed")
+                f"{reason}Apply them now, or restart the add-on if that keeps failing."
+                f'<span class="alert-action">'
+                f'<form method="post" action="{esc(self.url("/tools/groups/apply"))}">{csrf}'
+                f'<button class="btn">{ui.icon("check")}Apply now</button></form>'
+                f'<form method="post" action="{esc(self.url("/tools/restart"))}">{csrf}'
+                f'<button class="btn text">{ui.icon("restart")}Restart add-on</button></form></span>',
+                "Groups not applied")
         base = default_base_url(self.headers)
 
         rows = ""
@@ -2138,7 +2262,8 @@ class Handler(BaseHTTPRequestHandler):
             self.groups_page({}, str(err), values)
             return
         print(f"Saved the certificate group {entry['name']!r} (OU={entry['organizational_unit']})", flush=True)
-        self.redirect("/tools/groups?" + urllib.parse.urlencode({"saved": entry["name"]}))
+        self.redirect("/tools/groups?" + urllib.parse.urlencode({"saved": entry["name"],
+                                                                  **self.apply_saved(options["groups"])}))
 
     def group_delete(self, name):
         try:
@@ -2151,7 +2276,27 @@ class Handler(BaseHTTPRequestHandler):
             self.tools_error("/tools/groups", err)
             return
         print(f"Removed the certificate group {name!r}", flush=True)
-        self.redirect("/tools/groups?" + urllib.parse.urlencode({"deleted": name}))
+        self.redirect("/tools/groups?" + urllib.parse.urlencode({"deleted": name,
+                                                                  **self.apply_saved(options["groups"])}))
+
+    @staticmethod
+    def apply_saved(groups):
+        """Apply saved groups to step-ca; the query to report a failure with."""
+        try:
+            apply_groups(groups)
+        except RuntimeError as err:
+            print(f"Could not apply the certificate groups: {err}", flush=True)
+            return {"apply_error": str(err)}
+        return {}
+
+    def groups_apply(self):
+        try:
+            groups = saved_options().get("groups") or []
+        except RuntimeError as err:
+            self.tools_error("/tools/groups", err)
+            return
+        failed = self.apply_saved(groups)
+        self.redirect("/tools/groups?" + urllib.parse.urlencode(failed or {"applied": "1"}))
 
     def restart_addon(self):
         if not SUPERVISOR_TOKEN:

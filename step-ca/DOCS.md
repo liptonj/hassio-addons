@@ -164,9 +164,11 @@ RADIUS server or firewall can treat them differently. Each group has:
 
 Manage groups under **Certificates → Tools → Groups**: add a group, edit or
 remove one, and click **Generate** for a random challenge. Saving writes the
-add-on options; the panel then shows **Restart needed**, and **Restart** applies
-the change (devices cannot reach the CA for the few seconds it takes). You can
-also edit `groups` in the add-on's Configuration tab:
+add-on options and applies the change at once: step-ca reloads its
+provisioners without a restart, and enrollments in progress are not
+interrupted. If you edit `groups` in the add-on's Configuration tab instead,
+the Groups page shows **Groups not applied**; click **Apply now** (or restart
+the add-on). Other options still take effect on restart. In YAML:
 
 ```yaml
 groups:
