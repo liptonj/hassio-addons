@@ -181,6 +181,17 @@ class LinkStore:
                 link["challenge"] = ""
                 self._save(links)
 
+    def delete(self, link_ids):
+        """Delete links that are no longer pending (used, expired, or cancelled). Returns the count."""
+        with self._lock:
+            links = self._load()
+            gone = [i for i in link_ids if i in links and self.status(links[i]) != "pending"]
+            for link_id in gone:
+                del links[link_id]
+            if gone:
+                self._save(links)
+        return len(gone)
+
     def get(self, token):
         """Return (link_id, link) for a usable token, or (None, None)."""
         if not TOKEN_RE.match(token or ""):

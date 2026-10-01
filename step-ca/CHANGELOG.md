@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.30.2.29
+
+- **Certificates**: delete revoked and expired certificates from the list,
+  one at a time or with **Delete all**. They are only hidden in the panel;
+  revoked certificates stay on the CRL. A deleted certificate's page offers
+  **Restore to the list**.
+- **Enroll**: the links list has **Waiting**, **Used**, **Expired or
+  cancelled**, and **All** filters with counts, shows 10 links per page, and
+  can delete used, expired, and cancelled links one at a time or all at once.
+  Cancelling a link keeps you on the same page.
+
 ## 0.30.2.28
 
 - **Tools** is now a menu with a page for each tool: **Groups**, **MDM

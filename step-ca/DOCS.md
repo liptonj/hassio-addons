@@ -44,8 +44,11 @@ hidden from other users, and the page itself checks each request against
 Home Assistant's user list and refuses anyone who is not an administrator.
 It lets you:
 
-- list issued certificates, filter by active, expired, or revoked, and search
-  by name, SAN, or serial number;
+- list issued certificates, filter by active, expired, or revoked (the list
+  opens on **Active**, so revoked certificates are hidden), and search by
+  name, SAN, or serial number;
+- delete revoked and expired certificates from the list, one at a time or
+  all at once (see [Revocation](#revocation));
 - view a certificate's details and download it as PEM;
 - revoke a certificate with a reason (the CRL is regenerated immediately);
 - download the root CA, intermediate CA, a full CA bundle, and the current
@@ -283,8 +286,11 @@ enrollment shows up in the links table like any other.
      and certificate and offers a password-protected .p12 for 10 minutes,
      plus the root CA certificate and `ca-bundle.pem`. The password is shown
      only once.
-4. Pending, used, expired, and cancelled links are listed on the page. Cancel
-   a pending link to make it unusable.
+4. Links are listed on the page under **Waiting**, **Used**, **Expired or
+   cancelled**, and **All**, 10 to a page. Cancel a waiting link to make it
+   unusable. Delete used, expired, and cancelled links one at a time or all
+   at once; this does not affect their certificates. Links are also removed
+   automatically 30 days after they expire.
 
 Links are served through Home Assistant's own URL, so devices must be able to
 reach it. Nothing needs to be configured: the add-on uses Home Assistant's
@@ -528,6 +534,15 @@ Issued certificates do not contain a CRL distribution point, so configure
 relying systems to download the CRL themselves. For FreeRADIUS, periodically
 fetch `<Home Assistant URL>/api/step_ca_scep/crl?pem` into its CA directory
 and enable CRL checking.
+
+Removing a device's profile from an MDM removes its certificate from the
+device but does not revoke it. Revoke it on **Certificates** if it should no
+longer be accepted.
+
+Revoked and expired certificates can be deleted from the **Certificates**
+list. This only hides them in the panel: step-ca's records are not changed,
+and revoked certificates stay on the CRL until they expire. To bring one
+back, open `…/cert/<serial>` and choose **Restore to the list**.
 
 ## Optional direct ports
 

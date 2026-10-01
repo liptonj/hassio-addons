@@ -30,6 +30,7 @@ ICONS = {
     'link-variant': 'M10.59,13.41C11,13.8 11,14.44 10.59,14.83C10.2,15.22 9.56,15.22 9.17,14.83C7.22,12.88 7.22,9.71 9.17,7.76V7.76L12.71,4.22C14.66,2.27 17.83,2.27 19.78,4.22C21.73,6.17 21.73,9.34 19.78,11.29L18.29,12.78C18.3,11.96 18.17,11.14 17.89,10.36L18.36,9.88C19.54,8.71 19.54,6.81 18.36,5.64C17.19,4.46 15.29,4.46 14.12,5.64L10.59,9.17C9.41,10.34 9.41,12.24 10.59,13.41M13.41,9.17C13.8,8.78 14.44,8.78 14.83,9.17C16.78,11.12 16.78,14.29 14.83,16.24V16.24L11.29,19.78C9.34,21.73 6.17,21.73 4.22,19.78C2.27,17.83 2.27,14.66 4.22,12.71L5.71,11.22C5.7,12.04 5.83,12.86 6.11,13.65L5.64,14.12C4.46,15.29 4.46,17.19 5.64,18.36C6.81,19.54 8.71,19.54 9.88,18.36L13.41,14.83C14.59,13.66 14.59,11.76 13.41,10.59C13,10.2 13,9.56 13.41,9.17Z',
     'clock-alert-outline': 'M11 7V13L16.2 16.1L17 14.9L12.5 12.2V7H11M20 12V18H22V12H20M20 20V22H22V20H20M18 20C16.3 21.3 14.3 22 12 22C6.5 22 2 17.5 2 12S6.5 2 12 2C16.8 2 20.9 5.4 21.8 10H19.7C18.8 6.6 15.7 4 12 4C7.6 4 4 7.6 4 12S7.6 20 12 20C14.4 20 16.5 18.9 18 17.3V20Z',
     'chevron-down': 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z',
+    'chevron-left': 'M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z',
     'chevron-right': 'M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z',
     'plus': 'M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z',
     'delete-outline': 'M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z',
@@ -428,7 +429,12 @@ tr.link-row:has(a.row-link:focus-visible) td { background: var(--hover); box-sha
 td .sub { display: block; color: var(--secondary-text-color); font-size: 13px; line-height: 18px; margin-top: 2px;
   overflow-wrap: anywhere; }
 td.actions { text-align: right; width: 1%; white-space: nowrap; }
-td.actions form { margin: 0; }
+td.actions form { margin: 0; position: relative; z-index: 1; }
+.list-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 0 16px 16px; }
+.list-bar form { margin: 0; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 16px 16px;
+  color: var(--secondary-text-color); }
 .nowrap { white-space: nowrap; }
 .only-mobile, td .sub.only-mobile { display: none; }
 .empty { text-align: center; padding: 40px 16px; color: var(--secondary-text-color); }
@@ -687,19 +693,27 @@ SCRIPT = r"""
     }
   });
 
-  // Confirm before an irreversible form is sent.
+  // Confirm before an irreversible form is sent. Several forms may share one
+  // dialog; data-confirm-name fills its [data-confirm-name] slot.
+  document.querySelectorAll("dialog").forEach(function (dialog) {
+    var yes = dialog.querySelector("[data-confirm-yes]"), no = dialog.querySelector("[data-confirm-no]");
+    if (yes) yes.addEventListener("click", function () {
+      var form = dialog.pendingForm;
+      dialog.close();
+      if (form) form.submit();
+    });
+    if (no) no.addEventListener("click", function () { dialog.close(); });
+  });
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     var dialog = document.getElementById(form.getAttribute("data-confirm"));
     if (!dialog || !dialog.showModal) return;
     form.addEventListener("submit", function (event) {
       event.preventDefault();
+      var slot = dialog.querySelector("[data-confirm-name]");
+      if (slot && form.hasAttribute("data-confirm-name")) slot.textContent = form.getAttribute("data-confirm-name");
+      dialog.pendingForm = form;
       dialog.showModal();
     });
-    dialog.querySelector("[data-confirm-yes]").addEventListener("click", function () {
-      dialog.close();
-      form.submit();
-    });
-    dialog.querySelector("[data-confirm-no]").addEventListener("click", function () { dialog.close(); });
   });
 
   // The Tools menu closes on a click elsewhere, on Escape, or when another opens.

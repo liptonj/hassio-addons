@@ -715,6 +715,56 @@ def status_chip(c, now=None):
 
 
 EXPIRING_DAYS = 30
+DELETABLE = ("revoked", "expired")
+
+
+class DeletedCerts:
+    """Serials of revoked or expired certificates deleted from the panel's list.
+
+    step-ca's records are left alone: a revoked certificate must stay on the
+    CRL until it expires, and the panel only has read access to the database.
+    """
+
+    def __init__(self, path=f"{STEP_PATH}/enroll/deleted_certs.json"):
+        self._path = path
+        self._lock = threading.Lock()
+
+    def _load(self):
+        try:
+            with open(self._path, encoding="utf-8") as handle:
+                serials = json.load(handle)
+            return set(serials) if isinstance(serials, list) else set()
+        except (OSError, ValueError):
+            return set()
+
+    def _save(self, serials):
+        os.makedirs(os.path.dirname(self._path), exist_ok=True)
+        tmp = f"{self._path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(sorted(serials), handle)
+        os.replace(tmp, self._path)
+
+    def all(self):
+        with self._lock:
+            return self._load()
+
+    def add(self, serials):
+        with self._lock:
+            current = self._load()
+            new = set(serials) - current
+            if new:
+                self._save(current | new)
+        return len(new)
+
+    def restore(self, serial):
+        with self._lock:
+            current = self._load()
+            if serial in current:
+                current.discard(serial)
+                self._save(current)
+
+
+DELETED = DeletedCerts()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -851,7 +901,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/tools/options":
                 self.options_page()
             elif path == "/enroll":
-                self.enroll_page()
+                self.enroll_page(query=query)
             elif path == "/enroll/self":
                 self.self_enroll_page()
             elif m := ENROLL_SELF_FILE_RE.fullmatch(path):
@@ -949,7 +999,37 @@ class Handler(BaseHTTPRequestHandler):
             return
         if m := re.fullmatch(r"/enroll/([0-9a-f]{64})/cancel", path):
             LINKS.cancel(m.group(1))
-            self.redirect("/enroll")
+            self.redirect(self.links_return(form))
+            return
+        if m := re.fullmatch(r"/enroll/([0-9a-f]{64})/delete", path):
+            LINKS.delete([m.group(1)])
+            self.redirect(self.links_return(form))
+            return
+        if path == "/enroll/links/delete":
+            view = form.get("view", [""])[0]
+            ids = [link["id"] for link in LINKS.all() if link["state"] in self.LINK_VIEWS.get(view, ())]
+            n = LINKS.delete(ids)
+            self.redirect(f"/enroll?{urllib.parse.urlencode({'links': view, 'deleted': n})}")
+            return
+        if path == "/certs/delete":
+            status = form.get("status", [""])[0]
+            if status not in DELETABLE or not db_enabled():
+                self.redirect("/")
+                return
+            n = DELETED.add(c["serial"] for c in fetch_certs() if c["status"] == status)
+            self.redirect(f"/?{urllib.parse.urlencode({'status': status, 'deleted': n})}")
+            return
+        if m := re.fullmatch(r"/cert/([0-9]{1,80})/(delete|restore)", path):
+            serial, action = m.groups()
+            if action == "restore":
+                DELETED.restore(serial)
+                self.redirect(f"/cert/{serial}?restored=1")
+                return
+            certs = fetch_certs(serial) if db_enabled() else []
+            if certs and certs[0]["status"] in DELETABLE:
+                DELETED.add([serial])
+            back = form.get("back", [""])[0]
+            self.redirect(f"/?{urllib.parse.urlencode({'status': back if back in DELETABLE else 'active', 'deleted': 1})}")
             return
         m = re.fullmatch(r"/cert/([0-9]+)/revoke", path)
         if not m or not SERIAL_RE.match(m.group(1)):
@@ -980,7 +1060,7 @@ class Handler(BaseHTTPRequestHandler):
                 f'<a href="{esc(self.url("/ca"))}">Authority</a>.') + "</div>"
         )
 
-    def health(self, certs, counts, now):
+    def health(self, counts, now, on_crl):
         """One row of tiles: the CA's validity, then what needs attention."""
         try:
             root, inter = cert_chain()
@@ -1012,7 +1092,8 @@ class Handler(BaseHTTPRequestHandler):
             + tile("info", "certificate", f'{counts["active"]} active', "certificates in use", "active")
             + tile("warn" if soon else "neutral", "clock-alert-outline", f"{soon} expiring",
                    f"within {EXPIRING_DAYS} days", "expiring")
-            + tile("neutral", "cancel", f'{counts["revoked"]} revoked', "listed on the CRL", "revoked")
+            + tile("neutral", "cancel", f'{counts["revoked"]} revoked',
+                   "listed on the CRL" if on_crl == counts["revoked"] else f"{on_crl} on the CRL", "revoked")
             + "</section>"
         )
 
@@ -1024,7 +1105,10 @@ class Handler(BaseHTTPRequestHandler):
         if status not in ("all", "active", "expiring", "expired", "revoked"):
             status = "active"
         search = query.get("q", [""])[0].strip()
-        certs = fetch_certs()
+        deleted = DELETED.all()
+        every = fetch_certs()
+        on_crl = sum(1 for c in every if c["status"] == "revoked")
+        certs = [c for c in every if c["serial"] not in deleted]
         now = datetime.datetime.now(datetime.timezone.utc)
         counts = {s: sum(1 for c in certs if c["status"] == s) for s in ("active", "expired", "revoked")}
         counts["expiring"] = sum(1 for c in certs if expiring(c, now))
@@ -1067,8 +1151,19 @@ class Handler(BaseHTTPRequestHandler):
                 f'<td class="hide-mobile">{esc(c["ou"]) or "—"}'
                 f'<span class="sub">{esc(c["provisioner"])}</span></td>'
                 f'<td class="hide-mobile mono nowrap">{esc(c["serial"][:12])}{"…" if len(c["serial"]) > 12 else ""}</td>'
-                "</tr>"
+                f'<td class="actions">{delete_form(c)}</td></tr>'
             )
+
+        def delete_form(c):
+            if c["status"] not in DELETABLE:
+                return ""
+            return (f'<form method="post" action="{esc(self.url("/cert/" + c["serial"] + "/delete"))}" '
+                    f'data-confirm="delete-cert-dialog" data-confirm-name="{esc(c["cn"] or "this certificate")}">'
+                    f'{csrf}<input type="hidden" name="back" value="{esc(status)}">'
+                    f'<button class="icon-btn" aria-label="Delete {esc(c["cn"] or "certificate")} from the list" '
+                    f'title="Delete from the list">{ui.icon("delete-outline")}</button></form>')
+
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
 
         empty_titles = {"active": "No active certificates", "expiring": "Nothing expires soon",
                         "expired": "No expired certificates", "revoked": "No revoked certificates",
@@ -1076,13 +1171,37 @@ class Handler(BaseHTTPRequestHandler):
         if shown:
             rows = "".join(row(c) for c in shown)
         elif search:
-            rows = (f'<tr><td colspan="6">{ui.empty_state("magnify", "No certificates match", f"Nothing matches “{esc(search)}” here. Try All.")}</td></tr>')
+            rows = (f'<tr><td colspan="7">{ui.empty_state("magnify", "No certificates match", f"Nothing matches “{esc(search)}” here. Try All.")}</td></tr>')
         else:
-            rows = (f'<tr><td colspan="6">{ui.empty_state("certificate", empty_titles[status], "Enroll a device to issue one." if status in ("active", "all") else "")}</td></tr>')
-        rows += (f'<tr class="no-match" hidden><td colspan="6">'
+            rows = (f'<tr><td colspan="7">{ui.empty_state("certificate", empty_titles[status], "Enroll a device to issue one." if status in ("active", "all") else "")}</td></tr>')
+        rows += (f'<tr class="no-match" hidden><td colspan="7">'
                  f'{ui.empty_state("magnify", "No certificates match", "Try another name, alternative name, or serial.")}</td></tr>')
+        notice = ""
+        if "deleted" in query:
+            n = query["deleted"][0]
+            notice = ui.alert("success", "Revoked certificates stay on the CRL until they expire. "
+                              "Open a deleted certificate by its serial to restore it.",
+                              f"Deleted {esc(n)} certificate{'' if n == '1' else 's'} from the list")
+        bar = ""
+        if status in DELETABLE and counts[status]:
+            n = counts[status]
+            bar = (
+                '<div class="list-bar"><span class="muted">'
+                + ("Revoked certificates stay on the CRL until they expire, also when deleted here."
+                   if status == "revoked" else "Expired certificates are no longer accepted anywhere.")
+                + f'</span><form method="post" action="{esc(self.url("/certs/delete"))}" data-confirm="delete-all-dialog">'
+                f'{csrf}<input type="hidden" name="status" value="{esc(status)}">'
+                f'<button class="btn text danger">{ui.icon("delete-outline")}Delete all {n} {status}</button></form></div>'
+                f'<dialog id="delete-all-dialog" aria-labelledby="delete-all-title">'
+                f'<h2 id="delete-all-title">Delete all {n} {status} certificates from the list?</h2>'
+                "<p>They are removed from this list only. "
+                + ("They stay on the CRL, so they remain revoked. " if status == "revoked" else "")
+                + "You can restore one by opening it by its serial.</p>"
+                '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                '<button type="button" class="btn danger" data-confirm-yes>Delete</button></div></dialog>'
+            )
         body = (
-            self.health(certs, counts, now)
+            notice + self.health(counts, now, on_crl)
             + '<div class="card">'
             f'<form class="list-tools" method="get" action="{esc(self.url("/"))}" role="search">'
             f'<input type="hidden" name="status" value="{esc(status)}">'
@@ -1091,10 +1210,17 @@ class Handler(BaseHTTPRequestHandler):
             'placeholder="Search name, alternative name, or serial" data-filter-table="certs" autocomplete="off"></div>'
             f'<a class="btn" href="{esc(self.url("/enroll"))}">{ui.icon("plus")}Enroll device</a></form>'
             f'<nav class="filters" aria-label="Status">{filters}</nav>'
-            '<div class="table-wrap"><table id="certs"><thead><tr><th>Name</th><th>Status</th>'
+            + bar
+            + '<div class="table-wrap"><table id="certs"><thead><tr><th>Name</th><th>Status</th>'
             '<th class="hide-mobile">Expires</th><th class="hide-mobile">Issued</th>'
-            '<th class="hide-mobile">Group (OU)</th><th class="hide-mobile">Serial</th></tr></thead>'
+            '<th class="hide-mobile">Group (OU)</th><th class="hide-mobile">Serial</th>'
+            '<th><span class="visually-hidden">Actions</span></th></tr></thead>'
             f"<tbody>{rows}</tbody></table></div></div>"
+            '<dialog id="delete-cert-dialog" aria-labelledby="delete-cert-title">'
+            '<h2 id="delete-cert-title">Delete <span data-confirm-name>this certificate</span> from the list?</h2>'
+            "<p>It is removed from this list only. A revoked certificate stays on the CRL until it expires.</p>"
+            '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+            '<button type="button" class="btn danger" data-confirm-yes>Delete</button></div></dialog>'
         )
         self.page("Certificates", body)
 
@@ -1113,6 +1239,15 @@ class Handler(BaseHTTPRequestHandler):
             msg = ui.alert("error", esc(query["error"][0]), "Revocation failed")
         elif "revoked" in query:
             msg = ui.alert("success", "The CRL has been updated.", "Certificate revoked")
+        elif "restored" in query:
+            msg = ui.alert("success", "It is shown in the certificate list again.", "Certificate restored")
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        if serial in DELETED.all():
+            msg += ui.alert(
+                "info", "It is hidden from the certificate list. "
+                f'<form method="post" action="{esc(self.url("/cert/" + serial + "/restore"))}" class="alert-action">'
+                f'{csrf}<button class="btn text">Restore to the list</button></form>',
+                "Deleted from the list")
         fingerprint = c["cert"].fingerprint(hashes.SHA256()).hex()
         details = [
             ("Subject", f'<span class="mono">{esc(c["subject"])}</span>', ""),
@@ -1170,6 +1305,24 @@ class Handler(BaseHTTPRequestHandler):
                 '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
                 '<button type="button" class="btn danger" data-confirm-yes>Revoke</button></div></dialog>'
             )
+        delete_card = ""
+        if c["status"] in DELETABLE and serial not in DELETED.all():
+            delete_card = (
+                '<div class="card"><div class="card-header"><h2>Delete from the list</h2>'
+                '<p class="muted">Removes this certificate from the certificate list. '
+                + ("It stays on the CRL until it expires, so it remains revoked. " if c["status"] == "revoked" else "")
+                + "You can restore it here later.</p></div>"
+                f'<div class="card-actions"><form method="post" action="{esc(self.url("/cert/" + serial + "/delete"))}" '
+                'data-confirm="delete-cert-dialog">'
+                f'{csrf}<input type="hidden" name="back" value="{esc(c["status"])}">'
+                f'<button class="btn text danger">{ui.icon("delete-outline")}Delete</button></form></div></div>'
+                '<dialog id="delete-cert-dialog" aria-labelledby="delete-cert-title">'
+                f'<h2 id="delete-cert-title">Delete {esc(c["cn"] or "this certificate")} from the list?</h2>'
+                "<p>" + ("It stays on the CRL, so it remains revoked. " if c["status"] == "revoked" else "")
+                + "You can restore it from this page.</p>"
+                '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                '<button type="button" class="btn danger" data-confirm-yes>Delete</button></div></dialog>'
+            )
         body = (
             msg + revoked_note
             + '<div class="card"><div class="cert-head">'
@@ -1181,7 +1334,7 @@ class Handler(BaseHTTPRequestHandler):
             f'{ui.icon("download")}Download PEM</a></div></div>'
             '<div class="card"><div class="card-header"><h2>Details</h2></div>'
             f'<dl class="card-content flush rows">{dl}</dl></div>'
-            + revoke_form
+            + revoke_form + delete_card
         )
         self.page(c["cn"] or "Certificate", body, back="/", narrow=True, heading="Certificate")
 
@@ -1379,7 +1532,21 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.p12_result(token, link_id, link, cn)
 
-    def enroll_page(self, notice=""):
+    LINK_VIEWS = {"waiting": ("pending",), "used": ("issued",), "ended": ("expired", "cancelled"),
+                  "all": ("pending", "issued", "expired", "cancelled")}
+    LINKS_PER_PAGE = 10
+
+    def links_return(self, form):
+        """Where to go back to after acting on a link: the view and page it was done from."""
+        view = form.get("view", [""])[0]
+        page = form.get("page", [""])[0]
+        params = {"links": view if view in self.LINK_VIEWS else "waiting"}
+        if page.isdigit() and page != "1":
+            params["page"] = page
+        return "/enroll?" + urllib.parse.urlencode(params)
+
+    def enroll_page(self, notice="", query=None):
+        query = query or {}
         base_url, base_source = detect_base_url(self.headers)
         signer_ok, signer_html = signer_status()
         wifi_opt = ""
@@ -1390,15 +1557,36 @@ class Handler(BaseHTTPRequestHandler):
             )
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         now = datetime.datetime.now(datetime.timezone.utc)
+        links = LINKS.all()
+        view = query.get("links", ["waiting"])[0]
+        if view not in self.LINK_VIEWS:
+            view = "waiting"
+        counts = {v: sum(link["state"] in states for link in links) for v, states in self.LINK_VIEWS.items()}
+        shown = [link for link in links if link["state"] in self.LINK_VIEWS[view]]
+        pages = max(1, -(-len(shown) // self.LINKS_PER_PAGE))
+        try:
+            page = min(max(int(query.get("page", ["1"])[0]), 1), pages)
+        except ValueError:
+            page = 1
+        shown = shown[(page - 1) * self.LINKS_PER_PAGE:page * self.LINKS_PER_PAGE]
+        where = (f'<input type="hidden" name="view" value="{view}">'
+                 f'<input type="hidden" name="page" value="{page}">')
         rows = ""
-        for link in LINKS.all():
+        for link in shown:
             state = link["state"]
             kind = {"pending": "info", "issued": "ok", "expired": "neutral"}.get(state, "bad")
-            cancel = ""
+            name = link["label"] or link["cn"] or "this link"
             if state == "pending":
                 cancel = (
                     f'<form method="post" action="{esc(self.url("/enroll/" + link["id"] + "/cancel"))}">'
-                    f'{csrf}<button class="btn text danger">Cancel</button></form>'
+                    f'{csrf}{where}<button class="btn text danger">Cancel</button></form>'
+                )
+            else:
+                cancel = (
+                    f'<form method="post" action="{esc(self.url("/enroll/" + link["id"] + "/delete"))}" '
+                    f'data-confirm="delete-link-dialog" data-confirm-name="{esc(name)}">{csrf}{where}'
+                    f'<button class="icon-btn" aria-label="Delete {esc(name)}" title="Delete">'
+                    f'{ui.icon("delete-outline")}</button></form>'
                 )
             expires = datetime.datetime.fromtimestamp(link["expires"], datetime.timezone.utc)
             rows += (
@@ -1412,7 +1600,49 @@ class Handler(BaseHTTPRequestHandler):
                 f'<td class="hide-mobile nowrap">{ui.when(expires, now)}</td>'
                 f'<td class="actions">{cancel}</td></tr>'
             )
-        rows = rows or (f'<tr><td colspan="5">{ui.empty_state("link-variant", "No enrollment links yet", "Links you create appear here until they expire.")}</td></tr>')
+        empty = {"waiting": ("No links waiting", "Links you create appear here until they are used or expire."),
+                 "used": ("No used links", "Links appear here once a device has enrolled."),
+                 "ended": ("No expired or cancelled links", ""),
+                 "all": ("No enrollment links yet", "Links you create appear here.")}[view]
+        rows = rows or (f'<tr><td colspan="5">{ui.empty_state("link-variant", *empty)}</td></tr>')
+        labels = {"waiting": "Waiting", "used": "Used", "ended": "Expired or cancelled", "all": "All"}
+        link_filters = "".join(
+            f'<a class="filter" href="{esc(self.url("/enroll") + "?" + urllib.parse.urlencode({"links": v}))}"'
+            f'{" aria-current=true" if v == view else ""}>'
+            f'{ui.icon("check") if v == view else ""}{labels[v]} <span class="count">{counts[v]}</span></a>'
+            for v in labels
+        )
+        if "deleted" in query:
+            n = query["deleted"][0]
+            notice += ui.alert("success", "", f"Deleted {esc(n)} link{'' if n == '1' else 's'}")
+        bar = ""
+        if view in ("used", "ended") and counts[view]:
+            n = counts[view]
+            what = "used" if view == "used" else "expired or cancelled"
+            bar = (
+                f'<div class="list-bar"><span class="muted">Deleting a link does not affect its certificate.</span>'
+                f'<form method="post" action="{esc(self.url("/enroll/links/delete"))}" data-confirm="delete-links-dialog">'
+                f'{csrf}<input type="hidden" name="view" value="{view}">'
+                f'<button class="btn text danger">{ui.icon("delete-outline")}Delete all {n} {what}</button></form></div>'
+                '<dialog id="delete-links-dialog" aria-labelledby="delete-links-title">'
+                f'<h2 id="delete-links-title">Delete all {n} {what} links?</h2>'
+                "<p>Certificates issued through them are not affected.</p>"
+                '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                '<button type="button" class="btn danger" data-confirm-yes>Delete</button></div></dialog>'
+            )
+        pager = ""
+        if pages > 1:
+            def page_link(n, icon, label):
+                if n < 1 or n > pages:
+                    return f'<span class="icon-btn" aria-disabled="true">{ui.icon(icon)}</span>'
+                href = self.url("/enroll") + "?" + urllib.parse.urlencode({"links": view, "page": n})
+                return f'<a class="icon-btn" href="{esc(href)}" aria-label="{label}" title="{label}">{ui.icon(icon)}</a>'
+            pager = (
+                '<nav class="pager" aria-label="Pages">'
+                + page_link(page - 1, "chevron-left", "Previous page")
+                + f"<span>Page {page} of {pages}</span>"
+                + page_link(page + 1, "chevron-right", "Next page") + "</nav>"
+            )
         advanced_open = " open" if not base_url.startswith("https://") else ""
         body = (
             notice
@@ -1445,11 +1675,18 @@ class Handler(BaseHTTPRequestHandler):
             'class="input-short"></div>'
             + wifi_opt + "</div></details>"
             f'<div class="card-actions"><button class="btn">{ui.icon("qrcode")}Create link</button></div></form>'
-            '<div class="card"><div class="card-header"><h2>Links</h2></div>'
-            '<div class="table-wrap"><table><thead><tr>'
+            '<div class="card" id="links"><div class="card-header"><h2>Links</h2></div>'
+            f'<nav class="filters" aria-label="Link status">{link_filters}</nav>'
+            + bar
+            + '<div class="table-wrap"><table><thead><tr>'
             '<th>Label</th><th>Certificate</th><th>Status</th><th class="hide-mobile">Expires</th>'
             '<th><span class="visually-hidden">Actions</span></th></tr></thead>'
-            f"<tbody>{rows}</tbody></table></div></div>"
+            f"<tbody>{rows}</tbody></table></div>{pager}</div>"
+            '<dialog id="delete-link-dialog" aria-labelledby="delete-link-title">'
+            '<h2 id="delete-link-title">Delete <span data-confirm-name></span>?</h2>'
+            "<p>The link is removed from the list. Its certificate is not affected.</p>"
+            '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+            '<button type="button" class="btn danger" data-confirm-yes>Delete</button></div></dialog>'
             "</div><div>"
             '<div class="card"><div class="row">'
             f'<span class="row-icon">{ui.icon("laptop")}</span><span class="row-text">'
