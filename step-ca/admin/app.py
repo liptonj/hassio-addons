@@ -814,12 +814,19 @@ def wifi_help():
     if not wifi_enabled():
         return ""
     names = WIFI.get("radius_server_names") or []
+    service = enroll.radius_service(WIFI)
+    if service:
+        names = names + [n for n in service["server_names"] if n not in names]
+        ca = (f'{esc(enroll.common_name(service["roots"][0]))}, a public root '
+              "(Android: Use system certificates)")
+    elif enroll.load_extra_cas():
+        ca = "ca-bundle.pem above (Android: install it as a CA certificate)"
+    else:
+        ca = "the root CA above (Android: install it as a CA certificate)"
     rows = [
         ("Network (SSID)", esc(WIFI["ssid"])),
         ("Security", f'{esc(WIFI.get("security", "WPA2"))} Enterprise, EAP method <b>TLS</b>'),
-        ("CA certificate", "ca-bundle.pem above (Android: install it as a CA certificate)"
-         if enroll.load_extra_cas() else
-         "the root CA above (Android: install it as a CA certificate)"),
+        ("CA certificate", ca),
         ("Identity", "your certificate name"),
     ]
     if names:
@@ -2039,7 +2046,9 @@ class Handler(BaseHTTPRequestHandler):
             + authority("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem", False)
             + '<h3 class="subhead">Downloads</h3><div class="rows">'
             + download_row("file-certificate-outline", "CA chain",
-                           "Intermediate and root, for MDMs and RADIUS servers",
+                           "Intermediate and root, for MDMs and RADIUS servers. In Meraki Access "
+                           "Manager, upload it as one entry under Certificates, Enabled, with Trusted "
+                           "Anchor on",
                            "/download/ca-chain.pem", "ca-chain.pem")
             + download_row("file-certificate-outline", "CA bundle",
                            "Root, intermediate" + (", and the other trusted CAs" if extra else ""),
@@ -2347,7 +2356,11 @@ class Handler(BaseHTTPRequestHandler):
 
         challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
                      ui.chip("warn", "Not set") + " Needed for MDM profiles in the default group")
-        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, EAP-TLS" if wifi_enabled() else "Off")
+        service = enroll.radius_service(WIFI)
+        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, EAP-TLS"
+                + (f", RADIUS {esc(service['label'])} ({esc(', '.join(service['server_names']))})"
+                   if service else "")
+                if wifi_enabled() else "Off")
         groups = "<br>".join(
             f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
             + (f"valid {esc(g['duration'])}, " if g["duration"] else "")

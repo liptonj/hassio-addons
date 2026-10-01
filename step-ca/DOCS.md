@@ -654,8 +654,47 @@ Wi-Fi network added to Apple profiles. Leave `ssid` empty for none.
 - `security`: `WPA2`, `WPA3`, or `Any`.
 - `hidden`: the network does not broadcast its name.
 - `auto_join`: join automatically.
+- `radius_server`: `custom` (default) for your own RADIUS server, whose CA
+  you add under **Tools > Other trusted CAs**; or `meraki_access_manager`,
+  which makes devices trust Meraki Access Manager's RADIUS certificate. See
+  [Cisco Meraki Access Manager](#cisco-meraki-access-manager).
 - `radius_server_names`: names in your RADIUS server's certificate that
   devices should trust.
+
+Apple profiles trust only the CAs they install for the Wi-Fi server's
+certificate and do not ask the user. If the RADIUS server's certificate does
+not chain to one of them, the device never joins the network.
+
+### Cisco Meraki Access Manager
+
+EAP-TLS needs trust in both directions.
+
+**Devices trust Meraki.** Access Manager's RADIUS server presents a
+certificate for `eap.meraki.com` issued under IdenTrust Commercial Root CA 1.
+Set `wifi.radius_server: meraki_access_manager`; every Wi-Fi profile
+(enrollment links, **Enroll this device**, and MDM downloads) then installs
+that root as a trusted anchor and trusts the server name `eap.meraki.com`.
+No upload is needed. Devices that installed a profile before the change need
+the new one: remove the old profile and enroll again, or push the new MDM
+profile.
+
+**Meraki trusts devices.** In Meraki, go to **Access Manager > Configure >
+Certificates** and upload **CA chain** (`ca-chain.pem`, from **Authority**;
+rename it to `.crt` if Meraki asks) as a single entry. Set its status to
+**Enabled** and turn **Trusted Anchor** on. Do not upload `ca-bundle.pem` or
+the root and intermediate again as separate entries; Meraki rejects devices
+with "The provided certificate is untrusted… signer being disabled, extra or
+duplicate certificates in the chain" when the CA is missing, disabled, or
+duplicated.
+
+Access Manager matches a certificate field, ideally the email address, to the
+user's Entra ID UPN; see [Requiring an email address](#requiring-an-email-address).
+
+With Meraki Systems Manager, download the profile with **Certificates, SCEP,
+and Wi-Fi** under **Tools > MDM**, so the Wi-Fi payload uses this CA's
+certificate and trusts Meraki's server. A Wi-Fi payload configured separately
+in Systems Manager cannot use the certificate from a custom profile. If the
+device joined the SSID by hand before, forget the network first.
 
 ## Administration
 

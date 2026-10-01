@@ -46,6 +46,50 @@ PUBLIC_BASE = "/api/step_ca_scep"
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
 DOWNLOAD_RE = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
 LINK_ID_RE = re.compile(r"^[0-9a-f]{64}$")
+
+# Hosted RADIUS services whose server certificate chains to a public root.
+# Wi-Fi profiles trust that root and the service's server names, so devices
+# join without an upload under Other trusted CAs.
+IDENTRUST_COMMERCIAL_ROOT_CA_1 = x509.load_pem_x509_certificate(b"""\
+-----BEGIN CERTIFICATE-----
+MIIFYDCCA0igAwIBAgIQCgFCgAAAAUUjyES1AAAAAjANBgkqhkiG9w0BAQsFADBK
+MQswCQYDVQQGEwJVUzESMBAGA1UEChMJSWRlblRydXN0MScwJQYDVQQDEx5JZGVu
+VHJ1c3QgQ29tbWVyY2lhbCBSb290IENBIDEwHhcNMTQwMTE2MTgxMjIzWhcNMzQw
+MTE2MTgxMjIzWjBKMQswCQYDVQQGEwJVUzESMBAGA1UEChMJSWRlblRydXN0MScw
+JQYDVQQDEx5JZGVuVHJ1c3QgQ29tbWVyY2lhbCBSb290IENBIDEwggIiMA0GCSqG
+SIb3DQEBAQUAA4ICDwAwggIKAoICAQCnUBneP5k91DNG8W9RYYKyqU+PZ4ldhNlT
+3Qwo2dfw/66VQ3KZ+bVdfIrBQuExUHTRgQ18zZshq0PirK1ehm7zCYofWjK9ouuU
++ehcCuz/mNKvcbO0U59Oh++SvL3sTzIwiEsXXlfEU8L2ApeN2WIrvyQfYo3fw7gp
+S0l4PJNgiCL8mdo2yMKi1CxUAGc1bnO/AljwpN3lsKImesrgNqUZFvX9t++uP0D1
+bVoE/c40yiTcdCMbXTMTEl3EASX2MN0CXZ/g1Ue9tOsbobtJSdifWwLziuQkkORi
+T0/Br4sOdBeo0XKIanoBScy0RnnGF7HamB4HWfp1IYVl3ZBWzvurpWCdxJ35UrCL
+vYf5jysjCiN2O/cz4ckA82n5S6LgTrx+kzmEB/dEcH7+B1rlsazRGMzyNeVJSQjK
+Vsk9+w8YfYs7wRPCTY/JTw436R+hDmrfYi7LNQZReSzIJTj0+kuniVyc0uMNOYZK
+dHzVWYfCP04MXFL0PfdSgvHqo6z9STQaKPNBiDoT7uje/5kdX7rL6B7yuVBgwDHT
+c+XvvqDtMwt0viAgxGds8AgDelWAf0ZOlqf0Hj7h9tgJ4TNkK2PXMl6f+cB7D3hv
+l7yTmvmcEpB4eoCHFddydJxVdHixuuFucAS6T6C6aMN7/zHwcz09lCqxC0EOoP5N
+iGVreTO01wIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB
+/zAdBgNVHQ4EFgQU7UQZwNPwBovupHu+QucmVMiONnYwDQYJKoZIhvcNAQELBQAD
+ggIBAA2ukDL2pkt8RHYZYR4nKM1eVO8lvOMIkPkp165oCOGUAFjvLi5+U1KMtlwH
+6oi6mYtQlNeCgN9hCQCTrQ0U5s7B8jeUeLBfnLOic7iPBZM4zY0+sLj7wM+x8uwt
+LRvM7Kqas6pgghstO8OEPVeKlh6cdbjTMM1gCIOQ045U8U1mwF10A0Cj7oV+wh93
+nAbowacYXVKV7cndJZ5t+qntozo00Fl72u1Q8zW/7esUTTHHYPTa8Yec4kjixsU3
++wYQ+nVZZjFHKdp2mhzpgq7vmrlR94gjmmmVYjzlVYA211QC//G5Xc7UI2/YRYRK
+W2XviQzdFKcgyxilJbQN+QHwotL0AMh0jqEqSI5l2xPE4iUXfeu+h1sXIFRRk0pT
+AwvsXcoz7WL9RccvW9xYoIA55vrX/hMUpu09lEpCdNTDd1lzzY9GvlU47/rokTLq
+l1gEIt44w8y8bckzOmoKaT+gyOpyj4xjhiO9bTyWnpXgSUyqorkqG5w2gXjtw+hG
+4iZZRHUe2XWJUc0QhJ1hYMtd+ZciTY6Y5uN/9lu7rs3KSoFrXgvzUeF0K+l+J6fZ
+mUlO+KWA2yUPHGNiiskzZ2s8EIPGrd6ozRaOjfAHN3Gf8qv8QfXBi+wAN10J5U6A
+7/qxXDgGpRtK4dw4LTzcqx+QGtVKnO7RcGzM7vRX+Bi6hG6H
+-----END CERTIFICATE-----
+""")
+RADIUS_SERVICES = {
+    "meraki_access_manager": {
+        "label": "Cisco Meraki Access Manager",
+        "server_names": ["eap.meraki.com"],
+        "roots": [IDENTRUST_COMMERCIAL_ROOT_CA_1],
+    },
+}
 CN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._@-]{0,63}$")
 BASE_URL_RE = re.compile(r"^https?://(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:[0-9]{1,5})?$")
 CHALLENGE_SECONDS = 3600
@@ -326,6 +370,11 @@ def save_extra_cas(certs, path=EXTRA_CA_FILE):
             handle.write(cert.public_bytes(serialization.Encoding.PEM))
     os.chmod(tmp, 0o644)
     os.replace(tmp, path)
+
+
+def radius_service(wifi):
+    """The hosted RADIUS service selected in the Wi-Fi options, or None."""
+    return RADIUS_SERVICES.get((wifi or {}).get("radius_server") or "")
 
 
 def fingerprint(cert):
@@ -658,6 +707,24 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
     if has_wifi:
         eap = {"AcceptEAPTypes": [13], "UserName": cn, "TLSMinimumVersion": "1.2"}
         server_names = [n for n in wifi.get("radius_server_names") or [] if n]
+        service = radius_service(wifi)
+        if service:
+            known = {fingerprint(c) for c in extra_cas}
+            for cert in service["roots"]:
+                if fingerprint(cert) in known:
+                    continue
+                service_uuid = str(uuid.uuid4()).upper()
+                anchors.append(service_uuid)
+                payloads.append({
+                    "PayloadType": "com.apple.security.root",
+                    "PayloadVersion": 1,
+                    "PayloadIdentifier": f"{prefix}.radius-ca.{fingerprint(cert)[:16]}",
+                    "PayloadUUID": service_uuid,
+                    "PayloadDisplayName": common_name(cert),
+                    "PayloadCertificateFileName": "radius_ca.cer",
+                    "PayloadContent": cert.public_bytes(serialization.Encoding.DER),
+                })
+            server_names += [n for n in service["server_names"] if n not in server_names]
         if server_names:
             eap["TLSTrustedServerNames"] = server_names
         payloads.append({
@@ -673,7 +740,8 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "IsHotspot": False,
             "EAPClientConfiguration": eap,
             # The identity comes from the SCEP payload; the RADIUS server's
-            # certificate must chain to this CA or an uploaded extra CA.
+            # certificate must chain to this CA, an uploaded extra CA, or the
+            # selected RADIUS service's root.
             "PayloadCertificateUUID": scep_uuid,
             "PayloadCertificateAnchorUUID": anchors,
         })

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.30.2.32
+
+- **Wi-Fi**: new `radius_server` option. With `meraki_access_manager`, Wi-Fi
+  profiles (enrollment links and MDM downloads) trust Meraki Access
+  Manager's RADIUS certificate (IdenTrust Commercial Root CA 1,
+  `eap.meraki.com`), so iPhones and Macs join without an upload under
+  **Other trusted CAs**. Before, profiles trusted only this CA and the
+  uploaded CAs, so devices silently refused Meraki's server and never
+  joined.
+- **Docs**: Meraki Access Manager setup, including uploading **CA chain** as
+  one enabled entry with Trusted Anchor on.
+
 ## 0.30.2.31
 
 - **Enroll**: the new link form asks for the certificate name, an **Email

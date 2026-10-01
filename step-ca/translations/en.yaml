@@ -136,6 +136,12 @@ configuration:
         description: The network does not broadcast its name.
       auto_join:
         name: Join automatically
+      radius_server:
+        name: RADIUS server
+        description: >-
+          custom: your own RADIUS server; add its CA under Tools > Other trusted CAs and set the
+          server names. meraki_access_manager: devices trust Meraki Access Manager's RADIUS
+          certificate (eap.meraki.com) without an upload.
       radius_server_names:
         name: RADIUS server names
         description: Names in your RADIUS server's certificate that devices should trust.
