@@ -611,6 +611,10 @@ SCRIPT = r"""
 (function () {
   var root = document.documentElement;
   root.classList.add("js");
+  // iPadOS Safari says it is a Mac; touch tells them apart.
+  document.querySelectorAll("input[data-touch]").forEach(function (input) {
+    input.value = navigator.maxTouchPoints > 1 ? "1" : "";
+  });
 
   // Wear the user's Home Assistant theme when shown inside Home Assistant.
   var NAMES = ["--primary-color", "--primary-background-color", "--secondary-background-color",

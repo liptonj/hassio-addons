@@ -15,18 +15,22 @@ Link tokens and SCEP challenges are stored only as SHA-256 hashes.
 import base64
 import binascii
 import datetime
+import functools
 import hashlib
 import ipaddress
 import json
+import math
 import os
 import plistlib
 import re
 import secrets
+import struct
 import subprocess
 import tempfile
 import threading
 import time
 import uuid
+import zlib
 
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
@@ -93,6 +97,8 @@ RADIUS_SERVICES = {
 CN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._@-]{0,63}$")
 BASE_URL_RE = re.compile(r"^https?://(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:[0-9]{1,5})?$")
 CHALLENGE_SECONDS = 3600
+# An update link lasts this long after its profile was last installed.
+UPDATE_SECONDS = 400 * 86400
 DOWNLOAD_SECONDS = 600
 KEEP_SECONDS = 30 * 86400
 P12_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
@@ -170,7 +176,9 @@ class LinkStore:
 
     def _save(self, links):
         now = _now()
-        links = {k: v for k, v in links.items() if v["expires"] + KEEP_SECONDS > now}
+        # Update links whose profile was never installed are dropped as soon as they expire.
+        links = {k: v for k, v in links.items()
+                 if v["expires"] + (0 if v.get("renewable") and not v.get("active") else KEEP_SECONDS) > now}
         tmp = f"{self._path}.tmp"
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -181,13 +189,27 @@ class LinkStore:
     def status(link):
         if link["status"] == "pending" and link["expires"] < _now():
             return "expired"
+        if link["status"] == "pending" and link.get("renewable"):
+            return "update"
         return link["status"]
 
-    def create(self, *, label, cn, base_url, wifi, hours, created_by, sans=(), group=""):
+    @classmethod
+    def active(cls, link):
+        return cls.status(link) in ("pending", "update")
+
+    def create(self, *, label, cn, base_url, wifi, hours, created_by, sans=(), group="", parent=None):
+        """New link; returns its token.
+
+        parent: the link whose profile carries this one as its update link. The
+        update link is renewable (it can install the profile again and again)
+        and lasts only an hour until that profile is installed.
+        """
         token = secrets.token_urlsafe(32)
         now = _now()
         with self._lock:
             links = self._load()
+            if parent in links:
+                links[parent]["update_link"] = _hash(token)
             links[_hash(token)] = {
                 "label": label,
                 "cn": cn,
@@ -205,6 +227,7 @@ class LinkStore:
                 "issued_cn": "",
                 "issued_at": 0,
                 "method": "",
+                **({"renewable": True} if parent is not None else {}),
             }
             self._save(links)
         return token
@@ -212,7 +235,9 @@ class LinkStore:
     def all(self):
         with self._lock:
             links = self._load()
-        rows = [dict(v, id=k, state=self.status(v)) for k, v in links.items()]
+        # An update link is listed once the profile that carries it is installed.
+        rows = [dict(v, id=k, state=self.status(v)) for k, v in links.items()
+                if not v.get("renewable") or v.get("active")]
         rows.sort(key=lambda r: r["created"], reverse=True)
         return rows
 
@@ -220,7 +245,7 @@ class LinkStore:
         with self._lock:
             links = self._load()
             link = links.get(link_id)
-            if link and self.status(link) == "pending":
+            if link and self.active(link):
                 link["status"] = "cancelled"
                 link["challenge"] = ""
                 self._save(links)
@@ -229,7 +254,7 @@ class LinkStore:
         """Delete links that are no longer pending (used, expired, or cancelled). Returns the count."""
         with self._lock:
             links = self._load()
-            gone = [i for i in link_ids if i in links and self.status(links[i]) != "pending"]
+            gone = [i for i in link_ids if i in links and not self.active(links[i])]
             for link_id in gone:
                 del links[link_id]
             if gone:
@@ -248,7 +273,7 @@ class LinkStore:
         link_id = _hash(token)
         with self._lock:
             link = self._load().get(link_id)
-        if link is None or self.status(link) != "pending" and not (
+        if link is None or not self.active(link) and not (
                 device and link["status"] == "pending" and link["challenge_expires"] >= _now()):
             return None, None
         return link_id, link
@@ -263,7 +288,7 @@ class LinkStore:
         with self._lock:
             links = self._load()
             link = links.get(link_id)
-            if link is None or (link["status"] if device else self.status(link)) != "pending":
+            if link is None or not (link["status"] == "pending" if device else self.active(link)):
                 return None
             link["challenge"] = _hash(challenge)
             link["challenge_cn"] = cn
@@ -312,8 +337,16 @@ class LinkStore:
                 if (link["challenge_expires"] < now or link["challenge_cn"] != cn
                         or uses_serial(cn) or link.get("group", "") != group):
                     return None
-                link.update(status="issued", challenge="", issued_cn=cn,
-                            issued_at=now, method="SCEP profile")
+                if link.get("renewable"):
+                    # An update link stays usable, for a while after each install.
+                    link.update(challenge="", issued_cn=cn, issued_at=now, method="Profile update",
+                                expires=now + UPDATE_SECONDS, active=True)
+                else:
+                    link.update(status="issued", challenge="", issued_cn=cn,
+                                issued_at=now, method="SCEP profile")
+                    update = links.get(link.get("update_link", ""))
+                    if update and update["status"] == "pending":
+                        update.update(expires=now + UPDATE_SECONDS, active=True)
                 self._save(links)
                 return link_id
         return None
@@ -742,10 +775,64 @@ def wifi_payload(wifi, prefix, identifiers, platform=None):
     return payload
 
 
+@functools.lru_cache(maxsize=1)
+def update_icon(size=180, background=(0x03, 0xA9, 0xF4)):
+    """PNG for the Update Home Screen icon: a white circular arrow on Home Assistant blue."""
+    centre, radius, width = size / 2, size * 0.29, size * 0.09
+    gap_start, gap_end = math.radians(-10), math.radians(60)  # the arc's opening, at the upper right
+    # Arrowhead at the upper end of the arc, pointing clockwise into the gap.
+    tip_angle = gap_end
+    ax, ay = centre + radius * math.cos(tip_angle), centre - radius * math.sin(tip_angle)
+    head = size * 0.13
+    tangent = (math.sin(tip_angle), math.cos(tip_angle))  # clockwise direction in screen coordinates
+    normal = (math.cos(tip_angle), -math.sin(tip_angle))
+    triangle = [
+        (ax + tangent[0] * head, ay + tangent[1] * head),
+        (ax + normal[0] * head, ay + normal[1] * head),
+        (ax - normal[0] * head, ay - normal[1] * head),
+    ]
+
+    def inside_triangle(x, y):
+        (x1, y1), (x2, y2), (x3, y3) = triangle
+        d1 = (x - x2) * (y1 - y2) - (x1 - x2) * (y - y2)
+        d2 = (x - x3) * (y2 - y3) - (x2 - x3) * (y - y3)
+        d3 = (x - x1) * (y3 - y1) - (x3 - x1) * (y - y1)
+        return not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0))
+
+    def white(x, y):
+        dx, dy = x - centre, centre - y
+        if abs(math.hypot(dx, dy) - radius) <= width / 2:
+            angle = math.atan2(dy, dx)
+            if not gap_start < angle < gap_end:
+                return True
+        return inside_triangle(x, y)
+
+    samples = (0.25, 0.75)
+    rows = []
+    for y in range(size):
+        row = bytearray(b"\0")
+        for x in range(size):
+            cover = sum(white(x + sx, y + sy) for sx in samples for sy in samples) / 4
+            row += bytes(round(c + (255 - c) * cover) for c in background)
+        rows.append(bytes(row))
+
+    def chunk(kind, data):
+        return (struct.pack(">I", len(data)) + kind + data
+                + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"".join(rows), 9))
+            + chunk(b"IEND", b""))
+
+
 def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi,
                   extra_cas=(), sans=(), include_scep=True, system_scope=False, identifier=None,
-                  display_name=None, email_sans=(), platform=None):
+                  display_name=None, email_sans=(), platform=None, update_url=None):
     """Return an unsigned .mobileconfig (XML plist) for SCEP enrollment.
+
+    update_url adds a Home Screen icon (iPhone and iPad only) that opens this
+    URL, where the device can install the newest profile again.
 
     With include_scep=False only the certificate payloads are included (and no
     Wi-Fi, which needs the SCEP identity). system_scope installs the profile
@@ -862,6 +949,20 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "PayloadCertificateAnchorUUID": anchors,
         })
         payloads.append(payload)
+    if update_url:
+        payloads.append({
+            "PayloadType": "com.apple.webClip.managed",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{prefix}.update.{_identifier_part(cn)}",
+            "PayloadUUID": str(uuid.uuid4()).upper(),
+            "PayloadDisplayName": "Update icon",
+            "URL": update_url,
+            "Label": "Update Wi-Fi" if has_wifi else "Update Cert",
+            "IsRemovable": True,
+            "FullScreen": False,
+            "Precomposed": True,
+            "Icon": update_icon(),
+        })
     if platform != "ios" and any(n.get("mac_login_window") for n in networks):
         # Joining at the Mac login window needs the identity in the System keychain.
         system_scope = True

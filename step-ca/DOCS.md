@@ -314,8 +314,8 @@ the add-on.
      and certificate and offers a password-protected .p12 for 10 minutes,
      plus the root CA certificate and `ca-bundle.pem`. The password is shown
      only once.
-4. Links are listed on the page under **Waiting**, **Used**, **Expired or
-   cancelled**, and **All**, 10 to a page. Cancel a waiting link to make it
+4. Links are listed on the page under **Waiting**, **Used**, **Update
+   links**, **Expired or cancelled**, and **All**, 10 to a page. Cancel a waiting link to make it
    unusable. Delete used, expired, and cancelled links one at a time or all
    at once; this does not affect their certificates. Links are also removed
    automatically 30 days after they expire.
@@ -328,6 +328,33 @@ URL is shown, and can be changed, when you create a link.
 
 The .p12 files use 3DES and SHA-1 so that Android, Windows, and older Apple
 devices can import them.
+
+### Updating an installed profile
+
+A profile installed without an MDM is not renewed or changed on its own: the
+device enrolls once, and when the certificate expires Wi-Fi stops working.
+To make updates one tap, every Apple profile from an enrollment link or
+**Enroll this device** comes with its own **update link**:
+
+- On an **iPhone or iPad**, the profile adds an **Update** icon to the Home
+  Screen. Tapping it opens the update page; **Continue** downloads the
+  newest profile for the same certificate name, which replaces the
+  installed one (same Wi-Fi networks, a new certificate, and any Wi-Fi or CA
+  changes made since).
+- On a **Mac**, which has no Home Screen icon, the result page shows the
+  update link to bookmark. Profiles for a serial-number name on a Mac get no
+  update link; send a new enrollment link instead.
+
+An update link starts working once its profile is installed and lasts 400
+days after each install, so a device updated at least once a year never
+loses it. It can only install the profile for its own certificate name.
+Update links are listed under **Update links**; cancel one to turn its icon
+off (the icon stays on the device but shows that the link is not valid).
+Revoke the old certificate as usual if the device should lose access.
+
+This is not a push channel: Apple only lets an MDM change a profile without
+the user. For updates without a tap, use an MDM (see
+[Using an MDM](#using-an-mdm)).
 
 ### Wi-Fi in the profile
 

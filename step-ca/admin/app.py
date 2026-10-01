@@ -841,7 +841,20 @@ MDM_VARIABLES = (
 )
 
 
-def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
+def update_link(token, link_id, link, cn):
+    """URL of the update link a profile for this link carries, creating one if needed.
+
+    An update link reinstalls the newest profile for cn; it starts working for
+    longer once the profile that carries it is installed (see LinkStore).
+    """
+    if not link.get("renewable"):
+        token = LINKS.create(label=f"Updates: {cn}", cn=cn, base_url=link["base_url"], wifi=link["wifi"],
+                             hours=1, created_by=link.get("created_by", ""), sans=link.get("sans") or (),
+                             group=link.get("group", ""), parent=link_id)
+    return f"{link['base_url']}{enroll.PUBLIC_BASE}/enroll/{token}"
+
+
+def profile_for(cn, challenge, base_url, wifi, sans=(), group="", update_url=None):
     root, inter = cert_chain()
     organization = ""
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
@@ -852,6 +865,7 @@ def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=organization, root=root, intermediate=inter,
         wifi=default_networks() if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
+        update_url=update_url,
     )
     return SIGNER.sign(xml)
 
@@ -1764,7 +1778,7 @@ class Handler(BaseHTTPRequestHandler):
             + f'<form class="card" method="post" action="{esc(action)}">'
             f'<div class="card-header"><h1>Get a certificate</h1>'
             f'<p class="muted">From {esc(CA_NAME)}. Pick the kind of device you are enrolling.</p></div>'
-            '<div class="card-content">' + hidden + name + extra
+            '<div class="card-content">' + hidden + '<input type="hidden" name="touch" data-touch>' + name + extra
             + '<fieldset class="field"><legend class="label">Device</legend><div class="choices">'
             f'<label class="choice"><input type="radio" name="kind" value="apple"{" checked" if apple else ""}>'
             f'<span class="choice-icon">{ui.icon("apple")}</span><span>'
@@ -1780,6 +1794,32 @@ class Handler(BaseHTTPRequestHandler):
         self.page("Enroll device", body, back="/enroll", narrow=True)
 
     @staticmethod
+    def update_note(update_url, ios):
+        """How to install this profile again later, from its update link."""
+        if ios:
+            return ui.alert("info", "The profile also adds an <b>Update</b> icon to the Home Screen. Tap it "
+                            "to install the newest profile, for example to renew the certificate or pick up "
+                            "Wi-Fi changes.", "Updates")
+        return ui.alert("info", "To install the newest profile later, for example to renew the certificate "
+                        "or pick up Wi-Fi changes, open this link on this device. Bookmark it; it works "
+                        f'for 400 days after each install.<br><span class="mono">{esc(update_url)}</span>'
+                        + ui.copy_button(update_url, "update link"), "Updates")
+
+    def update_page(self, action, link, error=""):
+        """Page of an update link: install the newest profile for its certificate."""
+        wifi = f" and Wi-Fi {wifi_names()}" if link["wifi"] and wifi_enabled() else ""
+        body = (
+            (ui.alert("error", esc(error)) if error else "")
+            + f'<form class="card" method="post" action="{esc(action)}">'
+            '<input type="hidden" name="kind" value="apple"><input type="hidden" name="touch" data-touch>'
+            f'<div class="card-header"><h1>Update the profile</h1>'
+            f'<p class="muted">Installs the newest profile from {esc(CA_NAME)} for <b>{esc(link["cn"])}</b>, '
+            f"with a new certificate{wifi}. It replaces the one installed now.</p></div>"
+            '<div class="card-actions"><button class="btn">Continue</button></div></form>'
+        )
+        self.page("Update the profile", body, narrow=True)
+
+    @staticmethod
     def name_error(cn, kind):
         """Why the certificate name chosen on the device form cannot be used, or ""."""
         if not enroll.valid_cn_template(cn):
@@ -1789,7 +1829,12 @@ class Handler(BaseHTTPRequestHandler):
                     "enter the certificate name for this device.")
         return ""
 
-    def apple_result(self, token, link_id, link, cn):
+    def is_ios(self, form):
+        """Whether the form came from an iPhone or iPad (iPadOS Safari says it is a Mac)."""
+        return bool(IOS_UA_RE.search(self.headers.get("User-Agent", ""))) or form.get("touch", [""])[0] == "1"
+
+    def apple_result(self, token, link_id, link, cn, ios=False):
+        """ios: the profile also gets a Home Screen icon that installs the newest profile."""
         if enroll.uses_serial(cn):
             self.profile_service_result(token, link_id, link, cn)
             return
@@ -1797,9 +1842,11 @@ class Handler(BaseHTTPRequestHandler):
         if challenge is None:
             self.gone()
             return
+        update_url = update_link(token, link_id, link, cn)
         try:
             data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled(),
-                               link.get("sans") or (), link.get("group", ""))
+                               link.get("sans") or (), link.get("group", ""),
+                               update_url if ios else None)
         except (RuntimeError, OSError, ValueError) as err:
             print(f"Could not build profile: {err}", flush=True)
             self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
@@ -1823,6 +1870,7 @@ class Handler(BaseHTTPRequestHandler):
             "</ol></div></div>"
             + ui.alert("info", "The profile works once and must be installed within an hour. If the "
                        "install fails, start the enrollment again to get a fresh profile.")
+            + self.update_note(update_url, ios)
         )
         self.page("Install the profile", body, back="/enroll", narrow=True)
 
@@ -1866,6 +1914,9 @@ class Handler(BaseHTTPRequestHandler):
             "</ol></div></div>"
             + ui.alert("info", "The profile works once and must be installed within an hour. If the "
                        "install fails, start the enrollment again to get a fresh profile.")
+            + ui.alert("info", "On an iPhone or iPad the profile also adds an <b>Update</b> icon to the Home "
+                       "Screen. Tap it to install the newest profile, for example to renew the certificate "
+                       "or pick up Wi-Fi changes.", "Updates")
         )
         self.page("Install the profile", body, back="/enroll", narrow=True)
 
@@ -1942,12 +1993,12 @@ class Handler(BaseHTTPRequestHandler):
                              wifi=wifi_enabled(), hours=1, created_by=who, sans=sans, group=group)
         link_id, link = LINKS.get(token)
         if form.get("kind", [""])[0] == "apple":
-            self.apple_result(token, link_id, link, cn)
+            self.apple_result(token, link_id, link, cn, self.is_ios(form))
         else:
             self.p12_result(token, link_id, link, cn)
 
-    LINK_VIEWS = {"waiting": ("pending",), "used": ("issued",), "ended": ("expired", "cancelled"),
-                  "all": ("pending", "issued", "expired", "cancelled")}
+    LINK_VIEWS = {"waiting": ("pending",), "used": ("issued",), "updates": ("update",),
+                  "ended": ("expired", "cancelled"), "all": ("pending", "issued", "update", "expired", "cancelled")}
     LINKS_PER_PAGE = 10
 
     def links_return(self, form):
@@ -1988,9 +2039,9 @@ class Handler(BaseHTTPRequestHandler):
         rows = ""
         for link in shown:
             state = link["state"]
-            kind = {"pending": "info", "issued": "ok", "expired": "neutral"}.get(state, "bad")
+            kind = {"pending": "info", "issued": "ok", "update": "ok", "expired": "neutral"}.get(state, "bad")
             name = link["label"] or link["cn"] or "this link"
-            if state == "pending":
+            if state in ("pending", "update"):
                 cancel = (
                     f'<form method="post" action="{esc(self.url("/enroll/" + link["id"] + "/cancel"))}">'
                     f'{csrf}{where}<button class="btn text danger">Cancel</button></form>'
@@ -2016,10 +2067,13 @@ class Handler(BaseHTTPRequestHandler):
             )
         empty = {"waiting": ("No links waiting", "Links you create appear here until they are used or expire."),
                  "used": ("No used links", "Links appear here once a device has enrolled."),
+                 "updates": ("No update links", "An iPhone or iPad that installs its profile gets an Update "
+                             "icon; its link appears here, and cancelling it turns the icon off."),
                  "ended": ("No expired or cancelled links", ""),
                  "all": ("No enrollment links yet", "Links you create appear here.")}[view]
         rows = rows or (f'<tr><td colspan="5">{ui.empty_state("link-variant", *empty)}</td></tr>')
-        labels = {"waiting": "Waiting", "used": "Used", "ended": "Expired or cancelled", "all": "All"}
+        labels = {"waiting": "Waiting", "used": "Used", "updates": "Update links",
+                  "ended": "Expired or cancelled", "all": "All"}
         link_filters = "".join(
             f'<a class="filter" href="{esc(self.url("/enroll") + "?" + urllib.parse.urlencode({"links": v}))}"'
             f'{" aria-current=true" if v == view else ""}>'
@@ -3216,6 +3270,7 @@ def parse_multipart(content_type, body):
 
 
 APPLE_UA_RE = re.compile(r"iPhone|iPad|iPod|Macintosh|Mac OS X")
+IOS_UA_RE = re.compile(r"iPhone|iPad|iPod")
 ENROLL_PATH_RE = re.compile(
     r"^/enroll/([A-Za-z0-9_-]{32,64})(?:/(file/[A-Za-z0-9_-]{20,64}|root_ca\.crt|device))?$")
 
@@ -3270,6 +3325,9 @@ class EnrollHandler(Handler):
             if link is None:
                 self.gone()
                 return
+            if link.get("renewable"):
+                self.update_page(self.public(f"/enroll/{token}"), link)
+                return
             self.form_page(self.public(f"/enroll/{token}"), link)
 
     def do_POST(self):
@@ -3291,12 +3349,16 @@ class EnrollHandler(Handler):
         if link is None:
             self.gone()
             return
+        if link.get("renewable"):
+            # An update link only reinstalls the profile for its certificate.
+            self.apple_result(token, link_id, link, link["cn"], self.is_ios(form))
+            return
         cn = (link["cn"] or form.get("cn", [""])[0]).strip()
         if error := self.name_error(cn, form.get("kind", [""])[0]):
             self.form_page(self.public(f"/enroll/{token}"), link, error, cn)
             return
         if form.get("kind", [""])[0] == "apple":
-            self.apple_result(token, link_id, link, cn)
+            self.apple_result(token, link_id, link, cn, self.is_ios(form))
         else:
             self.p12_result(token, link_id, link, cn)
 
@@ -3350,9 +3412,11 @@ class EnrollHandler(Handler):
         if challenge is None:
             self.send(410, "This enrollment link has expired or was already used.", "text/plain")
             return
+        ios = str(attributes.get("PRODUCT") or "").startswith(("iPhone", "iPad", "iPod"))
         try:
             data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled(),
-                               link.get("sans") or (), link.get("group", ""))
+                               link.get("sans") or (), link.get("group", ""),
+                               update_link(token, link_id, link, cn) if ios else None)
         except (RuntimeError, OSError, ValueError) as err:
             print(f"Could not build profile: {err}", flush=True)
             self.send(500, "The profile could not be created", "text/plain")

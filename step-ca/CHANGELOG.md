@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.43
+
+- **One-tap profile updates**: profiles installed on an iPhone or iPad from an
+  enrollment link add an **Update** icon to the Home Screen. Tapping it
+  installs the newest profile for the same certificate, which renews the
+  certificate and picks up Wi-Fi changes. Macs get the update link to
+  bookmark. Update links are listed under **Update links** and can be
+  cancelled; each lasts 400 days after the profile was last installed.
+
 ## 0.30.2.42
 
 - **Serial number enrollment**: fixes "Could not obtain the final profile
