@@ -207,8 +207,8 @@ an email address**) on the groups whose certificates must carry one:
 
 - the SCEP webhook refuses a request without an email SAN for the group,
   from an MDM or an enrollment link;
-- enrollment links, **Enroll this device**, and .p12 issuing ask for an
-  email under **Alternative names** and refuse to continue without one;
+- enrollment links, **Enroll this device**, and .p12 issuing make the
+  **Email address** field required and refuse to continue without one;
 - MDM profiles for the group need the **Email address** variable, for
   example `{{userprincipalname}}` in Intune or `$OWNEREMAIL` in Meraki.
 
@@ -261,7 +261,8 @@ sidebar. There are three ways to get a certificate onto a device:
    Import `root_ca.crt` into **Trusted Root Certification Authorities** if
    Windows does not already trust the CA.
 
-Optionally enter **Alternative names** (see
+Optionally enter an **Email address**, pick a **Group (OU)**, and add
+**Other alternative names** (see
 [Subject alternative names](#subject-alternative-names)).
 
 The page creates a one-hour enrollment link behind the scenes, so the
@@ -269,10 +270,12 @@ enrollment shows up in the links table like any other.
 
 ### Enrollment links
 
-1. Under **Create an enrollment link**, optionally enter a label, a fixed
-   certificate name, and alternative names, check the Home Assistant URL the device will use, set
-   how long the link is valid (default `enrollment.link_hours`, 24), and
-   choose whether the profile sets up Wi-Fi.
+1. Under **New one-time link**, optionally enter a label, a fixed
+   certificate name, and an **Email address**, and pick a **Group (OU)**,
+   the same fields as **Enroll this device**. Under **More options**, add
+   other alternative names, check the Home Assistant URL the device will
+   use, set how long the link is valid (default `enrollment.link_hours`,
+   24), and choose whether the profile sets up Wi-Fi.
 2. Click **Create link**. The link and a QR code are shown **once**; copy the
    link or scan the QR code with the device. The link can be used once.
 3. On the device, open the link, enter a certificate name if it was not fixed,
@@ -317,9 +320,9 @@ domain).
 ### Subject alternative names
 
 Enrollment links, **Enroll this device**, and **Issue a certificate now**
-take optional **Alternative names**: email addresses, DNS names, and IP
-addresses separated by commas (e.g. `josh@example.com, laptop.example.com,
-192.0.2.10`). The type of each entry is detected automatically. Only
+have an **Email address** field, typically the user's sign-in email, and
+optional **Other alternative names**: more email addresses, DNS names, and
+IP addresses separated by commas (e.g. `laptop.example.com, 192.0.2.10`). The type of each entry is detected automatically. Only
 administrators can set them; people opening an enrollment link cannot.
 
 Apple profiles support email addresses and DNS names only, so IP addresses

@@ -482,7 +482,7 @@ def group_select(field_id, selected="", hint=""):
         f'{", email required" if group_requires_email(g) else ""}</option>'
         for g in ["", *GROUPS]
     )
-    return (f'<div class="field"><label for="{field_id}">Group</label>'
+    return (f'<div class="field"><label for="{field_id}">Group (OU)</label>'
             f'<select id="{field_id}" name="group">{options}</select>'
             + (f'<p class="hint">{hint}</p>' if hint else "") + "</div>")
 
@@ -775,16 +775,34 @@ def group_issue_args(group):
     return {"ou": GROUPS[group]["ou"], "not_after": GROUPS[group]["duration"]}
 
 
-def sans_input(value=""):
+def email_input(field_id, value=""):
     return (
-        '<div class="field"><label for="sans">Alternative names (optional)</label>'
-        f'<input id="sans" name="sans" maxlength="2000" value="{esc(value)}" data-email-field '
-        'placeholder="e.g. josh@example.com, host.example.com, 192.0.2.10" autocapitalize="off">'
-        '<p class="hint">Email addresses, DNS names, and IP addresses, separated by commas. '
-        "Apple profiles support email and DNS names only."
-        + (" Required for groups that require an email." if any(map(group_requires_email, GROUPS)) else "")
+        f'<div class="field"><label for="{field_id}">Email address</label>'
+        f'<input id="{field_id}" name="email" type="email" maxlength="254" value="{esc(value)}" data-email-field '
+        'placeholder="e.g. josh@example.com" autocapitalize="off" autocorrect="off">'
+        '<p class="hint">Added to the certificate as an email alternative name, for example the user&#39;s '
+        "sign-in email (Entra UPN)."
+        + (" Required for groups that require an email." if any(map(group_requires_email, GROUPS)) else " Optional.")
         + "</p></div>"
     )
+
+
+def sans_input(field_id, value=""):
+    return (
+        f'<div class="field"><label for="{field_id}">Other alternative names (optional)</label>'
+        f'<input id="{field_id}" name="sans" maxlength="2000" value="{esc(value)}" '
+        'placeholder="e.g. host.example.com, 192.0.2.10" autocapitalize="off">'
+        '<p class="hint">More email addresses, DNS names, and IP addresses, separated by commas. '
+        "Apple profiles support email and DNS names only.</p></div>"
+    )
+
+
+def form_sans(form):
+    """The email field and other alternative names as one SAN list, or ValueError."""
+    email_text = str(form.get("email", [""])[0]).strip()
+    if email_text and not enroll.EMAIL_RE.match(email_text):
+        raise ValueError(f"{email_text[:64]} is not an email address.")
+    return enroll.parse_sans(f'{email_text} {form.get("sans", [""])[0]}')
 
 
 def safe_filename(cn):
@@ -1612,26 +1630,28 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- enrollment (admin) ------------------------------------------------------
 
-    def self_enroll_page(self, error="", cn="", sans="", group=""):
+    def self_enroll_page(self, error="", cn="", sans="", group="", email=""):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
-        self.form_page(self.url("/enroll/self"), {"cn": "", "wifi": wifi_enabled()}, error, cn,
-                       csrf, sans_input(sans) + group_select("self-group", group))
+        self.form_page(self.url("/enroll/self"), {"cn": "", "wifi": wifi_enabled()}, error, cn, csrf,
+                       email_input("self-email", email) + group_select("self-group", group)
+                       + sans_input("self-sans", sans))
 
     def self_enroll(self, form):
         """Enroll the computer the panel is open on (e.g. a Mac or Windows PC)."""
         cn = form.get("cn", [""])[0].strip()
         sans_text = form.get("sans", [""])[0].strip()
+        email_text = form.get("email", [""])[0].strip()
         group_text = form.get("group", [""])[0]
         if not enroll.valid_cn(cn):
             self.self_enroll_page("Enter a certificate name using letters, digits, spaces, "
-                                  "and . _ @ - (up to 64 characters).", cn, sans_text, group_text)
+                                  "and . _ @ - (up to 64 characters).", cn, sans_text, group_text, email_text)
             return
         try:
-            sans = enroll.parse_sans(sans_text)
+            sans = form_sans(form)
             group = parse_group(group_text)
             check_group_email(group, sans)
         except ValueError as err:
-            self.self_enroll_page(str(err), cn, sans_text, group_text)
+            self.self_enroll_page(str(err), cn, sans_text, group_text, email_text)
             return
         base_url = default_base_url(self.headers)
         if not base_url:
@@ -1772,14 +1792,15 @@ class Handler(BaseHTTPRequestHandler):
             'placeholder="e.g. Josh&#39;s iPhone"></div>'
             '<div class="field"><label for="cn">Certificate name (CN)</label><input id="cn" name="cn" maxlength="64" '
             'autocapitalize="off" placeholder="Chosen on the device"></div></div>'
+            + email_input("email")
             + group_select("group", hint="The certificate gets this group&#39;s OU and lifetime.")
             + "</div>"
             f'<details class="expand"{advanced_open}><summary><span class="summary-text">'
             '<span class="summary-title">More options</span>'
-            f'<span class="summary-sub">Alternative names, Home Assistant URL, validity'
+            f'<span class="summary-sub">Other alternative names, Home Assistant URL, validity'
             f'{", Wi-Fi" if wifi_enabled() else ""}</span></span>{ui.icon("chevron-down", "chev")}</summary>'
             '<div class="expand-body">'
-            + sans_input()
+            + sans_input("sans")
             + '<div class="field"><label for="base">Home Assistant URL the device will use</label>'
             f'<input id="base" name="base_url" type="url" required value="{esc(base_url)}" '
             'placeholder="https://home.example.com">'
@@ -1813,11 +1834,8 @@ class Handler(BaseHTTPRequestHandler):
             '<p class="muted">Creates the key here and gives you a .p12 file to hand over.</p></div>'
             '<div class="card-content"><div class="field"><label for="issue-cn">Certificate name (CN)</label>'
             '<input id="issue-cn" name="cn" maxlength="64" required autocapitalize="off" placeholder="e.g. printer"></div>'
-            + group_select("issue-group") +
-            '<div class="field"><label for="issue-sans">Alternative names (optional)</label>'
-            '<input id="issue-sans" name="sans" maxlength="2000" autocapitalize="off" data-email-field '
-            'placeholder="Email, DNS names, IP addresses"></div></div>'
-            f'<div class="card-actions"><button class="btn text">{ui.icon("key-variant")}Issue .p12</button></div></form>'
+            + email_input("issue-email") + group_select("issue-group") + sans_input("issue-sans") + "</div>"
+            + f'<div class="card-actions"><button class="btn text">{ui.icon("key-variant")}Issue .p12</button></div></form>'
             "</div></div>"
         )
         self.page("Enroll devices", body)
@@ -1842,7 +1860,7 @@ class Handler(BaseHTTPRequestHandler):
         sans = []
         if not error:
             try:
-                sans = enroll.parse_sans(field("sans"))
+                sans = form_sans(form)
                 check_group_email(group, sans)
             except ValueError as err:
                 error = str(err)
@@ -1875,7 +1893,7 @@ class Handler(BaseHTTPRequestHandler):
                                       "spaces, and . _ @ - (up to 64).", "Nothing was issued"))
             return
         try:
-            sans = enroll.parse_sans(form.get("sans", [""])[0])
+            sans = form_sans(form)
             group = parse_group(form.get("group", [""])[0])
             check_group_email(group, sans)
         except ValueError as err:

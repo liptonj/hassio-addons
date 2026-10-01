@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.31
+
+- **Enroll**: the new link form asks for the certificate name, an **Email
+  address**, and the **Group (OU)** up front, like **Enroll this device**.
+  Other alternative names moved under **More options**.
+- **Enroll this device** and **Issue a certificate now** also have a
+  separate **Email address** field; it becomes required for groups that
+  require an email.
+
 ## 0.30.2.30
 
 - **Groups**: adding, editing, or removing a group in the panel applies it
