@@ -266,6 +266,12 @@ class EnrollView(HomeAssistantView):
                 allow_redirects=False,
                 timeout=aiohttp.ClientTimeout(total=UPSTREAM_TIMEOUT * 3),
             ) as resp:
+                if subpath == "device" and resp.status >= 400:
+                    _LOGGER.warning(
+                        "The add-on refused an Apple device's enrollment reply (HTTP %s); "
+                        "see the add-on log",
+                        resp.status,
+                    )
                 response_headers = {
                     key: value
                     for key in ENROLL_RESPONSE_HEADERS

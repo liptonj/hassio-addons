@@ -1684,6 +1684,8 @@ class Handler(BaseHTTPRequestHandler):
             self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
                                         "The profile could not be created"), 500)
             return
+        print(f"Enrollment link: profile service for {cn!r}; the device will post to "
+              f"{link['base_url']}{enroll.PUBLIC_BASE}/enroll/<token>/device", flush=True)
         download = DOWNLOADS.add(link_id, data, "enroll.mobileconfig", "application/x-apple-aspen-config")
         href = f"{self.enroll_prefix()}/{token}/file/{download}"
         shown = esc(cn).replace(enroll.SERIAL_VAR, "<i>serial number</i>")
@@ -2934,12 +2936,18 @@ class EnrollHandler(Handler):
     def device_enroll(self, token):
         """Profile service: an Apple device posts its signed attributes and gets its profile."""
         length = int(self.headers.get("Content-Length") or 0)
+        print(f"Enrollment link: device sent its attributes ({length} bytes, "
+              f"{self.headers.get('Content-Type', 'no content type')}, "
+              f"{self.headers.get('User-Agent', 'no user agent')[:80]})", flush=True)
         if length > enroll.MAX_DEVICE_BYTES:
+            print("Enrollment link: device attributes too large", flush=True)
             self.send(413, "Request too large", "text/plain")
             return
         body = self.rfile.read(length)
         link_id, link = LINKS.get(token)
         if link is None:
+            print("Enrollment link: device attributes for a link that is used, expired, or cancelled",
+                  flush=True)
             self.send(410, "This enrollment link has expired or was already used.", "text/plain")
             return
         try:
@@ -2950,6 +2958,8 @@ class EnrollHandler(Handler):
             return
         template = LINKS.take_device_challenge(link_id, str(attributes.get("CHALLENGE") or ""))
         if template is None:
+            print("Enrollment link: device attributes with a challenge that does not match the latest "
+                  "profile for this link (an older download, or already used)", flush=True)
             self.send(403, "This profile was already used or has expired; start the enrollment again.",
                       "text/plain")
             return

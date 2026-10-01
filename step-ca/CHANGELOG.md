@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2.37
+
+- **Serial number enrollment**: the add-on log shows each step (profile
+  service served, the device's reply received, and why a reply was refused),
+  and integration 1.3.1 logs a warning in Home Assistant when a device's
+  reply is refused. Restart Home Assistant after updating.
+
 ## 0.30.2.36
 
 - **Enrollment links and Enroll this device**: the certificate name can be the
