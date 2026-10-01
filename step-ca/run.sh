@@ -97,6 +97,18 @@ subject_display="$(jq --raw-output '[["C", .country], ["ST", .province], ["L", .
 
 (( ${#dns_names[@]} > 0 )) || fatal "Configure at least one entry in dns_names."
 
+# Certificate groups (e.g. adults, kids, guests): each gets its own SCEP
+# provisioner and URL, and its certificates always carry the group's OU.
+groups_json="$(option '[(.groups // [])[] | {name, ou: .organizational_unit,
+  challenge: (.challenge // ""), duration: (.cert_duration // "")}]' | jq --compact-output .)"
+clash="$(jq --raw-output --arg scep "${provisioner_name}" --arg enroll "${enroll_provisioner}" \
+  '[.[].name, $scep, $enroll] | group_by(.) | map(select(length > 1))[0][0] // ""' <<<"${groups_json}")"
+[[ -z "${clash}" ]] \
+  || fatal "The group name '${clash}' is used twice, or matches scep_provisioner_name or 'enrollment'."
+
+# Durations such as 8760h or 90m, in minutes.
+minutes() { if [[ "$1" == *h ]]; then echo $(( ${1%h} * 60 )); else echo "${1%m}"; fi; }
+
 install -d -m 0700 "${step_path}" "${step_path}/secrets" "${step_path}/scep" "${templates_dir}" \
   "${enroll_dir}"
 
@@ -374,7 +386,7 @@ chmod 0600 "${ca_config}"
 # point it at a closed loopback port.
 offline_ca_url="https://127.0.0.1:1"
 
-scep_args=(
+scep_common=(
   --type SCEP
   --ca-config "${ca_config}"
   --ca-url "${offline_ca_url}"
@@ -382,16 +394,16 @@ scep_args=(
   --min-public-key-length "${min_key_length}"
   --scep-decrypter-certificate-file "${ra_cert}"
   --scep-decrypter-key-file "${ra_key}"
-  --x509-default-dur "${default_duration}"
-  --x509-max-dur "${max_duration}"
 )
+[[ "${include_root}" == "true" ]] && scep_common+=(--include-root)
+[[ "${force_cn}" == "true" ]] && scep_common+=(--force-cn)
+scep_args=("${scep_common[@]}" --x509-default-dur "${default_duration}" --x509-max-dur "${max_duration}")
 [[ -n "${challenge}" ]] && scep_args+=(--challenge "${challenge}")
 
-# With certificate_subject set, issued certificates get the configured
-# attributes; the Common Name, SANs, and any attribute left empty come from
-# the client's request. Otherwise step-ca's default SCEP template is used.
-if [[ "${subject_policy}" != "{}" ]]; then
-  cat > "${leaf_template}" <<'EOF'
+# Configured subject attributes replace the client's; the Common Name, SANs,
+# and any attribute left empty come from the client's request. Without
+# certificate_subject the default provisioner uses step-ca's own SCEP template.
+cat > "${leaf_template}" <<'EOF'
 {
   "subject": {
     "commonName": {{ toJson .Subject.CommonName }},
@@ -413,23 +425,45 @@ if [[ "${subject_policy}" != "{}" ]]; then
   "extKeyUsage": ["serverAuth", "clientAuth"]
 }
 EOF
+if [[ "${subject_policy}" != "{}" ]]; then
   jq --null-input --argjson policy "${subject_policy}" '{subjectPolicy: $policy}' > "${leaf_template_data}"
   scep_args+=(--x509-template "${leaf_template}" --x509-template-data "${leaf_template_data}")
 fi
-[[ "${include_root}" == "true" ]] && scep_args+=(--include-root)
-[[ "${force_cn}" == "true" ]] && scep_args+=(--force-cn)
 
 provisioner_output="$(step ca provisioner add "${provisioner_name}" "${scep_args[@]}" 2>&1)" \
   || fatal "Could not configure the SCEP provisioner: $(grep -v 'CA Configuration' <<<"${provisioner_output}" | tail -n 3 | tr '\n' ' ')"
 
+# One provisioner per group. A group's certificates last cert_duration (or
+# default_cert_duration); the .p12 provisioner below must allow the longest.
+enroll_max="${max_duration}"
+rm -f "${templates_dir}"/group_*.json
+while IFS=$'\t' read -r group_name group_ou group_duration; do
+  [[ -n "${group_name}" ]] || continue
+  group_data="${templates_dir}/group_${group_name}.json"
+  jq --null-input --argjson policy "${subject_policy}" --arg ou "${group_ou}" \
+    '{subjectPolicy: ($policy + {organizationalUnit: [$ou]})}' > "${group_data}"
+  group_default="${group_duration:-${default_duration}}"
+  group_max="${group_duration:-${max_duration}}"
+  (( $(minutes "${group_default}") <= $(minutes "${group_max}") )) \
+    || fatal "default_cert_duration is longer than max_cert_duration for the group '${group_name}'."
+  if (( $(minutes "${group_max}") > $(minutes "${enroll_max}") )); then enroll_max="${group_max}"; fi
+  provisioner_output="$(step ca provisioner add "${group_name}" "${scep_common[@]}" \
+    --x509-default-dur "${group_default}" --x509-max-dur "${group_max}" \
+    --x509-template "${leaf_template}" --x509-template-data "${group_data}" 2>&1)" \
+    || fatal "Could not configure the SCEP provisioner for the group '${group_name}': $(grep -v 'CA Configuration' <<<"${provisioner_output}" | tail -n 3 | tr '\n' ' ')"
+  info "Group '${group_name}': certificates get OU=${group_ou} and last ${group_default}."
+done < <(jq --raw-output '.[] | [.name, .ou, .duration] | @tsv' <<<"${groups_json}")
+
 # The management page decides which SCEP challenges are accepted: the static
-# scep_challenge and one-time challenges from enrollment profiles. With a
-# SCEPCHALLENGE webhook step-ca no longer checks the static challenge itself.
-# The webhook listens on loopback only.
+# scep_challenge or group challenge, and one-time challenges from enrollment
+# profiles. With a SCEPCHALLENGE webhook step-ca no longer checks the static
+# challenge itself. A group's webhook URL ends in its name. The webhook
+# listens on loopback only.
 tmp_config="$(mktemp)"
 jq --arg name "${provisioner_name}" --arg url "https://127.0.0.1:${webhook_port}/scep-challenge" \
-  '.authority.provisioners |= map(if .type == "SCEP" and .name == $name then
-     .options.webhooks = [{id: "enrollment", name: "enrollment", url: $url,
+  '.authority.provisioners |= map(if .type == "SCEP" then
+     .options.webhooks = [{id: "enrollment", name: "enrollment",
+       url: (if .name == $name then $url else "\($url)/\(.name)" end),
        kind: "SCEPCHALLENGE", certType: "X509"}] else . end)' \
   "${ca_config}" > "${tmp_config}"
 cat "${tmp_config}" > "${ca_config}"
@@ -437,14 +471,15 @@ rm -f "${tmp_config}"
 
 # Provisioner used by the management page to issue .p12 bundles for devices
 # without SCEP. Recreated on each start with a fresh key. SANs come only from
-# the request (set by an administrator); step's token would add the CN.
+# the request (set by an administrator); step's token would add the CN. An OU
+# in the request (a group's, set by the management page) wins over the option.
 cat > "${enroll_template}" <<'EOF'
 {
   "subject": {
     "commonName": {{ toJson .Subject.CommonName }},
     "country": {{ toJson (default .Subject.Country .subjectPolicy.country) }},
     "organization": {{ toJson (default .Subject.Organization .subjectPolicy.organization) }},
-    "organizationalUnit": {{ toJson (default .Subject.OrganizationalUnit .subjectPolicy.organizationalUnit) }},
+    "organizationalUnit": {{ toJson (default .subjectPolicy.organizationalUnit .Subject.OrganizationalUnit) }},
     "locality": {{ toJson (default .Subject.Locality .subjectPolicy.locality) }},
     "province": {{ toJson (default .Subject.Province .subjectPolicy.province) }}
   },
@@ -463,7 +498,7 @@ jq --null-input --argjson policy "${subject_policy}" '{subjectPolicy: $policy}' 
 step ca provisioner add "${enroll_provisioner}" --type JWK --create \
   --ca-config "${ca_config}" --ca-url "${offline_ca_url}" --password-file "${enroll_password_file}" \
   --x509-template "${enroll_template}" --x509-template-data "${leaf_template_data}" \
-  --x509-default-dur "${default_duration}" --x509-max-dur "${max_duration}" >/dev/null 2>&1 \
+  --x509-default-dur "${default_duration}" --x509-max-dur "${enroll_max}" >/dev/null 2>&1 \
   || fatal "Could not configure the enrollment provisioner."
 
 if [[ -z "${challenge}" ]]; then
@@ -522,6 +557,9 @@ if [[ -z "${ha_url}" && -n "${SUPERVISOR_TOKEN:-}" ]]; then
 fi
 [[ -n "${ha_url}" ]] || ha_url="<your Home Assistant URL>"
 info "SCEP URL:         ${ha_url}/api/step_ca_scep/scep/${provisioner_name}"
+while IFS= read -r group_name; do
+  info "SCEP URL (${group_name}): ${ha_url}/api/step_ca_scep/scep/${group_name}"
+done < <(jq --raw-output '.[].name' <<<"${groups_json}")
 info "Root CA download: ${ha_url}/api/step_ca_scep/roots.pem"
 info "CRL download:     ${ha_url}/api/step_ca_scep/crl"
 info "Starting step-ca and the management page."
@@ -547,7 +585,7 @@ ca_pid=$!
   export DB_HOST="${db_host}" DB_PORT="${db_port}" DB_USER="${db_ro_user}"
   export DB_PASSWORD="${db_ro_password}" DB_NAME="${mariadb_database}"
   export SUBJECT_POLICY="${subject_display}" CA_NAME="${ca_name}"
-  export SCEP_CHALLENGE="${challenge}" WIFI_JSON="${wifi_json}"
+  export SCEP_CHALLENGE="${challenge}" WIFI_JSON="${wifi_json}" GROUPS_JSON="${groups_json}"
   export ENROLL_PUBLIC_URL="${public_url}" ENROLL_LINK_HOURS="${link_hours}"
   export ENROLL_PORT="${enroll_port}" WEBHOOK_PORT="${webhook_port}"
   export WEBHOOK_CERT="${webhook_cert}" WEBHOOK_KEY="${webhook_key}"

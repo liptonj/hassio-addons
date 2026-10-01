@@ -139,7 +139,7 @@ class LinkStore:
             return "expired"
         return link["status"]
 
-    def create(self, *, label, cn, base_url, wifi, hours, created_by, sans=()):
+    def create(self, *, label, cn, base_url, wifi, hours, created_by, sans=(), group=""):
         token = secrets.token_urlsafe(32)
         now = _now()
         with self._lock:
@@ -148,6 +148,7 @@ class LinkStore:
                 "label": label,
                 "cn": cn,
                 "sans": list(sans),
+                "group": group,
                 "base_url": base_url,
                 "wifi": wifi,
                 "created": now,
@@ -205,8 +206,12 @@ class LinkStore:
             self._save(links)
         return challenge
 
-    def consume_challenge(self, challenge, cn):
-        """Mark the link used if the challenge and CN match. Returns the link id."""
+    def consume_challenge(self, challenge, cn, group=""):
+        """Mark the link used if the challenge, CN, and group match. Returns the link id.
+
+        group is the SCEP provisioner's group ("" for the default one), so a
+        profile for one group cannot be replayed against another group's URL.
+        """
         if not challenge:
             return None
         digest = _hash(challenge)
@@ -218,7 +223,8 @@ class LinkStore:
                     continue
                 if not secrets.compare_digest(link["challenge"], digest):
                     continue
-                if link["challenge_expires"] < now or link["challenge_cn"] != cn:
+                if (link["challenge_expires"] < now or link["challenge_cn"] != cn
+                        or link.get("group", "") != group):
                     return None
                 link.update(status="issued", challenge="", issued_cn=cn,
                             issued_at=now, method="SCEP profile")
@@ -426,10 +432,11 @@ def parse_csr(data):
     return csr, der
 
 
-def sign_csr(der, *, ca_url, root_cert):
+def sign_csr(der, *, ca_url, root_cert, not_after=""):
     """Have step-ca sign a DER CSR with the intermediate CA (server and client auth).
 
-    The CN and SANs come from the request. Returns [leaf, issuers..., root].
+    The CN and SANs come from the request; not_after is a duration such as
+    "720h" (default: the CA's). Returns [leaf, issuers..., root].
     """
     with tempfile.TemporaryDirectory() as tmp:
         csr_path = os.path.join(tmp, "req.csr")
@@ -441,7 +448,8 @@ def sign_csr(der, *, ca_url, root_cert):
             ["step", "ca", "sign", csr_path, crt_path,
              "--provisioner", ENROLL_PROVISIONER,
              "--provisioner-password-file", ENROLL_PASSWORD,
-             "--ca-url", ca_url, "--root", root_cert, "--force"],
+             "--ca-url", ca_url, "--root", root_cert, "--force"]
+            + (["--not-after", not_after] if not_after else []),
             capture_output=True, text=True, timeout=60, check=False,
         )
         if result.returncode != 0:
@@ -682,21 +690,25 @@ def p12_password():
     return "-".join(groups)
 
 
-def issue_p12(cn, *, ca_url, root_cert, extra_cas=(), sans=()):
+def issue_p12(cn, *, ca_url, root_cert, extra_cas=(), sans=(), ou="", not_after=""):
     """Issue a certificate for a server-generated key and bundle it as .p12.
 
+    ou is a group's organizational unit; not_after its certificate lifetime.
     Returns (p12_bytes, password, certificate). The key never touches disk.
     """
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    builder = x509.CertificateSigningRequestBuilder().subject_name(
-        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)]))
+    subject = [x509.NameAttribute(NameOID.COMMON_NAME, cn)]
+    if ou:
+        subject.append(x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, ou))
+    builder = x509.CertificateSigningRequestBuilder().subject_name(x509.Name(subject))
     emails, dns, ips = split_sans(sans)
     names = ([x509.RFC822Name(e) for e in emails] + [x509.DNSName(d) for d in dns]
              + [x509.IPAddress(i) for i in ips])
     if names:
         builder = builder.add_extension(x509.SubjectAlternativeName(names), critical=False)
     csr = builder.sign(key, hashes.SHA256())
-    leaf, *extra = sign_csr(csr.public_bytes(serialization.Encoding.DER), ca_url=ca_url, root_cert=root_cert)
+    leaf, *extra = sign_csr(csr.public_bytes(serialization.Encoding.DER), ca_url=ca_url, root_cert=root_cert,
+                            not_after=not_after)
     known = {fingerprint(c) for c in extra}
     extra += [c for c in extra_cas if fingerprint(c) not in known]
     password = p12_password()

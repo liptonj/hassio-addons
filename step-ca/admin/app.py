@@ -72,6 +72,13 @@ try:
     WIFI = json.loads(os.environ.get("WIFI_JSON") or "{}")
 except ValueError:
     WIFI = {}
+# Certificate groups: {name: {"name", "ou", "challenge", "duration"}}. Each has
+# its own SCEP provisioner (named after the group) whose certificates carry
+# the group's OU.
+try:
+    GROUPS = {g["name"]: g for g in json.loads(os.environ.get("GROUPS_JSON") or "[]")}
+except (ValueError, TypeError, KeyError):
+    GROUPS = {}
 LINKS = enroll.LinkStore()
 DOWNLOADS = enroll.Downloads()
 SIGNER = enroll.ProfileSigner([
@@ -228,7 +235,9 @@ def cert_summary(serial, der, data, revoked):
     else:
         status = "active"
     provisioner = (data or {}).get("provisioner") or {}
+    ou = cert.subject.get_attributes_for_oid(NameOID.ORGANIZATIONAL_UNIT_NAME)
     return {
+        "ou": ", ".join(str(a.value) for a in ou),
         "serial": serial,
         "cn": cn[0].value if cn else "",
         "subject": cert.subject.rfc4514_string(),
@@ -414,7 +423,39 @@ def signer_status():
     )
 
 
-def profile_for(cn, challenge, base_url, wifi, sans=()):
+def group_provisioner(group):
+    return group if group in GROUPS else SCEP_PROVISIONER
+
+
+def parse_group(value):
+    """The group chosen in a form ("" for the default), or ValueError."""
+    value = (value or "").strip()
+    if value and value not in GROUPS:
+        raise ValueError("Unknown certificate group.")
+    return value
+
+
+def group_label(group):
+    if group in GROUPS:
+        return f"{group} (OU={GROUPS[group]['ou']})"
+    match = re.search(r"(?:^|, )OU=([^,]+)", SUBJECT_POLICY)
+    return f"Default (OU={match.group(1)})" if match else "Default"
+
+
+def group_select(field_id, selected="", hint=""):
+    """A <select> of the groups, or "" when no groups are configured."""
+    if not GROUPS:
+        return ""
+    options = "".join(
+        f'<option value="{esc(g)}"{" selected" if g == selected else ""}>{esc(group_label(g))}</option>'
+        for g in ["", *GROUPS]
+    )
+    return (f'<div class="field"><label for="{field_id}">Group</label>'
+            f'<select id="{field_id}" name="group">{options}</select>'
+            + (f'<p class="hint">{hint}</p>' if hint else "") + "</div>")
+
+
+def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
     root, inter = cert_chain()
     organization = ""
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
@@ -422,7 +463,7 @@ def profile_for(cn, challenge, base_url, wifi, sans=()):
         organization = match.group(1)
     xml = enroll.build_profile(
         cn=cn, challenge=challenge,
-        scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{SCEP_PROVISIONER}",
+        scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=organization, root=root, intermediate=inter,
         wifi=WIFI if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
     )
@@ -434,7 +475,7 @@ MDM_PLATFORMS = {"ios": "iOS and iPadOS", "macos": "macOS"}
 MDM_CONTENTS = ("trust", "scep", "wifi")
 
 
-def mdm_profile(platform, contents, cn, base_url, email=""):
+def mdm_profile(platform, contents, cn, base_url, email="", group=""):
     """Unsigned .mobileconfig for an MDM to upload as a custom profile.
 
     Unsigned because MDMs (Meraki, Jamf, ...) substitute variables such as
@@ -445,8 +486,13 @@ def mdm_profile(platform, contents, cn, base_url, email=""):
         raise ValueError("Unknown platform or profile contents.")
     if contents == "wifi" and not wifi_enabled():
         raise ValueError("Wi-Fi is not configured; set wifi.ssid in the add-on options.")
+    group = parse_group(group)
+    challenge = GROUPS[group]["challenge"] if group else SCEP_CHALLENGE
     if contents != "trust":
-        if not SCEP_CHALLENGE:
+        if not challenge and group:
+            raise ValueError(f"Set a challenge for the group {group} in the add-on options before creating "
+                             "an MDM SCEP profile for it.")
+        if not challenge:
             raise ValueError("Set the scep_challenge add-on option before creating an MDM SCEP profile.")
         if not cn:
             raise ValueError("Enter a certificate name, such as your MDM's serial number variable.")
@@ -460,16 +506,25 @@ def mdm_profile(platform, contents, cn, base_url, email=""):
     root, inter = cert_chain()
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
     names = {"trust": "CA certificates", "scep": "SCEP certificate", "wifi": f"Wi-Fi {WIFI.get('ssid', '')}"}
+    # Certificates only is the same for every group.
+    group = group if contents != "trust" else ""
     xml = enroll.build_profile(
-        cn=cn or "device", challenge=SCEP_CHALLENGE,
-        scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{SCEP_PROVISIONER}",
+        cn=cn or "device", challenge=challenge,
+        scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=match.group(1) if match else "", root=root, intermediate=inter,
         wifi=WIFI if contents == "wifi" else None, extra_cas=enroll.load_extra_cas(),
         include_scep=contents != "trust", system_scope=platform == "macos", email_sans=[email],
-        identifier=f"mdm.{contents}.{platform}",
-        display_name=f"{CA_NAME}: {names[contents]} ({MDM_PLATFORMS[platform]})",
+        identifier=f"mdm.{group + '.' if group else ''}{contents}.{platform}",
+        display_name=f"{CA_NAME}: {names[contents]}{', ' + group if group else ''} ({MDM_PLATFORMS[platform]})",
     )
-    return xml, f"{safe_filename(CA_NAME)}-{contents}-{platform}.mobileconfig"
+    return xml, f"{safe_filename(CA_NAME)}-{group + '-' if group else ''}{contents}-{platform}.mobileconfig"
+
+
+def group_issue_args(group):
+    """issue_p12 keyword arguments for a group's OU and lifetime."""
+    if group not in GROUPS:
+        return {}
+    return {"ou": GROUPS[group]["ou"], "not_after": GROUPS[group]["duration"]}
 
 
 def sans_input(value=""):
@@ -850,7 +905,8 @@ class Handler(BaseHTTPRequestHandler):
                 f"<td>{status_chip(c, now)}</td>"
                 f'<td class="hide-mobile nowrap">{expires}</td>'
                 f'<td class="hide-mobile nowrap">{c["not_before"]:%Y-%m-%d}</td>'
-                f'<td class="hide-mobile">{esc(c["provisioner"])}</td>'
+                f'<td class="hide-mobile">{esc(c["ou"]) or "—"}'
+                f'<span class="sub">{esc(c["provisioner"])}</span></td>'
                 f'<td class="hide-mobile mono nowrap">{esc(c["serial"][:12])}{"…" if len(c["serial"]) > 12 else ""}</td>'
                 "</tr>"
             )
@@ -878,7 +934,7 @@ class Handler(BaseHTTPRequestHandler):
             f'<nav class="filters" aria-label="Status">{filters}</nav>'
             '<div class="table-wrap"><table id="certs"><thead><tr><th>Name</th><th>Status</th>'
             '<th class="hide-mobile">Expires</th><th class="hide-mobile">Issued</th>'
-            '<th class="hide-mobile">Provisioner</th><th class="hide-mobile">Serial</th></tr></thead>'
+            '<th class="hide-mobile">Group (OU)</th><th class="hide-mobile">Serial</th></tr></thead>'
             f"<tbody>{rows}</tbody></table></div></div>"
         )
         self.page("Certificates", body)
@@ -1061,7 +1117,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled(),
-                               link.get("sans") or ())
+                               link.get("sans") or (), link.get("group", ""))
         except (RuntimeError, OSError, ValueError) as err:
             print(f"Could not build profile: {err}", flush=True)
             self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
@@ -1095,7 +1151,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data, password, _ = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT,
                                                  extra_cas=enroll.load_extra_cas(),
-                                                 sans=link.get("sans") or ())
+                                                 sans=link.get("sans") or (),
+                                                 **group_issue_args(link.get("group", "")))
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
             LINKS.release(link_id)
             print(f"Could not issue certificate for {cn!r}: {err}", flush=True)
@@ -1129,23 +1186,25 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- enrollment (admin) ------------------------------------------------------
 
-    def self_enroll_page(self, error="", cn="", sans=""):
+    def self_enroll_page(self, error="", cn="", sans="", group=""):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         self.form_page(self.url("/enroll/self"), {"cn": "", "wifi": wifi_enabled()}, error, cn,
-                       csrf, sans_input(sans))
+                       csrf, sans_input(sans) + group_select("self-group", group))
 
     def self_enroll(self, form):
         """Enroll the computer the panel is open on (e.g. a Mac or Windows PC)."""
         cn = form.get("cn", [""])[0].strip()
         sans_text = form.get("sans", [""])[0].strip()
+        group_text = form.get("group", [""])[0]
         if not enroll.valid_cn(cn):
             self.self_enroll_page("Enter a certificate name using letters, digits, spaces, "
-                                  "and . _ @ - (up to 64 characters).", cn, sans_text)
+                                  "and . _ @ - (up to 64 characters).", cn, sans_text, group_text)
             return
         try:
             sans = enroll.parse_sans(sans_text)
+            group = parse_group(group_text)
         except ValueError as err:
-            self.self_enroll_page(str(err), cn, sans_text)
+            self.self_enroll_page(str(err), cn, sans_text, group_text)
             return
         base_url = default_base_url(self.headers)
         if not base_url:
@@ -1153,7 +1212,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label="This device (panel)", cn=cn, base_url=base_url,
-                             wifi=wifi_enabled(), hours=1, created_by=who, sans=sans)
+                             wifi=wifi_enabled(), hours=1, created_by=who, sans=sans, group=group)
         link_id, link = LINKS.get(token)
         if form.get("kind", [""])[0] == "apple":
             self.apple_result(token, link_id, link, cn)
@@ -1187,6 +1246,7 @@ class Handler(BaseHTTPRequestHandler):
                 + (f'<span class="sub">{esc(link["created_by"])}</span>' if link["created_by"] else "")
                 + f"</td><td>{esc(link['issued_cn'] or link['cn'] or 'Chosen on the device')}"
                 + (f'<span class="sub">{esc(", ".join(link["sans"]))}</span>' if link.get("sans") else "")
+                + (f'<span class="sub">Group {esc(link["group"])}</span>' if link.get("group") else "")
                 + (f'<span class="sub">{esc(link["method"])}</span>' if link["method"] else "")
                 + f"</td><td>{ui.chip(kind, state.title())}</td>"
                 f'<td class="hide-mobile nowrap">{ui.when(expires, now)}</td>'
@@ -1207,7 +1267,9 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="field"><label for="label">Label</label><input id="label" name="label" maxlength="64" '
             'placeholder="e.g. Josh&#39;s iPhone"></div>'
             '<div class="field"><label for="cn">Certificate name (CN)</label><input id="cn" name="cn" maxlength="64" '
-            'autocapitalize="off" placeholder="Chosen on the device"></div></div></div>'
+            'autocapitalize="off" placeholder="Chosen on the device"></div></div>'
+            + group_select("group", hint="The certificate gets this group&#39;s OU and lifetime.")
+            + "</div>"
             f'<details class="expand"{advanced_open}><summary><span class="summary-text">'
             '<span class="summary-title">More options</span>'
             f'<span class="summary-sub">Alternative names, Home Assistant URL, validity'
@@ -1240,6 +1302,7 @@ class Handler(BaseHTTPRequestHandler):
             '<p class="muted">Creates the key here and gives you a .p12 file to hand over.</p></div>'
             '<div class="card-content"><div class="field"><label for="issue-cn">Certificate name (CN)</label>'
             '<input id="issue-cn" name="cn" maxlength="64" required autocapitalize="off" placeholder="e.g. printer"></div>'
+            + group_select("issue-group") +
             '<div class="field"><label for="issue-sans">Alternative names (optional)</label>'
             '<input id="issue-sans" name="sans" maxlength="2000" autocapitalize="off" '
             'placeholder="Email, DNS names, IP addresses"></div></div>'
@@ -1257,9 +1320,13 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             hours = ENROLL_LINK_HOURS
         error = ""
-        if cn and not enroll.valid_cn(cn):
+        try:
+            group = parse_group(field("group"))
+        except ValueError as err:
+            group, error = "", str(err)
+        if not error and cn and not enroll.valid_cn(cn):
             error = "The certificate name may use letters, digits, spaces, and . _ @ - (up to 64)."
-        elif not base_url:
+        elif not error and not base_url:
             error = "Enter the Home Assistant URL as scheme and host only, e.g. https://home.example.com."
         sans = []
         if not error:
@@ -1272,7 +1339,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label=label, cn=cn, base_url=base_url, wifi=field("wifi") == "1" and wifi_enabled(),
-                             hours=hours, created_by=who, sans=sans)
+                             hours=hours, created_by=who, sans=sans, group=group)
         link = f"{base_url}{enroll.PUBLIC_BASE}/enroll/{token}"
         expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=hours)
         body = (
@@ -1281,7 +1348,8 @@ class Handler(BaseHTTPRequestHandler):
             '<p class="muted">Scan with the device camera, or open the link in its browser.</p></div>'
             f'<div class="card-content"><div class="qr">{qr_svg(link)}</div>'
             + ui.copy_field(link, "link")
-            + f'<p class="muted">One certificate{" named <b>" + esc(cn) + "</b>" if cn else ""}. '
+            + f'<p class="muted">One certificate{" named <b>" + esc(cn) + "</b>" if cn else ""}'
+            f'{" in the group <b>" + esc(group) + "</b>" if group else ""}. '
             f"Valid for {hours} hour{'s' if hours != 1 else ''}, until {ui.when(expires)}.</p></div></div>"
             + ui.alert("warning", "Anyone with this link can enroll a device, so share it only with the device "
                        "owner. It is not shown again.", "Shown only once")
@@ -1296,12 +1364,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sans = enroll.parse_sans(form.get("sans", [""])[0])
+            group = parse_group(form.get("group", [""])[0])
         except ValueError as err:
             self.enroll_page(ui.alert("error", esc(err), "Nothing was issued"))
             return
         try:
             data, password, cert = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT,
-                                                    extra_cas=enroll.load_extra_cas(), sans=sans)
+                                                    extra_cas=enroll.load_extra_cas(), sans=sans,
+                                                    **group_issue_args(group))
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
             self.enroll_page(ui.alert("error", esc(err), "Could not issue the certificate"))
             return
@@ -1450,6 +1520,7 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="card"><div class="card-header"><h2>Endpoints</h2>'
             '<p class="muted">Served without login through Home Assistant.</p></div><dl class="rows">'
             + url_row("SCEP URL", scep_url)
+            + "".join(url_row(f"SCEP URL, {esc(g)}", f"{base}/api/step_ca_scep/scep/{esc(g)}") for g in GROUPS)
             + url_row("Root download", f"{base}/api/step_ca_scep/roots.pem")
             + url_row("CRL (DER)", f"{base}/api/step_ca_scep/crl")
             + "</dl></div></div></div>"
@@ -1522,6 +1593,11 @@ class Handler(BaseHTTPRequestHandler):
             '<dl class="rows">'
             + option("Issued subject", esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
             + option("SCEP challenge", challenge)
+            + option("Groups", "<br>".join(
+                f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
+                + (f"valid {esc(g['duration'])}, " if g["duration"] else "")
+                + ("challenge set" if g["challenge"] else "one-time links only")
+                for g in GROUPS.values()) or "None")
             + option("Wi-Fi", wifi)
             + option("Storage", "MariaDB" if db_enabled() else "Embedded database")
             + "</dl></div></div></div>"
@@ -1584,7 +1660,7 @@ class Handler(BaseHTTPRequestHandler):
         first = lambda name: (query.get(name) or [""])[0].strip()  # noqa: E731
         try:
             data, filename = mdm_profile(first("platform"), first("contents"), first("cn"),
-                                         default_base_url(self.headers), first("email"))
+                                         default_base_url(self.headers), first("email"), first("group"))
         except ValueError as err:
             self.redirect("/tools?" + urllib.parse.urlencode({"error": str(err)}) + "#mdm")
             return
@@ -1608,7 +1684,11 @@ class Handler(BaseHTTPRequestHandler):
              "certificate payload.", None),
             ("SCEP URL", f'<span class="mono">{scep_url}</span>',
              None if base.startswith("&lt;") else html.unescape(scep_url)),
-            ("Challenge", challenge, None),
+            *((f"SCEP URL, {esc(g)}", f'<span class="mono">{base}/api/step_ca_scep/scep/{esc(g)}</span>',
+               None if base.startswith("&lt;") else html.unescape(f"{base}/api/step_ca_scep/scep/{g}"))
+              for g in GROUPS),
+            ("Challenge", challenge + (" Each group uses its own <b>challenge</b> option." if GROUPS else ""),
+             None),
             ("Subject", '<span class="mono">CN=&lt;unique device variable&gt;</span>, e.g. '
              '<span class="mono">CN=$SERIALNUMBER</span>', None),
             ("Key", "RSA, 2048 bits or more, usage signing and encryption, not exportable", None),
@@ -1653,7 +1733,10 @@ class Handler(BaseHTTPRequestHandler):
             f'<div class="field"><label for="mdm-platform">Platform</label><select id="mdm-platform" name="platform">{platforms}</select></div>'
             f'<div class="field"><label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select></div>'
             "</div>"
-            '<div class="field"><label for="mdm-cn">Certificate name (Common Name)</label>'
+            + group_select("mdm-group", hint="Each group has its own SCEP URL and challenge, and its "
+                           "certificates get the group&#39;s OU. Upload one profile per group and assign it "
+                           "to that group of devices or users in your MDM.")
+            + '<div class="field"><label for="mdm-cn">Certificate name (Common Name)</label>'
             '<input id="mdm-cn" name="cn" maxlength="64" autocapitalize="off" '
             'placeholder="Your MDM\'s serial number or user name variable">'
             '<p class="hint">Your MDM\'s variable for a unique value, which it replaces on each device: the '
@@ -1788,7 +1871,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):
-        if self.path != "/scep-challenge":
+        # /scep-challenge for the default provisioner, /scep-challenge/<group> for a group's.
+        group = self.path.removeprefix("/scep-challenge/") if self.path.startswith("/scep-challenge/") else ""
+        if self.path != "/scep-challenge" and group not in GROUPS:
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length") or 0)
@@ -1800,13 +1885,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
         except (ValueError, AttributeError):
             self.reply(False)
             return
-        if LINKS.consume_challenge(challenge, cn):
-            print(f"Enrollment link used: SCEP certificate for {cn!r}", flush=True)
+        if LINKS.consume_challenge(challenge, cn, group):
+            print(f"Enrollment link used: SCEP certificate for {cn!r}"
+                  + (f" in group {group}" if group else ""), flush=True)
             self.reply(True)
-        elif not SCEP_CHALLENGE:
+            return
+        # A group without a challenge only accepts one-time enrollment links.
+        static = GROUPS[group]["challenge"] if group else SCEP_CHALLENGE
+        if not static and not group:
             self.reply(True)
         else:
-            self.reply(bool(challenge) and secrets.compare_digest(challenge.encode(), SCEP_CHALLENGE.encode()))
+            self.reply(bool(challenge and static)
+                       and secrets.compare_digest(challenge.encode(), static.encode()))
 
 
 def serve(address, handler, label, tls=None):

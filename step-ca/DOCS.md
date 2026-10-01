@@ -138,6 +138,65 @@ The organization details in certificates are set with `certificate_subject`:
 Leave all fields empty to keep step-ca's default behavior of copying the
 subject from the request.
 
+## Certificate groups
+
+Groups tell certificates apart, for example adults, kids, and guests, so a
+RADIUS server or firewall can treat them differently. Each group has:
+
+- its own SCEP URL, `…/api/step_ca_scep/scep/<name>`;
+- its own OU (organizational unit). Every certificate the group issues gets
+  this OU, whatever the device asks for. The other `certificate_subject`
+  fields still apply;
+- its own challenge, so a device can only join the group whose challenge
+  it was given;
+- optionally its own certificate lifetime.
+
+```yaml
+groups:
+  - name: adults
+    organizational_unit: Adults
+    challenge: <a long random string>
+  - name: kids
+    organizational_unit: Kids
+    challenge: <another long random string>
+    cert_duration: 2160h
+  - name: guests
+    organizational_unit: Guests
+    cert_duration: 168h
+```
+
+- **MDM**: make one SCEP profile per group, with the group's SCEP URL and
+  challenge (or download it under **Tools → Using an MDM** with the group
+  selected). Assign each profile to that group of devices or users.
+- **Without an MDM**: choose the group when you create an enrollment link,
+  enroll this device, or issue a .p12. A group without a `challenge` (like
+  `guests` above) only accepts one-time enrollment links.
+- The default SCEP URL keeps working as before, with the `certificate_subject`
+  OU and `scep_challenge`.
+- **Certificates** shows each certificate's OU.
+
+Group names use lowercase letters, digits, `-`, and `_`, and cannot be
+`enrollment` or the `scep_provisioner_name`.
+
+### Moving a device to another group
+
+A certificate's OU cannot change. To move someone, for example from kids to
+adults: move the device or user to the new group in your MDM (or send a new
+enrollment link for the new group). The device installs a certificate from
+the new group's profile; then revoke the old certificate on **Certificates**.
+Removing the old profile in the MDM removes its certificate from the device.
+
+### Using the OU in RADIUS
+
+The RADIUS server reads the OU from the client certificate. For example, in
+FreeRADIUS the subject is in `TLS-Client-Cert-Subject`, so a policy such as
+`if (&TLS-Client-Cert-Subject =~ /OU=Kids/) { … }` can assign the kids VLAN.
+Other servers (NPS, ClearPass, ISE, cloud RADIUS) have a similar
+certificate-attribute rule.
+
+Passpoint and OpenRoaming need certificates from the WBA's own PKI, which
+this CA cannot issue. Groups apply to your own Wi-Fi.
+
 ## Enrolling devices
 
 Devices do not need an MDM. Open **Certificates → Enroll devices** in the
@@ -460,6 +519,13 @@ The last path segment of the SCEP URL.
 
 Shared challenge password clients must send. If empty, **anyone who can reach
 the SCEP URL can obtain a certificate**, and a warning is logged.
+
+### `groups`
+
+Certificate groups, each with `name`, `organizational_unit`, an optional
+`challenge`, and an optional `cert_duration` (for example `720h`) that sets
+both the default and maximum lifetime. See
+[Certificate groups](#certificate-groups).
 
 ### `encryption_algorithm`
 

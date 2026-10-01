@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.30.2.27
+
+- New `groups` option: certificate groups such as adults, kids, and guests.
+  Each group has its own SCEP URL (`…/scep/<name>`), challenge, and optional
+  lifetime, and its certificates always carry the group's OU, so a RADIUS
+  server can assign a VLAN or policy per group. Choose the group for
+  enrollment links, **Enroll this device**, .p12 issuing, and MDM profile
+  downloads. **Certificates** shows each certificate's OU. See
+  **Certificate groups** in the documentation.
+- For .p12 issuing and **Sign a certificate request**, an OU in the request
+  now takes priority over the `certificate_subject` OU (which still fills in
+  when the request has none). This is how .p12 certificates get their group's
+  OU; a signed request (for example from a RADIUS server) keeps its own OU.
+
 ## 0.30.2.26
 
 - Fix the image build for 0.30.2.25: the new `admin/ui.py` was left out of
