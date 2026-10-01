@@ -313,9 +313,36 @@ Before you start:
   URL. Use the Home Assistant URL that works where the devices are: the
   External URL if they enroll away from home.
 
+### Download a ready-made profile (Apple devices)
+
+Instead of entering the values by hand, download a profile under
+**Certificates → CA & downloads → Using an MDM → Download a profile for your
+MDM** and upload it to your MDM as a custom profile. Choose:
+
+- **Platform**: iOS and iPadOS, or macOS. The macOS profile installs for the
+  whole Mac (`PayloadScope` `System`, so the System keychain).
+- **Contents**: certificates only; certificates and SCEP; or certificates,
+  SCEP, and Wi-Fi when `wifi.ssid` is set. Every certificate is included: the
+  root CA, the intermediate CA, and each of the **Other trusted CAs**.
+- **Certificate name**: your MDM's variable for a unique value, which the
+  MDM replaces on each device. For a device certificate use the serial
+  number: `$SERIALNUMBER` in Jamf, `$DEVICESERIAL` in Meraki,
+  `$SERIAL_NUMBER` in Kandji. For a user certificate use the user name:
+  `$USERNAME` in Jamf, `$OWNERUSERNAME` in Meraki.
+- **Email address** (optional): your MDM's email variable, such as `$EMAIL`
+  in Jamf or `$OWNEREMAIL` in Meraki. It is added to the certificate as an
+  email subject alternative name, which RADIUS servers can match for
+  EAP-TLS. The device needs a user assigned in the MDM.
+
+The file is a standard, unsigned `.mobileconfig`, so any MDM can read it,
+replace the variable, and sign it. The SCEP profiles contain the
+`scep_challenge`, so keep them private. They need a public HTTPS Home
+Assistant URL, as for enrollment links.
+
 ### What to put in the profile
 
-Create one configuration profile with these payloads.
+To build the profile in your MDM instead, create one configuration profile
+with these payloads.
 
 1. **Certificate** payloads (Apple: *Certificate*; others: *Trusted
    certificate*), one for each file:

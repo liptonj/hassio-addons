@@ -561,8 +561,15 @@ def _identifier_part(value):
 
 
 def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi,
-                  extra_cas=(), sans=()):
-    """Return an unsigned .mobileconfig (XML plist) for SCEP enrollment."""
+                  extra_cas=(), sans=(), include_scep=True, system_scope=False, identifier=None,
+                  display_name=None, email_sans=()):
+    """Return an unsigned .mobileconfig (XML plist) for SCEP enrollment.
+
+    With include_scep=False only the certificate payloads are included (and no
+    Wi-Fi, which needs the SCEP identity). system_scope installs the profile
+    for the whole Mac (System keychain) rather than the user; iOS ignores it.
+    email_sans are added as email SANs as given, so they may be MDM variables.
+    """
     root_uuid, inter_uuid, scep_uuid = (str(uuid.uuid4()).upper() for _ in range(3))
     prefix = f"io.home-assistant.step-ca.{_identifier_part(ca_name)}"
     payloads = [
@@ -607,9 +614,13 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
         },
     ]
     emails, dns, _ = split_sans(sans)  # Apple's SCEP payload has no IP address SANs.
+    emails += [e for e in email_sans if e and e not in emails]
     alt_names = {k: v for k, v in (("rfc822Name", emails), ("dNSName", dns)) if v}
     if alt_names:
         payloads[2]["PayloadContent"]["SubjectAltName"] = alt_names
+    if not include_scep:
+        payloads.pop()
+        wifi = None
     anchors = [root_uuid, inter_uuid]
     for index, cert in enumerate(extra_cas, 1):
         extra_uuid = str(uuid.uuid4()).upper()
@@ -650,16 +661,19 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
     profile = {
         "PayloadType": "Configuration",
         "PayloadVersion": 1,
-        "PayloadIdentifier": f"{prefix}.enroll.{_identifier_part(cn)}",
+        "PayloadIdentifier": f"{prefix}.{identifier or 'enroll.' + _identifier_part(cn)}",
         "PayloadUUID": str(uuid.uuid4()).upper(),
-        "PayloadDisplayName": f"{ca_name}: {cn}",
-        "PayloadDescription": "Installs the certificate authority, requests a device "
-                              "certificate" + (" and configures Wi-Fi." if has_wifi else "."),
+        "PayloadDisplayName": display_name or f"{ca_name}: {cn}",
+        "PayloadDescription": "Installs the certificate authority"
+                              + ((", requests a device certificate" + (" and configures Wi-Fi."
+                                  if has_wifi else ".")) if include_scep else "."),
         "PayloadRemovalDisallowed": False,
         "PayloadContent": payloads,
     }
     if organization:
         profile["PayloadOrganization"] = organization
+    if system_scope:
+        profile["PayloadScope"] = "System"
     return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
 
 

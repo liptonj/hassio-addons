@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.30.2.24
+
+- Download ready-made, unsigned `.mobileconfig` profiles for any MDM under
+  **CA & downloads → Using an MDM**, for iOS/iPadOS or macOS: the
+  certificate payloads only, or the certificates with the SCEP payload, and
+  optionally the Wi-Fi payload. Enter your MDM's serial number or user name
+  variable (for example `$SERIALNUMBER` or `$OWNERUSERNAME`) as the
+  certificate name, and optionally its email variable (for example `$EMAIL`
+  or `$OWNEREMAIL`) as an email alternative name. The macOS profile installs
+  for the whole Mac.
+
 ## 0.30.2.23
 
 - Signed certificate requests download as `<name>-chain.crt` instead of

@@ -427,6 +427,49 @@ def profile_for(cn, challenge, base_url, wifi, sans=()):
     return SIGNER.sign(xml)
 
 
+MDM_CN_RE = re.compile(r"^[A-Za-z0-9 ._@$%{}()-]{1,64}$")
+MDM_PLATFORMS = {"ios": "iOS and iPadOS", "macos": "macOS"}
+MDM_CONTENTS = ("trust", "scep", "wifi")
+
+
+def mdm_profile(platform, contents, cn, base_url, email=""):
+    """Unsigned .mobileconfig for an MDM to upload as a custom profile.
+
+    Unsigned because MDMs (Meraki, Jamf, ...) substitute variables such as
+    $DEVICESERIAL in the profile, which a signature would forbid.
+    Returns (data, filename) or raises ValueError.
+    """
+    if platform not in MDM_PLATFORMS or contents not in MDM_CONTENTS:
+        raise ValueError("Unknown platform or profile contents.")
+    if contents == "wifi" and not wifi_enabled():
+        raise ValueError("Wi-Fi is not configured; set wifi.ssid in the add-on options.")
+    if contents != "trust":
+        if not SCEP_CHALLENGE:
+            raise ValueError("Set the scep_challenge add-on option before creating an MDM SCEP profile.")
+        if not cn:
+            raise ValueError("Enter a certificate name, such as your MDM's serial number variable.")
+        if email and not MDM_CN_RE.fullmatch(email):
+            raise ValueError("The email address must be 1-64 letters, digits, spaces, or . _ @ $ % { } ( ) -")
+        if not MDM_CN_RE.fullmatch(cn):
+            raise ValueError("The certificate name must be 1-64 letters, digits, spaces, or . _ @ $ % { } ( ) -")
+        if not base_url.startswith("https://"):
+            raise ValueError("Devices need a public HTTPS Home Assistant URL for SCEP; set the External URL "
+                             "or the enrollment.public_url add-on option.")
+    root, inter = cert_chain()
+    match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
+    names = {"trust": "CA certificates", "scep": "SCEP certificate", "wifi": f"Wi-Fi {WIFI.get('ssid', '')}"}
+    xml = enroll.build_profile(
+        cn=cn or "device", challenge=SCEP_CHALLENGE,
+        scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{SCEP_PROVISIONER}",
+        ca_name=CA_NAME, organization=match.group(1) if match else "", root=root, intermediate=inter,
+        wifi=WIFI if contents == "wifi" else None, extra_cas=enroll.load_extra_cas(),
+        include_scep=contents != "trust", system_scope=platform == "macos", email_sans=[email],
+        identifier=f"mdm.{contents}.{platform}",
+        display_name=f"{CA_NAME}: {names[contents]} ({MDM_PLATFORMS[platform]})",
+    )
+    return xml, f"{safe_filename(CA_NAME)}-{contents}-{platform}.mobileconfig"
+
+
 def sans_input(value=""):
     return (
         '<label for="sans">Alternative names (optional)</label>'
@@ -615,6 +658,8 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     self.download(extra_chain(certs[0]),
                                   f"{safe_filename(enroll.common_name(certs[0]))}.pem", "application/x-pem-file")
+            elif path == "/download/mdm.mobileconfig":
+                self.mdm_download(query)
             elif path == "/download/ca-chain.pem":
                 self.download(ca_chain(), "ca-chain.pem", "application/x-pem-file")
             elif path == "/download/ca-bundle.pem":
@@ -1297,6 +1342,17 @@ class Handler(BaseHTTPRequestHandler):
             '<div style="margin-top:12px"><button class="btn">Sign and download</button></div></form></div>'
         )
 
+    def mdm_download(self, query):
+        first = lambda name: (query.get(name) or [""])[0].strip()  # noqa: E731
+        try:
+            data, filename = mdm_profile(first("platform"), first("contents"), first("cn"),
+                                         default_base_url(self.headers), first("email"))
+        except ValueError as err:
+            self.redirect("/ca?" + urllib.parse.urlencode({"error": str(err)}) + "#mdm")
+            return
+        print(f"Downloaded MDM profile {filename}", flush=True)
+        self.download(data, filename, "application/x-apple-aspen-config")
+
     def mdm_card(self, base, extra):
         """Values for an MDM's SCEP, certificate, and Wi-Fi payloads."""
         certs = [f'<a href="{esc(self.url("/download/ca-chain.pem"))}">ca-chain.pem</a> (this CA: '
@@ -1328,7 +1384,41 @@ class Handler(BaseHTTPRequestHandler):
             "<dt>Key</dt><dd>RSA, 2048 bits or more, usage signing and encryption, not exportable</dd>"
             "<dt>Fingerprint</dt><dd>Leave empty</dd>"
             + wifi +
-            "</dl></div>"
+            "</dl>" + self.mdm_profile_form() + "</div>"
+        )
+
+    def mdm_profile_form(self):
+        """Ready-made, unsigned profiles to upload to an MDM instead of entering the values."""
+        options = [("scep", "Certificates and SCEP" + ("" if SCEP_CHALLENGE else " (needs scep_challenge)")),
+                   ("trust", "Certificates only")]
+        if wifi_enabled():
+            options.insert(0, ("wifi", f"Certificates, SCEP, and Wi-Fi {esc(WIFI['ssid'])}"))
+        contents = "".join(f'<option value="{v}">{label}</option>' for v, label in options)
+        platforms = "".join(f'<option value="{v}">{label}</option>' for v, label in MDM_PLATFORMS.items())
+        return (
+            '<h3 id="mdm">Download a profile for your MDM</h3>'
+            "<p>A standard, unsigned Apple configuration profile (.mobileconfig) with the payloads above. "
+            "Upload it to any MDM as a custom profile; it is unsigned so the MDM can replace device "
+            "variables and sign it. The macOS profile installs for the whole Mac (System keychain). "
+            "The SCEP profiles contain the challenge, so keep them private.</p>"
+            f'<form method="get" action="{esc(self.url("/download/mdm.mobileconfig"))}">'
+            f'<label for="mdm-platform">Platform</label><select id="mdm-platform" name="platform">{platforms}</select>'
+            f'<label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select>'
+            '<label for="mdm-cn">Certificate name (Common Name)</label>'
+            '<input id="mdm-cn" name="cn" maxlength="64" autocapitalize="off" '
+            'placeholder="your MDM\'s serial number or user name variable">'
+            '<p class="muted">Your MDM\'s variable for a unique value, which it replaces on each device: the '
+            "serial number for a device certificate (<span class=mono>$SERIALNUMBER</span> in Jamf, "
+            "<span class=mono>$DEVICESERIAL</span> in Meraki, <span class=mono>$SERIAL_NUMBER</span> in "
+            "Kandji) or the user name for a user certificate (<span class=mono>$USERNAME</span> in Jamf, "
+            "<span class=mono>$OWNERUSERNAME</span> in Meraki). Not needed for Certificates only.</p>"
+            '<label for="mdm-email">Email address (optional)</label>'
+            '<input id="mdm-email" name="email" maxlength="64" autocapitalize="off" '
+            'placeholder="your MDM\'s email variable">'
+            '<p class="muted">Added to the certificate as an email alternative name, e.g. '
+            "<span class=mono>$EMAIL</span> in Jamf or <span class=mono>$OWNEREMAIL</span> in Meraki. "
+            "The device must have a user assigned in the MDM.</p>"
+            '<div style="margin-top:12px"><button class="btn">Download .mobileconfig</button></div></form>'
         )
 
 
