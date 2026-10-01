@@ -236,24 +236,34 @@ class LinkStore:
                 self._save(links)
         return len(gone)
 
-    def get(self, token):
-        """Return (link_id, link) for a usable token, or (None, None)."""
+    def get(self, token, device=False):
+        """Return (link_id, link) for a usable token, or (None, None).
+
+        device: a device posting to the profile service, whose profile was
+        downloaded while the link was valid; its challenge's own hour counts,
+        so the link may expire between the download and the install.
+        """
         if not TOKEN_RE.match(token or ""):
             return None, None
         link_id = _hash(token)
         with self._lock:
             link = self._load().get(link_id)
-        if link is None or self.status(link) != "pending":
+        if link is None or self.status(link) != "pending" and not (
+                device and link["status"] == "pending" and link["challenge_expires"] >= _now()):
             return None, None
         return link_id, link
 
-    def new_challenge(self, link_id, cn):
-        """Issue a SCEP challenge for this link; earlier profiles stop working."""
+    def new_challenge(self, link_id, cn, device=False):
+        """Issue a SCEP challenge for this link; earlier profiles stop working.
+
+        device: the profile service's reply, which may come after the link
+        expired (see get).
+        """
         challenge = secrets.token_urlsafe(24)
         with self._lock:
             links = self._load()
             link = links.get(link_id)
-            if link is None or self.status(link) != "pending":
+            if link is None or (link["status"] if device else self.status(link)) != "pending":
                 return None
             link["challenge"] = _hash(challenge)
             link["challenge_cn"] = cn
@@ -272,7 +282,7 @@ class LinkStore:
         with self._lock:
             links = self._load()
             link = links.get(link_id)
-            if (link is None or self.status(link) != "pending" or not link["challenge"]
+            if (link is None or link["status"] != "pending" or not link["challenge"]
                     or not uses_serial(link["challenge_cn"]) or link["challenge_expires"] < _now()
                     or not secrets.compare_digest(link["challenge"], _hash(challenge))):
                 return None

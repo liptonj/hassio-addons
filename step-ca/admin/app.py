@@ -87,6 +87,9 @@ except (ValueError, TypeError, KeyError):
     GROUPS = {}
 LINKS = enroll.LinkStore()
 DOWNLOADS = enroll.Downloads()
+# Profiles sent to devices by the profile service, by (link id, challenge and serial), for repeat posts.
+DEVICE_REPLIES = {}
+DEVICE_REPLIES_LOCK = threading.Lock()
 SIGNER = enroll.ProfileSigner([
     ("public", os.environ.get("PROFILE_SSL_CERT", ""), os.environ.get("PROFILE_SSL_KEY", "")),
     ("ca", os.environ.get("PROFILE_CA_CERT", ""), os.environ.get("PROFILE_CA_KEY", "")),
@@ -3308,7 +3311,7 @@ class EnrollHandler(Handler):
             self.send(413, "Request too large", "text/plain")
             return
         body = self.rfile.read(length)
-        link_id, link = LINKS.get(token)
+        link_id, link = LINKS.get(token, device=True)
         if link is None:
             print("Enrollment link: device attributes for a link that is used, expired, or cancelled",
                   flush=True)
@@ -3319,6 +3322,16 @@ class EnrollHandler(Handler):
         except (ValueError, IndexError) as err:
             print(f"Enrollment link: unreadable device attributes: {err}", flush=True)
             self.send(400, "Unreadable device attributes", "text/plain")
+            return
+        # iOS can send the same reply again; answer with the same profile so its SCEP challenge still works.
+        key = enroll._hash(str(attributes.get("CHALLENGE") or "") + "|" + str(attributes.get("SERIAL") or ""))
+        with DEVICE_REPLIES_LOCK:
+            for old in [k for k, (_, expires) in DEVICE_REPLIES.items() if expires < time.time()]:
+                del DEVICE_REPLIES[old]
+            repeat = DEVICE_REPLIES.get((link_id, key))
+        if repeat:
+            print("Enrollment link: the device sent its attributes again; sending the same profile", flush=True)
+            self.send(200, repeat[0], "application/x-apple-aspen-config")
             return
         template = LINKS.take_device_challenge(link_id, str(attributes.get("CHALLENGE") or ""))
         if template is None:
@@ -3333,7 +3346,7 @@ class EnrollHandler(Handler):
             print(f"Enrollment link: device sent no usable serial number ({serial[:40]!r})", flush=True)
             self.send(400, "The device did not send a usable serial number.", "text/plain")
             return
-        challenge = LINKS.new_challenge(link_id, cn)
+        challenge = LINKS.new_challenge(link_id, cn, device=True)
         if challenge is None:
             self.send(410, "This enrollment link has expired or was already used.", "text/plain")
             return
@@ -3344,6 +3357,8 @@ class EnrollHandler(Handler):
             print(f"Could not build profile: {err}", flush=True)
             self.send(500, "The profile could not be created", "text/plain")
             return
+        with DEVICE_REPLIES_LOCK:
+            DEVICE_REPLIES[(link_id, key)] = (data, time.time() + enroll.CHALLENGE_SECONDS)
         print(f"Enrollment link: device {serial} gets a profile for {cn!r}", flush=True)
         self.send(200, data, "application/x-apple-aspen-config")
 

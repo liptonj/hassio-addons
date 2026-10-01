@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.42
+
+- **Serial number enrollment**: fixes "Could not obtain the final profile
+  using the Encrypted Profile Service" when the enrollment link expired between
+  downloading the profile and installing it (Enroll this device links last one
+  hour). The downloaded profile now works for its own hour. A device that sends
+  its serial number twice gets the same profile again instead of an error.
+
 ## 0.30.2.41
 
 - **Wi-Fi networks**: a network can have its own **Profile name**, so the same
