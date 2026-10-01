@@ -166,4 +166,5 @@ configuration:
     name: Wi-Fi networks
     description: >-
       Wi-Fi networks added to Apple profiles, with proxy, captive portal, QoS, and Passpoint
-      settings. Easiest to edit in the panel under Tools > Wi-Fi networks.
+      settings. Easiest to edit in the panel under Tools > Wi-Fi networks, where
+      each network can have its own profile name so one SSID can be set up more than once.

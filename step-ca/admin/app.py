@@ -16,6 +16,7 @@ import datetime
 import email
 import email.policy
 import html
+import io
 import json
 import os
 import re
@@ -29,6 +30,7 @@ import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import aiohttp
@@ -352,13 +354,18 @@ def full_bundle():
     return enroll.ca_bundle([*cert_chain(), *enroll.load_extra_cas()])
 
 
+def default_networks():
+    """The networks in every profile: enrollment links, Enroll this device, and MDM "all networks"."""
+    return [w for w in WIFI_NETWORKS if w["include_by_default"]]
+
+
 def wifi_enabled():
-    return bool(WIFI_NETWORKS)
+    return bool(default_networks())
 
 
 def wifi_names():
-    """The configured networks' names for a sentence, such as <b>Home</b> and <b>Guest</b>."""
-    names = [f"<b>{esc(enroll.wifi_name(w))}</b>" for w in WIFI_NETWORKS]
+    """The default networks' names for a sentence, such as <b>Home</b> and <b>Guest</b>."""
+    names = [f"<b>{esc(enroll.wifi_name(w))}</b>" for w in default_networks()]
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else ""
 
 
@@ -543,6 +550,7 @@ def wifi_settings(option):
     text = lambda name: str(option.get(name) or "").strip()  # noqa: E731
     flag = lambda name, default=False: bool(option.get(name, default))  # noqa: E731
     settings = {
+        "name": text("name"), "include_by_default": flag("include_by_default", True),
         "ssid": str(option.get("ssid") or ""), "authentication": text("authentication") or "eap_tls",
         "password": str(option.get("password") or ""), "security": text("security") or "WPA2",
         "hidden": flag("hidden"), "auto_join": flag("auto_join", True),
@@ -583,7 +591,16 @@ def check_wifi_option(wifi, others=()):
     if not name:
         raise ValueError("Enter the network name (SSID), or a Passpoint domain for a Passpoint network.")
     if name.lower() in {enroll.wifi_name(o).lower() for o in others}:
-        raise ValueError(f"There is already a network named {name}.")
+        raise ValueError(f"There is already a network named {name}. Give this one its own name.")
+    if len(wifi["name"]) > 64 or not wifi["name"].isprintable():
+        raise ValueError("The name can be at most 64 characters.")
+    ssid = enroll.wifi_ssid(wifi)
+    clash = next((enroll.wifi_name(o) for o in others if o["include_by_default"] and enroll.wifi_ssid(o) == ssid),
+                 None) if wifi["include_by_default"] else None
+    if clash:
+        raise ValueError(f"The network {clash} has the same SSID and is also in every profile. A profile can set "
+                         "up an SSID only once: turn off In every profile for one of them and download it on "
+                         "its own from Tools > MDM profiles.")
     if len(wifi["ssid"].encode()) > 32:
         raise ValueError("The network name (SSID) can be at most 32 bytes.")
     if wifi["authentication"] not in ("eap_tls", "psk"):
@@ -831,7 +848,7 @@ def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
         cn=cn, challenge=challenge,
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=organization, root=root, intermediate=inter,
-        wifi=WIFI_NETWORKS if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
+        wifi=default_networks() if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
     )
     return SIGNER.sign(xml)
 
@@ -841,6 +858,23 @@ MDM_PLATFORMS = {"ios": "iPhone and iPad", "macos": "Mac"}
 MDM_CONTENTS = ("trust", "scep", "wifi")
 
 
+def mdm_contents():
+    """(value, label) for each profile an MDM can download: wifi is every default network,
+    wifi:<name> one network on its own."""
+    options = [("scep", "Certificates and SCEP" + ("" if SCEP_CHALLENGE or GROUPS else " (needs scep_challenge)")),
+               ("trust", "Certificates only")]
+    defaults = default_networks()
+    singles = [w for w in WIFI_NETWORKS if len(defaults) > 1 or w not in defaults]
+    options[:0] = [("wifi:" + enroll.wifi_name(w), f"Certificates, SCEP, and Wi-Fi {enroll.wifi_name(w)}"
+                    + ("" if enroll.wifi_name(w) == enroll.wifi_ssid(w) else f" (SSID {enroll.wifi_ssid(w)})"))
+                   for w in singles]
+    if defaults:
+        options.insert(0, ("wifi", "Certificates, SCEP, and Wi-Fi "
+                           + ", ".join(enroll.wifi_name(w) for w in defaults)
+                           + (" (every network in every profile)" if singles else "")))
+    return options
+
+
 def mdm_profile(platform, contents, cn, base_url, email="", group=""):
     """Unsigned .mobileconfig for an MDM to upload as a custom profile.
 
@@ -848,10 +882,18 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
     $DEVICESERIAL in the profile, which a signature would forbid.
     Returns (data, filename) or raises ValueError.
     """
+    networks = None
+    if contents.startswith("wifi:"):
+        networks = [w for w in WIFI_NETWORKS if enroll.wifi_name(w) == contents[5:]]
+        if not networks:
+            raise ValueError(f"There is no Wi-Fi network named {contents[5:]}; it may have been removed.")
+        contents = "wifi"
+    elif contents == "wifi":
+        networks = default_networks()
+        if not networks:
+            raise ValueError("Wi-Fi is not configured; add a network under Tools > Wi-Fi networks.")
     if platform not in MDM_PLATFORMS or contents not in MDM_CONTENTS:
         raise ValueError("Unknown platform or profile contents.")
-    if contents == "wifi" and not wifi_enabled():
-        raise ValueError("Wi-Fi is not configured; add a network under Tools > Wi-Fi networks.")
     group = parse_group(group)
     challenge = GROUPS[group]["challenge"] if group else SCEP_CHALLENGE
     if contents != "trust":
@@ -874,19 +916,37 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
                              "or the enrollment.public_url add-on option.")
     root, inter = cert_chain()
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
-    names = {"trust": "CA certificates", "scep": "SCEP certificate", "wifi": "Wi-Fi " + ", ".join(enroll.wifi_name(w) for w in WIFI_NETWORKS)}
+    wifi_label = ", ".join(enroll.wifi_name(w) for w in networks or [])
+    names = {"trust": "CA certificates", "scep": "SCEP certificate", "wifi": "Wi-Fi " + wifi_label}
     # Certificates only is the same for every group.
     group = group if contents != "trust" else ""
+    # A single network's profile gets its own identifier, so it installs beside the others.
+    kind = contents if networks is None or networks == default_networks() else f"wifi-{enroll._identifier_part(wifi_label)}"
     xml = enroll.build_profile(
         cn=cn or "device", challenge=challenge,
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=match.group(1) if match else "", root=root, intermediate=inter,
-        wifi=WIFI_NETWORKS if contents == "wifi" else None, extra_cas=enroll.load_extra_cas(),
+        wifi=networks, extra_cas=enroll.load_extra_cas(),
         include_scep=contents != "trust", system_scope=platform == "macos", email_sans=[email], platform=platform,
-        identifier=f"mdm.{group + '.' if group else ''}{contents}.{platform}",
+        identifier=f"mdm.{group + '.' if group else ''}{kind}.{platform}",
         display_name=f"{CA_NAME}: {names[contents]}{', ' + group if group else ''} ({MDM_PLATFORMS[platform]})",
     )
-    return xml, f"{safe_filename(CA_NAME)}-{group + '-' if group else ''}{contents}-{platform}.mobileconfig"
+    return xml, f"{safe_filename(CA_NAME)}-{group + '-' if group else ''}{safe_filename(kind)}-{platform}.mobileconfig"
+
+
+def mdm_bundle(cn, base_url, email="", group=""):
+    """Every MDM profile for both device types as one .zip: (data, filename) or ValueError."""
+    contents = [value for value, _ in mdm_contents()]
+    group = parse_group(group)
+    if not (GROUPS[group]["challenge"] if group else SCEP_CHALLENGE):
+        contents = ["trust"]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for platform, label in MDM_PLATFORMS.items():
+            for value in contents:
+                xml, filename = mdm_profile(platform, value, cn, base_url, email, group)
+                archive.writestr(f"{label}/{filename}", xml)
+    return buffer.getvalue(), f"{safe_filename(CA_NAME)}-{group + '-' if group else ''}mdm-profiles.zip"
 
 
 def group_issue_args(group):
@@ -932,11 +992,11 @@ def safe_filename(cn):
 
 def wifi_help():
     """Manual Wi-Fi settings for devices that installed a .p12."""
-    return "".join(network_help(w) for w in WIFI_NETWORKS)
+    return "".join(network_help(w) for w in default_networks())
 
 
 def network_help(wifi):
-    title = f'<div class="card"><div class="card-header"><h2>Connect to Wi-Fi {esc(enroll.wifi_name(wifi))}</h2></div>'
+    title = f'<div class="card"><div class="card-header"><h2>Connect to Wi-Fi {esc(enroll.wifi_ssid(wifi))}</h2></div>'
     if wifi.get("authentication") == "psk":
         rows = [("Network (SSID)", esc(wifi["ssid"])),
                 ("Security", f'{esc(wifi.get("security", "WPA2"))} Personal'),
@@ -2603,6 +2663,10 @@ class Handler(BaseHTTPRequestHandler):
                 (w["captive_bypass"], "captive portal bypass"), (w["mac_login_window"], "Mac login window"),
                 (w["qos_marking"] != "default", f"QoS {'off' if w['qos_marking'] == 'off' else 'listed apps'}"))
                 if flag]
+            if name != enroll.wifi_ssid(w):
+                details.insert(0, f"SSID {esc(enroll.wifi_ssid(w))}")
+            if not w["include_by_default"]:
+                details.append("own profile only")
             edit = self.url("/tools/wifi?" + urllib.parse.urlencode({"edit": name}))
             rows += (
                 f'<div class="row"><span class="row-icon">{ui.icon("wifi")}</span>'
@@ -2691,8 +2755,15 @@ class Handler(BaseHTTPRequestHandler):
             f'<input type="hidden" name="original" value="{v("original")}">'
             f'<div class="card-header"><h2>{"Edit " + esc(original) if original else "Add a network"}</h2></div>'
             '<div class="card-content">'
+            + text("name", "Profile name (optional)",
+                   "Tells networks apart here and in the MDM downloads, so one SSID can have several profiles "
+                   "(for example Office iPhone and Office Mac). Empty uses the SSID.", "e.g. Office Mac",
+                   maxlength="64", autocapitalize="sentences")
             + text("ssid", "Network name (SSID)", "Exactly as the network broadcasts it, including case.",
                    "e.g. Home", maxlength="32")
+            + checkbox("include_by_default", "Include in every profile",
+                       "Enrollment links, Enroll this device, and the MDM profile with every network set it up. "
+                       "Turn off for a network you download on its own from Tools > MDM profiles.")
             + '<div class="field"><label for="w-auth">Authentication</label>'
             f'<select id="w-auth" name="authentication">{auth}</select>'
             '<p class="hint">EAP-TLS signs each device in with the certificate this CA issues, through a RADIUS '
@@ -2791,7 +2862,7 @@ class Handler(BaseHTTPRequestHandler):
         original = field("original")
         port = field("proxy_port").strip()
         values = {
-            "original": original, "ssid": field("ssid").strip(), "authentication": field("authentication"),
+            "original": original, "name": field("name").strip(), "ssid": field("ssid").strip(), "authentication": field("authentication"),
             "password": field("password"), "security": field("security"),
             "proxy": field("proxy"), "proxy_server": field("proxy_server"),
             "proxy_port": int(port) if port.isdigit() and len(port) <= 5 else (-1 if port else None),
@@ -2800,7 +2871,7 @@ class Handler(BaseHTTPRequestHandler):
             "passpoint_domain": field("passpoint_domain"), "passpoint_operator_name": field("passpoint_operator_name"),
             "passpoint_hessid": field("passpoint_hessid"),
             **{name: field(name) == "1" for name in (
-                "hidden", "auto_join", "disable_mac_randomization", "proxy_pac_fallback", "captive_bypass",
+                "include_by_default", "hidden", "auto_join", "disable_mac_randomization", "proxy_pac_fallback", "captive_bypass",
                 "mac_login_window", "qos_apple_calls", "passpoint", "passpoint_roaming")},
             **{name: listed(name) for name in WIFI_LISTS},
         }
@@ -2987,13 +3058,18 @@ class Handler(BaseHTTPRequestHandler):
     def mdm_download(self, query):
         first = lambda name: (query.get(name) or [""])[0].strip()  # noqa: E731
         try:
-            data, filename = mdm_profile(first("platform"), first("contents"), first("cn"),
-                                         default_base_url(self.headers), first("email"), first("group"))
+            if first("platform") == "all":
+                data, filename = mdm_bundle(first("cn"), default_base_url(self.headers), first("email"),
+                                            first("group"))
+            else:
+                data, filename = mdm_profile(first("platform"), first("contents"), first("cn"),
+                                             default_base_url(self.headers), first("email"), first("group"))
         except ValueError as err:
             self.tools_error("/tools/mdm", err)
             return
         print(f"Downloaded MDM profile {filename}", flush=True)
-        self.download(data, filename, "application/x-apple-aspen-config")
+        self.download(data, filename, "application/zip" if filename.endswith(".zip")
+                      else "application/x-apple-aspen-config")
 
     def mdm_page(self, query):
         """Values for an MDM's SCEP, certificate, and Wi-Fi payloads, and ready-made profiles."""
@@ -3028,7 +3104,8 @@ class Handler(BaseHTTPRequestHandler):
             ("Fingerprint", "Leave empty", None),
         ]
         for wifi in WIFI_NETWORKS:
-            label = f"<b>{esc(enroll.wifi_name(wifi))}</b>"
+            label = f"<b>{esc(enroll.wifi_ssid(wifi))}</b>" + (
+                f" ({esc(wifi['name'])})" if wifi["name"] and wifi["name"] != enroll.wifi_ssid(wifi) else "")
             if wifi["authentication"] == "psk":
                 rows.append(("Wi-Fi", f"SSID {label}, {esc(wifi['security'])} Personal with the saved password",
                              None))
@@ -3058,15 +3135,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def mdm_profile_form(self):
         """Ready-made, unsigned profiles to upload to an MDM instead of entering the values."""
-        options = [("scep", "Certificates and SCEP" + ("" if SCEP_CHALLENGE or GROUPS else " (needs scep_challenge)")),
-                   ("trust", "Certificates only")]
-        if wifi_enabled():
-            options.insert(0, ("wifi", "Certificates, SCEP, and Wi-Fi "
-                               + esc(", ".join(enroll.wifi_name(w) for w in WIFI_NETWORKS))))
-        contents = "".join(f'<option value="{v}">{label}</option>' for v, label in options)
+        contents = "".join(f'<option value="{esc(v)}">{esc(label)}</option>' for v, label in mdm_contents())
         buttons = "".join(
             f'<button class="btn" name="platform" value="{v}">{ui.icon(icon)}{esc(label)} profile</button>'
             for (v, label), icon in zip(MDM_PLATFORMS.items(), ("cellphone", "laptop")))
+        buttons += (f'<button class="btn outlined" name="platform" value="all">{ui.icon("download")}'
+                    "Download all (.zip)</button>")
         mdms = "".join(f'<option value="{key}">{esc(name)}</option>' for key, name, _, _ in MDM_VARIABLES)
 
         def presets(index):
@@ -3085,7 +3159,8 @@ class Handler(BaseHTTPRequestHandler):
             '<p class="muted">Download one for each device type and assign each to those devices in your MDM. '
             "The iPhone and iPad profile installs for the user and leaves out Mac-only settings (login window). "
             "The Mac profile installs for the whole Mac (System keychain) and leaves out iPhone-only settings "
-            "(captive portal bypass, Passpoint MCC/MNC and HESSID).</p></div><div class=\"card-content\">"
+            "(captive portal bypass, Passpoint MCC/MNC and HESSID). <b>Download all</b> gets every profile in "
+            "the Contents menu for both device types in one .zip, with the settings below.</p></div><div class=\"card-content\">"
             f'<div class="field"><label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select></div>'
             '<div class="field js-only"><label for="mdm-kind">Your MDM</label>'
             f'<select id="mdm-kind" data-mdm-switch>{mdms}<option value="other">Another MDM</option></select>'

@@ -650,7 +650,13 @@ def _identifier_part(value):
 
 
 def wifi_name(wifi):
-    """The network's SSID, or its Passpoint domain for a Passpoint network without one."""
+    """The network's own name, else its SSID, else its Passpoint domain."""
+    wifi = wifi or {}
+    return wifi.get("name") or wifi_ssid(wifi)
+
+
+def wifi_ssid(wifi):
+    """The SSID devices see, or the Passpoint domain for a Passpoint network without one."""
     wifi = wifi or {}
     return wifi.get("ssid") or (wifi.get("passpoint_domain") if wifi.get("passpoint") else "") or ""
 
@@ -676,7 +682,7 @@ def wifi_payload(wifi, prefix, identifiers, platform=None):
         "PayloadVersion": 1,
         "PayloadIdentifier": identifier,
         "PayloadUUID": str(uuid.uuid4()).upper(),
-        "PayloadDisplayName": f"Wi-Fi {name}",
+        "PayloadDisplayName": f"Wi-Fi {wifi_ssid(wifi)}",
         "HIDDEN_NETWORK": bool(wifi.get("hidden")),
         "AutoJoin": bool(wifi.get("auto_join", True)),
         "EncryptionType": wifi.get("security") or "WPA2",

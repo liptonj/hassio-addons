@@ -339,6 +339,14 @@ server's certificate. For .p12 devices the page shows the
 settings to enter by hand (EAP method TLS, CA certificate, identity, and
 domain).
 
+Give a network its own **Profile name** to set up the same SSID more than
+once, for example *Office iPhone* with a proxy and *Office Mac* that connects
+at the login window. Turn off **Include in every profile** for the extra ones:
+enrollment links, **Enroll this device**, and the MDM profile with every
+network set up only the networks that have it on (a profile can set up an SSID
+only once), and each network can be downloaded on its own under **Tools → MDM
+profiles**.
+
 ### Subject alternative names
 
 Enrollment links, **Enroll this device**, and **Issue a certificate now**
@@ -444,7 +452,10 @@ Instead of entering the values by hand, download a profile under
 **Certificates → Tools → MDM profiles → Download a profile for your
 MDM** and upload it to your MDM as a custom profile. There is a separate
 download for each device type: **iPhone and iPad profile** and **Mac
-profile**. Upload both and assign each to those devices.
+profile**. Upload both and assign each to those devices. **Download all
+(.zip)** gets every choice in the **Contents** menu for both device types at
+once, in an *iPhone and iPad* and a *Mac* folder, with the other settings on
+the form (only certificates when there is no SCEP challenge).
 
 - The iPhone and iPad profile installs for the user and leaves out Mac-only
   Wi-Fi settings (connect at the login window).
@@ -454,8 +465,9 @@ profile**. Upload both and assign each to those devices.
 
 Choose:
 
-- **Contents**: certificates only; certificates and SCEP; or certificates,
-  SCEP, and Wi-Fi when a network is set up. Every certificate is included: the
+- **Contents**: certificates only; certificates and SCEP; certificates,
+  SCEP, and every network in **Include in every profile**; or certificates,
+  SCEP, and one network on its own (by its profile name). Every certificate is included: the
   root CA, the intermediate CA, and each of the **Other trusted CAs**.
 - **Your MDM**: Meraki, Jamf Pro, Kandji, Intune, or another MDM. This fills the
   two menus below with that MDM's variables. Choose **Custom** in either menu
@@ -685,6 +697,12 @@ uploaded to an MDM keep the old settings until you replace them.
 
 Each network:
 
+- `name`: optional profile name that tells networks apart, so one SSID can
+  have several entries. Empty uses the SSID. Names must be unique.
+- `include_by_default`: set up this network in enrollment links, **Enroll
+  this device**, and the MDM profile with every network (default `true`).
+  Networks with it on must have different SSIDs; download the others on their
+  own under **Tools → MDM profiles**.
 - `ssid`: network name. Optional for a Passpoint network.
 - `authentication`: `eap_tls` (default), where each device signs in with the
   certificate from this CA through a RADIUS server (WPA Enterprise); or

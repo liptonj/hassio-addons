@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.30.2.41
+
+- **Wi-Fi networks**: a network can have its own **Profile name**, so the same
+  SSID can be set up more than once (for example one entry for iPhones and
+  one for Macs). **Include in every profile** chooses which networks
+  enrollment links, Enroll this device, and the MDM all-networks profile set
+  up; the others are downloaded on their own.
+- **MDM profiles**: the Contents menu lists each network on its own, and
+  **Download all (.zip)** gets every profile for iPhone and iPad and for Mac
+  in one file.
+
 ## 0.30.2.40
 
 - **MDM profiles**: separate **iPhone and iPad profile** and **Mac profile**
