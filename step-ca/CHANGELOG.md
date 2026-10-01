@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.30.2.26
+
+- Fix the image build for 0.30.2.25: the new `admin/ui.py` was left out of
+  the Docker build context.
+
 ## 0.30.2.25
 
 - Redesigned the panel and the enrollment pages to follow Home Assistant's
