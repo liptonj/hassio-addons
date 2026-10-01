@@ -18,8 +18,10 @@ UPSTREAM_TIMEOUT = 30
 
 # One-time enrollment links: /enroll/<token>[/file/<id> | /root_ca.crt]
 ENROLL_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
-ENROLL_SUBPATH_RE = re.compile(r"^(file/[A-Za-z0-9_-]{20,64}|root_ca\.crt)$")
+ENROLL_SUBPATH_RE = re.compile(r"^(file/[A-Za-z0-9_-]{20,64}|root_ca\.crt|device)$")
 MAX_FORM_BYTES = 4096
+# Signed device attributes (serial number) an Apple device posts to the profile service.
+MAX_DEVICE_BYTES = 65536
 # Headers passed back from the add-on's enrollment pages.
 ENROLL_RESPONSE_HEADERS = (
     "Content-Type",

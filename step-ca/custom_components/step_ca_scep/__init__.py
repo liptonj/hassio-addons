@@ -29,6 +29,7 @@ from .const import (
     ENROLL_SUBPATH_RE,
     ENROLL_TOKEN_RE,
     MAX_BODY_BYTES,
+    MAX_DEVICE_BYTES,
     MAX_FORM_BYTES,
     PROVISIONER_RE,
     UPSTREAM_TIMEOUT,
@@ -214,13 +215,14 @@ class EnrollView(HomeAssistantView):
     async def post(
         self, request: web.Request, token: str, subpath: str = ""
     ) -> web.Response:
-        """Submit the enrollment form."""
-        if subpath:
+        """Submit the enrollment form, or an Apple device's signed attributes."""
+        if subpath not in ("", "device"):
             return web.Response(status=HTTPStatus.METHOD_NOT_ALLOWED)
-        if (request.content_length or 0) > MAX_FORM_BYTES:
+        limit = MAX_DEVICE_BYTES if subpath else MAX_FORM_BYTES
+        if (request.content_length or 0) > limit:
             return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
-        body = await request.content.read(MAX_FORM_BYTES + 1)
-        if len(body) > MAX_FORM_BYTES:
+        body = await request.content.read(limit + 1)
+        if len(body) > limit:
             return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
         return await self._forward(request, token, subpath, body)
 
@@ -248,7 +250,11 @@ class EnrollView(HomeAssistantView):
         if user_agent := request.headers.get("User-Agent"):
             headers["User-Agent"] = user_agent
         if body is not None:
-            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            headers["Content-Type"] = (
+                "application/pkcs7-signature"
+                if subpath
+                else "application/x-www-form-urlencoded"
+            )
 
         session = async_get_clientsession(hass)
         try:

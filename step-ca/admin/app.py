@@ -1577,14 +1577,23 @@ class Handler(BaseHTTPRequestHandler):
         apple = bool(APPLE_UA_RE.search(self.headers.get("User-Agent", "")))
         cn = link["cn"] or cn
         if link["cn"]:
+            shown = esc(link["cn"]).replace(enroll.SERIAL_VAR, "<i>serial number</i>")
+            serial = (' <p class="hint">Filled in with the serial number of this iPhone, iPad, or Mac.</p>'
+                      if enroll.uses_serial(link["cn"]) else "")
             name = (f'<div class="field"><span class="label">Certificate name</span>'
-                    f'<span class="mono">{esc(link["cn"])}</span></div>'
+                    f'<span class="mono">{shown}</span>{serial}</div>'
                     f'<input type="hidden" name="cn" value="{esc(link["cn"])}">')
         else:
+            # The serial number comes first on Apple devices, which can send it.
+            serial = f'<option value="{enroll.SERIAL_VAR}">Serial number of this iPhone, iPad, or Mac</option>'
+            custom = '<option value="" data-custom>Custom…</option>'
             name = ('<div class="field"><label for="cn">Certificate name</label>'
+                    '<select class="preset js-only" data-for="cn" aria-label="Certificate name choice">'
+                    + (serial + custom if apple else custom + serial) + '</select>'
                     f'<input id="cn" name="cn" maxlength="64" required value="{esc(cn)}" '
                     'placeholder="e.g. josh-iphone" autocapitalize="off" autocorrect="off">'
-                    '<p class="hint">Letters, digits, spaces, and . _ @ - only.</p></div>')
+                    '<p class="hint">Letters, digits, spaces, and . _ @ - only. On an iPhone, iPad, or Mac, '
+                    f'{enroll.SERIAL_VAR} is replaced with the device&#39;s serial number.</p></div>')
         if extra:
             extra = f'<div class="field">{extra}</div>' if 'class="field"' not in extra else extra
         wifi = ""
@@ -1610,7 +1619,20 @@ class Handler(BaseHTTPRequestHandler):
         )
         self.page("Enroll device", body, back="/enroll", narrow=True)
 
+    @staticmethod
+    def name_error(cn, kind):
+        """Why the certificate name chosen on the device form cannot be used, or ""."""
+        if not enroll.valid_cn_template(cn):
+            return "Enter a certificate name using letters, digits, spaces, and . _ @ - (up to 64 characters)."
+        if enroll.uses_serial(cn) and kind != "apple":
+            return (f"Only an iPhone, iPad, or Mac can fill in its serial number ({enroll.SERIAL_VAR}); "
+                    "enter the certificate name for this device.")
+        return ""
+
     def apple_result(self, token, link_id, link, cn):
+        if enroll.uses_serial(cn):
+            self.profile_service_result(token, link_id, link, cn)
+            return
         challenge = LINKS.new_challenge(link_id, cn)
         if challenge is None:
             self.gone()
@@ -1638,6 +1660,47 @@ class Handler(BaseHTTPRequestHandler):
             "Management</b> and double-click the profile.</li>"
             "<li>Enter your device passcode and confirm. The device creates its key and requests "
             "the certificate. This needs a connection to Home Assistant.</li>"
+            "</ol></div></div>"
+            + ui.alert("info", "The profile works once and must be installed within an hour. If the "
+                       "install fails, start the enrollment again to get a fresh profile.")
+        )
+        self.page("Install the profile", body, back="/enroll", narrow=True)
+
+    def profile_service_result(self, token, link_id, link, cn):
+        """Profile that asks the device for its serial number, then installs the real one."""
+        challenge = LINKS.new_challenge(link_id, cn)
+        if challenge is None:
+            self.gone()
+            return
+        match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
+        # The device posts without cookies, so this is the public URL even from the panel.
+        url = f"{link['base_url']}{enroll.PUBLIC_BASE}/enroll/{token}/device"
+        try:
+            data = SIGNER.sign(enroll.build_profile_service(
+                url=url, challenge=challenge, ca_name=CA_NAME,
+                organization=match.group(1) if match else "", cn=cn))
+        except (RuntimeError, OSError, ValueError) as err:
+            print(f"Could not build profile: {err}", flush=True)
+            self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
+                                        "The profile could not be created"), 500)
+            return
+        download = DOWNLOADS.add(link_id, data, "enroll.mobileconfig", "application/x-apple-aspen-config")
+        href = f"{self.enroll_prefix()}/{token}/file/{download}"
+        shown = esc(cn).replace(enroll.SERIAL_VAR, "<i>serial number</i>")
+        body = (
+            self.insecure_note()
+            + '<div class="card"><div class="card-header"><h1>Install the profile</h1>'
+            f'<p class="muted">The certificate is named <b>{shown}</b> from this device&#39;s serial '
+            "number.</p></div>"
+            '<div class="card-content"><ol class="steps">'
+            f'<li>Tap <b>Download profile</b> and choose <b>Allow</b>.<p class="step-action">'
+            f'<a class="btn" href="{esc(href)}">{ui.icon("download")}Download profile</a></p></li>'
+            "<li>iPhone or iPad: open <b>Settings</b>, tap <b>Profile Downloaded</b> near the top, "
+            "then <b>Install</b>. Mac: open <b>System Settings &rsaquo; General &rsaquo; Device "
+            "Management</b> and double-click the profile.</li>"
+            "<li>The device sends its serial number to Home Assistant and gets the certificate profile. "
+            "Install that one too and enter your device passcode. This needs a connection to "
+            f"Home Assistant at {esc(link['base_url'])}.</li>"
             "</ol></div></div>"
             + ui.alert("info", "The profile works once and must be installed within an hour. If the "
                        "install fails, start the enrollment again to get a fresh profile.")
@@ -1698,9 +1761,8 @@ class Handler(BaseHTTPRequestHandler):
         sans_text = form.get("sans", [""])[0].strip()
         email_text = form.get("email", [""])[0].strip()
         group_text = form.get("group", [""])[0]
-        if not enroll.valid_cn(cn):
-            self.self_enroll_page("Enter a certificate name using letters, digits, spaces, "
-                                  "and . _ @ - (up to 64 characters).", cn, sans_text, group_text, email_text)
+        if error := self.name_error(cn, form.get("kind", [""])[0]):
+            self.self_enroll_page(error, cn, sans_text, group_text, email_text)
             return
         try:
             sans = form_sans(form)
@@ -1846,7 +1908,12 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="card-content"><div class="field-row">'
             '<div class="field"><label for="label">Label</label><input id="label" name="label" maxlength="64" '
             'placeholder="e.g. Josh&#39;s iPhone"></div>'
-            '<div class="field"><label for="cn">Certificate name (CN)</label><input id="cn" name="cn" maxlength="64" '
+            '<div class="field"><label for="cn">Certificate name (CN)</label>'
+            '<select class="preset js-only" data-for="cn" aria-label="Certificate name choice">'
+            '<option value="">Chosen on the device</option>'
+            f'<option value="{enroll.SERIAL_VAR}">Device serial number (iPhone, iPad, Mac)</option>'
+            '<option value="" data-custom>Custom…</option></select>'
+            '<input id="cn" name="cn" maxlength="64" '
             'autocapitalize="off" placeholder="Chosen on the device"></div></div>'
             + email_input("email")
             + group_select("group", hint="The certificate gets this group&#39;s OU and lifetime.")
@@ -1909,8 +1976,9 @@ class Handler(BaseHTTPRequestHandler):
             group = parse_group(field("group"))
         except ValueError as err:
             group, error = "", str(err)
-        if not error and cn and not enroll.valid_cn(cn):
-            error = "The certificate name may use letters, digits, spaces, and . _ @ - (up to 64)."
+        if not error and cn and not enroll.valid_cn_template(cn):
+            error = (f"The certificate name may use letters, digits, spaces, and . _ @ - (up to 64), "
+                     f"and {enroll.SERIAL_VAR} for the device's serial number.")
         elif not error and not base_url:
             error = "Enter the Home Assistant URL as scheme and host only, e.g. https://home.example.com."
         sans = []
@@ -2779,7 +2847,8 @@ def parse_multipart(content_type, body):
 
 
 APPLE_UA_RE = re.compile(r"iPhone|iPad|iPod|Macintosh|Mac OS X")
-ENROLL_PATH_RE = re.compile(r"^/enroll/([A-Za-z0-9_-]{32,64})(?:/(file/[A-Za-z0-9_-]{20,64}|root_ca\.crt))?$")
+ENROLL_PATH_RE = re.compile(
+    r"^/enroll/([A-Za-z0-9_-]{32,64})(?:/(file/[A-Za-z0-9_-]{20,64}|root_ca\.crt|device))?$")
 
 
 class EnrollHandler(Handler):
@@ -2823,6 +2892,8 @@ class EnrollHandler(Handler):
         token, sub = self.route()
         if token is None:
             self.send(404, "Not found", "text/plain")
+        elif sub == "device":
+            self.send(405, "Method not allowed", "text/plain")
         elif sub:
             self.enroll_file(token, sub)
         else:
@@ -2836,6 +2907,9 @@ class EnrollHandler(Handler):
         if not self.allowed():
             return
         token, sub = self.route()
+        if sub == "device":
+            self.device_enroll(token)
+            return
         if token is None or sub:
             self.send(404, "Not found", "text/plain")
             return
@@ -2849,14 +2923,55 @@ class EnrollHandler(Handler):
             self.gone()
             return
         cn = (link["cn"] or form.get("cn", [""])[0]).strip()
-        if not enroll.valid_cn(cn):
-            self.form_page(self.public(f"/enroll/{token}"), link, "Enter a certificate name using letters, digits, spaces, "
-                           "and . _ @ - (up to 64 characters).", cn)
+        if error := self.name_error(cn, form.get("kind", [""])[0]):
+            self.form_page(self.public(f"/enroll/{token}"), link, error, cn)
             return
         if form.get("kind", [""])[0] == "apple":
             self.apple_result(token, link_id, link, cn)
         else:
             self.p12_result(token, link_id, link, cn)
+
+    def device_enroll(self, token):
+        """Profile service: an Apple device posts its signed attributes and gets its profile."""
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > enroll.MAX_DEVICE_BYTES:
+            self.send(413, "Request too large", "text/plain")
+            return
+        body = self.rfile.read(length)
+        link_id, link = LINKS.get(token)
+        if link is None:
+            self.send(410, "This enrollment link has expired or was already used.", "text/plain")
+            return
+        try:
+            attributes = enroll.device_attributes(body)
+        except (ValueError, IndexError) as err:
+            print(f"Enrollment link: unreadable device attributes: {err}", flush=True)
+            self.send(400, "Unreadable device attributes", "text/plain")
+            return
+        template = LINKS.take_device_challenge(link_id, str(attributes.get("CHALLENGE") or ""))
+        if template is None:
+            self.send(403, "This profile was already used or has expired; start the enrollment again.",
+                      "text/plain")
+            return
+        serial = str(attributes.get("SERIAL") or "")
+        cn = enroll.fill_serial(template, serial)
+        if not cn:
+            print(f"Enrollment link: device sent no usable serial number ({serial[:40]!r})", flush=True)
+            self.send(400, "The device did not send a usable serial number.", "text/plain")
+            return
+        challenge = LINKS.new_challenge(link_id, cn)
+        if challenge is None:
+            self.send(410, "This enrollment link has expired or was already used.", "text/plain")
+            return
+        try:
+            data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled(),
+                               link.get("sans") or (), link.get("group", ""))
+        except (RuntimeError, OSError, ValueError) as err:
+            print(f"Could not build profile: {err}", flush=True)
+            self.send(500, "The profile could not be created", "text/plain")
+            return
+        print(f"Enrollment link: device {serial} gets a profile for {cn!r}", flush=True)
+        self.send(200, data, "application/x-apple-aspen-config")
 
 
 class WebhookHandler(BaseHTTPRequestHandler):

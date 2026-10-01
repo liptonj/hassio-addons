@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.2.36
+
+- **Enrollment links and Enroll this device**: the certificate name can be the
+  device's serial number on iPhone, iPad, and Mac, like an MDM's
+  `$SERIALNUMBER`. Choose **Device serial number** (or use `$SERIALNUMBER`
+  in the name); the device sends its serial number through an Apple profile
+  service and then installs its certificate profile.
+- Home Assistant integration 1.3.0 passes the device's reply through to the
+  add-on. Restart Home Assistant after updating.
+
 ## 0.30.2.35
 
 - **Wi-Fi**: pre-shared key networks. Choose **Pre-shared key** under

@@ -261,6 +261,26 @@ class LinkStore:
             self._save(links)
         return challenge
 
+    def take_device_challenge(self, link_id, challenge):
+        """Use up a profile service challenge. Returns the link's name template, or None.
+
+        Profile service challenges are stored like SCEP challenges but with the
+        $SERIALNUMBER template as their name, which no certificate request can match.
+        """
+        if not challenge:
+            return None
+        with self._lock:
+            links = self._load()
+            link = links.get(link_id)
+            if (link is None or self.status(link) != "pending" or not link["challenge"]
+                    or not uses_serial(link["challenge_cn"]) or link["challenge_expires"] < _now()
+                    or not secrets.compare_digest(link["challenge"], _hash(challenge))):
+                return None
+            template = link["challenge_cn"]
+            link["challenge"] = ""
+            self._save(links)
+        return template
+
     def consume_challenge(self, challenge, cn, group=""):
         """Mark the link used if the challenge, CN, and group match. Returns the link id.
 
@@ -278,8 +298,9 @@ class LinkStore:
                     continue
                 if not secrets.compare_digest(link["challenge"], digest):
                     continue
+                # A profile service challenge (name still has $SERIALNUMBER) is not for SCEP.
                 if (link["challenge_expires"] < now or link["challenge_cn"] != cn
-                        or link.get("group", "") != group):
+                        or uses_serial(cn) or link.get("group", "") != group):
                     return None
                 link.update(status="issued", challenge="", issued_cn=cn,
                             issued_at=now, method="SCEP profile")
@@ -777,6 +798,138 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
         profile["PayloadScope"] = "System"
     return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
 
+
+
+# Certificate name variable for one-time links: an Apple device sends its serial
+# number through a profile service, the same way an MDM fills $SERIALNUMBER.
+SERIAL_VAR = "$SERIALNUMBER"
+SERIAL_RE = re.compile(r"^[A-Za-z0-9-]{1,32}$")
+MAX_DEVICE_BYTES = 65536
+
+
+def uses_serial(cn):
+    return SERIAL_VAR in (cn or "")
+
+
+def valid_cn_template(value):
+    """A certificate name, or one with $SERIALNUMBER in it (filled in from the device)."""
+    return valid_cn(value) or (uses_serial(value) and len(value) <= 64
+                               and valid_cn(value.replace(SERIAL_VAR, "X")))
+
+
+def fill_serial(template, serial):
+    """The certificate name with the device's serial number, or "" if it is not valid."""
+    if not SERIAL_RE.match(serial or ""):
+        return ""
+    cn = template.replace(SERIAL_VAR, serial)
+    return cn if valid_cn(cn) else ""
+
+
+def build_profile_service(*, url, challenge, ca_name, organization, cn):
+    """Unsigned profile service payload that asks the device for its serial number.
+
+    The device posts its attributes (signed CMS) to url and installs the
+    profile that comes back.
+    """
+    prefix = f"io.home-assistant.step-ca.{_identifier_part(ca_name)}"
+    profile = {
+        "PayloadType": "Profile Service",
+        "PayloadVersion": 1,
+        "PayloadIdentifier": f"{prefix}.profile-service",
+        "PayloadUUID": str(uuid.uuid4()).upper(),
+        "PayloadDisplayName": f"{ca_name}: device enrollment",
+        "PayloadDescription": "Sends this device's serial number to get a certificate named "
+                              f"{cn.replace(SERIAL_VAR, '<serial number>')}.",
+        "PayloadContent": {
+            "URL": url,
+            "DeviceAttributes": ["SERIAL", "UDID", "PRODUCT", "VERSION"],
+            "Challenge": challenge,
+        },
+    }
+    if organization:
+        profile["PayloadOrganization"] = organization
+    return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
+
+
+def _ber_items(data, pos, end):
+    """Yield (tag, constructed, content start, content end, next) for BER items in data[pos:end].
+
+    Handles indefinite lengths, which some CMS encoders use.
+    """
+    while pos < end:
+        tag = data[pos]
+        if tag == 0 and pos + 1 < end and data[pos + 1] == 0:
+            return
+        if tag & 0x1F == 0x1F:
+            raise ValueError("high tag numbers are not used here")
+        length, pos = data[pos + 1], pos + 2
+        constructed = bool(tag & 0x20)
+        if length == 0x80:
+            if not constructed:
+                raise ValueError("indefinite length on a primitive item")
+            stop = pos
+            for item in _ber_items(data, pos, end):
+                stop = item[4]
+            if data[stop:stop + 2] != b"\0\0":
+                raise ValueError("missing end of contents")
+            yield tag, constructed, pos, stop, stop + 2
+            pos = stop + 2
+            continue
+        if length & 0x80:
+            count = length & 0x7F
+            if not 1 <= count <= 4:
+                raise ValueError("bad length")
+            length, pos = int.from_bytes(data[pos:pos + count], "big"), pos + count
+        if pos + length > end:
+            raise ValueError("truncated")
+        yield tag, constructed, pos, pos + length, pos + length
+        pos += length
+
+
+def _ber_children(data, start, end):
+    return list(_ber_items(data, start, end))
+
+
+def _octets(data, item):
+    """Content of an OCTET STRING item, joining the pieces of a constructed one."""
+    tag, constructed, start, end, _ = item
+    if tag & 0x1F != 0x04:
+        raise ValueError("not an octet string")
+    if not constructed:
+        return data[start:end]
+    return b"".join(_octets(data, child) for child in _ber_children(data, start, end))
+
+
+SIGNED_DATA_OID = bytes.fromhex("2a864886f70d010702")
+
+
+def device_attributes(body):
+    """The attributes plist (SERIAL, UDID, CHALLENGE, ...) from a device's signed CMS post.
+
+    The signature is not checked: the one-time challenge in the plist is what
+    ties the post to the enrollment link.
+    """
+    if not body or len(body) > MAX_DEVICE_BYTES:
+        raise ValueError("empty or too large")
+    data = bytes(body)
+    items = _ber_children(data, 0, len(data))
+    info = items[0] if items else None
+    if info is None or info[0] != 0x30:
+        raise ValueError("not a CMS ContentInfo")
+    oid, wrapper = _ber_children(data, info[2], info[3])[:2]
+    if oid[0] != 0x06 or data[oid[2]:oid[3]] != SIGNED_DATA_OID or wrapper[0] != 0xA0:
+        raise ValueError("not CMS SignedData")
+    (signed,) = _ber_children(data, wrapper[2], wrapper[3])[:1]
+    # SignedData: version, digestAlgorithms, encapContentInfo, ...
+    encap = _ber_children(data, signed[2], signed[3])[2]
+    parts = _ber_children(data, encap[2], encap[3])
+    if len(parts) < 2 or parts[1][0] != 0xA0:
+        raise ValueError("no signed content")
+    (content,) = _ber_children(data, parts[1][2], parts[1][3])[:1]
+    attributes = plistlib.loads(_octets(data, content))
+    if not isinstance(attributes, dict):
+        raise ValueError("attributes are not a dictionary")
+    return attributes
 
 def p12_password():
     groups = ("".join(secrets.choice(P12_ALPHABET) for _ in range(4)) for _ in range(4))
