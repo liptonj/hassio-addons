@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.33
+
+- **Authority**: new **Meraki Access Manager** download, the CA chain as a
+  single `.crt` ready to upload under Access Manager > Certificates, with
+  the settings to choose.
+
 ## 0.30.2.32
 
 - **Wi-Fi**: new `radius_server` option. With `meraki_access_manager`, Wi-Fi

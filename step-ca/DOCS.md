@@ -679,9 +679,11 @@ the new one: remove the old profile and enroll again, or push the new MDM
 profile.
 
 **Meraki trusts devices.** In Meraki, go to **Access Manager > Configure >
-Certificates** and upload **CA chain** (`ca-chain.pem`, from **Authority**;
-rename it to `.crt` if Meraki asks) as a single entry. Set its status to
-**Enabled** and turn **Trusted Anchor** on. Do not upload `ca-bundle.pem` or
+Certificates** and upload the **Meraki Access Manager** download from
+**Authority** (`<CA name>-ca-chain.crt`, the intermediate and root in one
+file) as a single entry. Set its status to **Enabled**, turn **Trusted
+Anchor** on, and choose **Subject Alternative Name RFC822** as the identity
+field. Do not upload `ca-bundle.pem` or
 the root and intermediate again as separate entries; Meraki rejects devices
 with "The provided certificate is untrusted… signer being disabled, extra or
 duplicate certificates in the chain" when the CA is missing, disabled, or

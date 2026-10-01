@@ -1060,6 +1060,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.mdm_download(query)
             elif path == "/download/ca-chain.pem":
                 self.download(ca_chain(), "ca-chain.pem", "application/x-pem-file")
+            elif path == "/download/meraki-ca-chain.crt":
+                self.download(ca_chain(), f"{safe_filename(CA_NAME)}-ca-chain.crt", "application/x-pem-file")
             elif path == "/download/ca-bundle.pem":
                 self.download(full_bundle(), "ca-bundle.pem", "application/x-pem-file")
             elif path == "/download/crl.pem":
@@ -2046,10 +2048,13 @@ class Handler(BaseHTTPRequestHandler):
             + authority("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem", False)
             + '<h3 class="subhead">Downloads</h3><div class="rows">'
             + download_row("file-certificate-outline", "CA chain",
-                           "Intermediate and root, for MDMs and RADIUS servers. In Meraki Access "
-                           "Manager, upload it as one entry under Certificates, Enabled, with Trusted "
-                           "Anchor on",
+                           "Intermediate and root, for MDMs and RADIUS servers",
                            "/download/ca-chain.pem", "ca-chain.pem")
+            + download_row("file-certificate-outline", "Meraki Access Manager",
+                           "The CA chain as one .crt for Access Manager > Certificates. Upload it as a "
+                           "single entry, set Enabled and Trusted Anchor, and choose Subject Alternative "
+                           "Name RFC822 as the identity field",
+                           "/download/meraki-ca-chain.crt", f"{safe_filename(CA_NAME)}-ca-chain.crt")
             + download_row("file-certificate-outline", "CA bundle",
                            "Root, intermediate" + (", and the other trusted CAs" if extra else ""),
                            "/download/ca-bundle.pem", "ca-bundle.pem")
