@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2.27"
+version: "0.30.2.28"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -86,6 +86,7 @@ schema:
       organizational_unit: str(1,64)
       challenge: password?
       cert_duration: match(^[0-9]+(h|m)$)?
+      require_email: bool?
   encryption_algorithm: list(0|1|2|3|4)
   min_public_key_length: int(1024,8192)
   include_root: bool

@@ -11,6 +11,7 @@ Assistant container, and a loopback-only SCEPCHALLENGE webhook for step-ca.
 """
 
 import asyncio
+import base64
 import datetime
 import email
 import email.policy
@@ -24,6 +25,7 @@ import subprocess
 import threading
 import time
 import traceback
+import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -53,6 +55,7 @@ LISTEN_PORT = int(os.environ.get("ADMIN_PORT", "8099"))
 ALLOWED_CLIENTS = set(os.environ.get("ADMIN_ALLOWED_CLIENTS", "172.30.32.2").split(","))
 CSRF_TOKEN = secrets.token_urlsafe(32)
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+SUPERVISOR_URL = os.environ.get("SUPERVISOR_URL", "http://supervisor")
 CORE_WEBSOCKET = os.environ.get("CORE_WEBSOCKET", "ws://supervisor/core/websocket")
 ADMIN_GROUP = "system-admin"
 ADMIN_CACHE_SECONDS = 60
@@ -72,7 +75,7 @@ try:
     WIFI = json.loads(os.environ.get("WIFI_JSON") or "{}")
 except ValueError:
     WIFI = {}
-# Certificate groups: {name: {"name", "ou", "challenge", "duration"}}. Each has
+# Certificate groups: {name: {"name", "ou", "challenge", "duration", "require_email"}}. Each has
 # its own SCEP provisioner (named after the group) whose certificates carry
 # the group's OU.
 try:
@@ -442,17 +445,148 @@ def group_label(group):
     return f"Default (OU={match.group(1)})" if match else "Default"
 
 
+def group_requires_email(group):
+    return bool((GROUPS.get(group) or {}).get("require_email"))
+
+
+def check_group_email(group, sans):
+    """ValueError when the group requires an email name and sans has none."""
+    if group_requires_email(group) and not enroll.split_sans(sans)[0]:
+        raise ValueError(f"The group {group} requires an email address in the alternative names, "
+                         "for example the user's sign-in email (Entra UPN).")
+
+
+def csr_has_email(csr):
+    """Whether a webhook's x509CertificateRequest has an email alternative name."""
+    if csr.get("emailAddresses"):
+        return True
+    if any(isinstance(san, dict) and san.get("type") == "email" and san.get("value")
+           for san in csr.get("sans") or []):
+        return True
+    try:
+        request = x509.load_der_x509_csr(base64.b64decode(csr.get("raw") or ""))
+        names = request.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+        return bool(names.get_values_for_type(x509.RFC822Name))
+    except (ValueError, TypeError, x509.ExtensionNotFound):
+        return False
+
+
 def group_select(field_id, selected="", hint=""):
     """A <select> of the groups, or "" when no groups are configured."""
     if not GROUPS:
         return ""
     options = "".join(
-        f'<option value="{esc(g)}"{" selected" if g == selected else ""}>{esc(group_label(g))}</option>'
+        f'<option value="{esc(g)}"{" selected" if g == selected else ""}'
+        f'{" data-require-email" if group_requires_email(g) else ""}>{esc(group_label(g))}'
+        f'{", email required" if group_requires_email(g) else ""}</option>'
         for g in ["", *GROUPS]
     )
     return (f'<div class="field"><label for="{field_id}">Group</label>'
             f'<select id="{field_id}" name="group">{options}</select>'
             + (f'<p class="hint">{hint}</p>' if hint else "") + "</div>")
+
+
+# -- add-on options through the Supervisor ----------------------------------------
+
+GROUP_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+DURATION_RE = re.compile(r"^[0-9]+(h|m)$")
+
+
+def supervisor(method, path, payload=None):
+    """Call the Supervisor API; returns its data or raises RuntimeError."""
+    if not SUPERVISOR_TOKEN:
+        raise RuntimeError("The Supervisor API is not available.")
+    request = urllib.request.Request(
+        f"{SUPERVISOR_URL}{path}", method=method,
+        data=None if payload is None else json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as resp:
+            body = json.loads(resp.read() or b"{}")
+    except urllib.error.HTTPError as err:
+        try:
+            message = json.loads(err.read() or b"{}").get("message") or err.reason
+        except ValueError:
+            message = err.reason
+        raise RuntimeError(f"The Supervisor refused the request: {message}") from err
+    except (OSError, ValueError) as err:
+        raise RuntimeError(f"Could not reach the Supervisor: {err}") from err
+    if body.get("result") != "ok":
+        raise RuntimeError(f"The Supervisor refused the request: {body.get('message') or 'unknown error'}")
+    return body.get("data") or {}
+
+
+def saved_options():
+    """The add-on options as saved (they apply on the next start)."""
+    return dict(supervisor("GET", "/addons/self/info").get("options") or {})
+
+
+def running_group(option):
+    """A saved groups entry in the form of GROUPS values."""
+    return {"name": option.get("name", ""), "ou": option.get("organizational_unit", ""),
+            "challenge": option.get("challenge") or "", "duration": option.get("cert_duration") or "",
+            "require_email": bool(option.get("require_email"))}
+
+
+def option_group(group):
+    """A GROUPS value in the form of a saved groups entry."""
+    option = {"name": group["name"], "organizational_unit": group["ou"]}
+    if group.get("challenge"):
+        option["challenge"] = group["challenge"]
+    if group.get("duration"):
+        option["cert_duration"] = group["duration"]
+    if group.get("require_email"):
+        option["require_email"] = True
+    return option
+
+
+def group_key(group):
+    return (group["ou"], group.get("challenge") or "", group.get("duration") or "",
+            bool(group.get("require_email")))
+
+
+def check_group_option(entry, others, options):
+    """ValueError when a groups entry is invalid or clashes with the others."""
+    name, ou = entry["name"], entry["organizational_unit"]
+    if not GROUP_NAME_RE.fullmatch(name):
+        raise ValueError("The name must be 1-32 lowercase letters, digits, _ or -, starting with a letter or digit.")
+    taken = {g.get("name") for g in others}
+    if name in taken:
+        raise ValueError(f"There is already a group named {name}.")
+    if name in (options.get("scep_provisioner_name") or SCEP_PROVISIONER, "enrollment"):
+        raise ValueError(f"The name {name} is used by a built-in provisioner; choose another.")
+    if not 1 <= len(ou) <= 64 or any(ord(c) < 32 for c in ou):
+        raise ValueError("The OU must be 1-64 characters.")
+    if len(entry.get("challenge", "")) > 255 or any(ord(c) < 32 for c in entry.get("challenge", "")):
+        raise ValueError("The challenge must be up to 255 characters without line breaks.")
+    if entry.get("cert_duration") and not DURATION_RE.fullmatch(entry["cert_duration"]):
+        raise ValueError("Enter the lifetime in hours or minutes, such as 720h.")
+
+
+# Common MDM variables: (key, name, certificate name variables, email variables).
+MDM_VARIABLES = (
+    ("meraki", "Cisco Meraki Systems Manager",
+     [("$DEVICESERIAL", "Serial number"), ("$OWNERUSERNAME", "Owner user name"), ("$OWNEREMAIL", "Owner email"),
+      ("$DEVICENAME", "Device name"), ("$UDID", "UDID"), ("$DEVICEID", "Device ID"),
+      ("$MACADDRESS", "MAC address"), ("$IMEI", "IMEI")],
+     [("$OWNEREMAIL", "Owner email")]),
+    ("jamf", "Jamf Pro",
+     [("$SERIALNUMBER", "Serial number"), ("$USERNAME", "User name"), ("$EMAIL", "User email"),
+      ("$DEVICENAME", "Device name"), ("$UDID", "UDID"), ("$MANAGEMENTID", "Management ID"),
+      ("$ASSET_TAG", "Asset tag"), ("$MACADDRESS", "MAC address"), ("$JSSID", "Jamf Pro ID")],
+     [("$EMAIL", "User email")]),
+    ("kandji", "Kandji (Iru)",
+     [("$SERIAL_NUMBER", "Serial number"), ("$USERNAME", "User name"), ("$EMAIL", "User email"),
+      ("$DEVICE_NAME", "Device name"), ("$UDID", "UDID"), ("$DEVICE_ID", "Device ID"),
+      ("$ASSET_TAG", "Asset tag")],
+     [("$EMAIL", "User email")]),
+    ("intune", "Microsoft Intune (custom profile)",
+     [("{{serialnumber}}", "Serial number"), ("{{userprincipalname}}", "User principal name"),
+      ("{{deviceid}}", "Intune device ID"), ("{{aaddeviceid}}", "Entra device ID"),
+      ("{{username}}", "User name"), ("{{mail}}", "Email"), ("{{partialupn}}", "UPN prefix")],
+     [("{{userprincipalname}}", "User principal name (UPN)"), ("{{mail}}", "Email")]),
+)
 
 
 def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
@@ -496,6 +630,9 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
             raise ValueError("Set the scep_challenge add-on option before creating an MDM SCEP profile.")
         if not cn:
             raise ValueError("Enter a certificate name, such as your MDM's serial number variable.")
+        if not email and group_requires_email(group):
+            raise ValueError(f"The group {group} requires an email address; choose your MDM's email "
+                             "or UPN variable.")
         if email and not MDM_CN_RE.fullmatch(email):
             raise ValueError("The email address must be 1-64 letters, digits, spaces, or . _ @ $ % { } ( ) -")
         if not MDM_CN_RE.fullmatch(cn):
@@ -530,10 +667,12 @@ def group_issue_args(group):
 def sans_input(value=""):
     return (
         '<div class="field"><label for="sans">Alternative names (optional)</label>'
-        f'<input id="sans" name="sans" maxlength="2000" value="{esc(value)}" '
+        f'<input id="sans" name="sans" maxlength="2000" value="{esc(value)}" data-email-field '
         'placeholder="e.g. josh@example.com, host.example.com, 192.0.2.10" autocapitalize="off">'
         '<p class="hint">Email addresses, DNS names, and IP addresses, separated by commas. '
-        "Apple profiles support email and DNS names only.</p></div>"
+        "Apple profiles support email and DNS names only."
+        + (" Required for groups that require an email." if any(map(group_requires_email, GROUPS)) else "")
+        + "</p></div>"
     )
 
 
@@ -644,7 +783,7 @@ class Handler(BaseHTTPRequestHandler):
             nonce=nonce,
         )
 
-    def page(self, title, body, status=200, back=None, narrow=False, heading=None):
+    def page(self, title, body, status=200, back=None, narrow=False, heading=None, head=""):
         """A panel page: tabs on top-level pages, a back arrow on subpages."""
         if back:
             bar = (f'<a class="icon-btn back" href="{esc(self.url(back))}" aria-label="Back">'
@@ -652,6 +791,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             current = self.current_tab()
             tabs = "".join(
+                self.tools_menu(current) if path == "/tools" else
                 f'<a class="tab" href="{esc(self.url(path))}"'
                 f'{" aria-current=page" if path == current else ""}>{ui.icon(icon)}<span>{label}</span></a>'
                 for path, label, icon in self.TABS
@@ -661,7 +801,7 @@ class Handler(BaseHTTPRequestHandler):
             title,
             f'<header class="toolbar">{bar}</header>'
             f'<main class="content{" narrow" if narrow else ""}">{body}</main>',
-            status, body_class="" if back else "has-tabs",
+            status, head=head, body_class="" if back else "has-tabs",
         )
 
     def not_found(self, title="Not found", body="The page you asked for does not exist."):
@@ -699,7 +839,17 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/ca":
                 self.ca_page()
             elif path == "/tools":
-                self.tools_page(query)
+                self.tools_page()
+            elif path == "/tools/groups":
+                self.groups_page(query)
+            elif path == "/tools/mdm":
+                self.mdm_page(query)
+            elif path == "/tools/sign":
+                self.sign_page(query)
+            elif path == "/tools/cas":
+                self.cas_page(query)
+            elif path == "/tools/options":
+                self.options_page()
             elif path == "/enroll":
                 self.enroll_page()
             elif path == "/enroll/self":
@@ -777,7 +927,16 @@ class Handler(BaseHTTPRequestHandler):
         if m := re.fullmatch(r"/ca/extra/([0-9a-f]{64})/remove", path):
             enroll.save_extra_cas([c for c in enroll.load_extra_cas()
                                    if enroll.fingerprint(c) != m.group(1)])
-            self.redirect("/tools#trusted")
+            self.redirect("/tools/cas")
+            return
+        if path == "/tools/groups/save":
+            self.group_save(form)
+            return
+        if m := re.fullmatch(r"/tools/groups/([a-z0-9][a-z0-9_-]{0,31})/delete", path):
+            self.group_delete(m.group(1))
+            return
+        if path == "/tools/restart":
+            self.restart_addon()
             return
         if path == "/enroll/self":
             self.self_enroll(form)
@@ -1203,6 +1362,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sans = enroll.parse_sans(sans_text)
             group = parse_group(group_text)
+            check_group_email(group, sans)
         except ValueError as err:
             self.self_enroll_page(str(err), cn, sans_text, group_text)
             return
@@ -1304,7 +1464,7 @@ class Handler(BaseHTTPRequestHandler):
             '<input id="issue-cn" name="cn" maxlength="64" required autocapitalize="off" placeholder="e.g. printer"></div>'
             + group_select("issue-group") +
             '<div class="field"><label for="issue-sans">Alternative names (optional)</label>'
-            '<input id="issue-sans" name="sans" maxlength="2000" autocapitalize="off" '
+            '<input id="issue-sans" name="sans" maxlength="2000" autocapitalize="off" data-email-field '
             'placeholder="Email, DNS names, IP addresses"></div></div>'
             f'<div class="card-actions"><button class="btn text">{ui.icon("key-variant")}Issue .p12</button></div></form>'
             "</div></div>"
@@ -1332,6 +1492,7 @@ class Handler(BaseHTTPRequestHandler):
         if not error:
             try:
                 sans = enroll.parse_sans(field("sans"))
+                check_group_email(group, sans)
             except ValueError as err:
                 error = str(err)
         if error:
@@ -1365,6 +1526,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sans = enroll.parse_sans(form.get("sans", [""])[0])
             group = parse_group(form.get("group", [""])[0])
+            check_group_email(group, sans)
         except ValueError as err:
             self.enroll_page(ui.alert("error", esc(err), "Nothing was issued"))
             return
@@ -1407,25 +1569,25 @@ class Handler(BaseHTTPRequestHandler):
         if not data.strip():
             data = str(form.get("pem", [""])[0]).encode()
         if not data.strip():
-            self.redirect("/tools?error=" + urllib.parse.quote("Choose a certificate file or paste a PEM.") + "#trusted")
+            self.tools_error("/tools/cas", "Choose a certificate file or paste a PEM.")
             return
         try:
             new = enroll.parse_ca_certs(data if isinstance(data, bytes) else data.encode())
         except ValueError as err:
-            self.redirect("/tools?error=" + urllib.parse.quote(str(err)[:300]) + "#trusted")
+            self.tools_error("/tools/cas", err)
             return
         certs = enroll.load_extra_cas()
         known = {enroll.fingerprint(c) for c in certs}
         certs += [c for c in new if enroll.fingerprint(c) not in known]
         enroll.save_extra_cas(certs)
-        self.redirect("/tools?added=1#trusted")
+        self.redirect("/tools/cas?added=1")
 
     def sign_request(self, form):
         data = form.get("file", [b""])[0]
         if not data.strip():
             data = str(form.get("pem", [""])[0]).encode()
         if not data.strip():
-            self.redirect("/tools?error=" + urllib.parse.quote("Choose a certificate request file or paste a PEM.") + "#sign")
+            self.tools_error("/tools/sign", "Choose a certificate request file or paste a PEM.")
             return
         data = data if isinstance(data, bytes) else data.encode()
         try:
@@ -1442,7 +1604,7 @@ class Handler(BaseHTTPRequestHandler):
                 cert = chain[0]
                 signer = "certificate"
         except (ValueError, RuntimeError) as err:
-            self.redirect("/tools?error=" + urllib.parse.quote(str(err)[:300]) + "#sign")
+            self.tools_error("/tools/sign", err)
             return
         print(f"Signed {signer} {cert.subject.rfc4514_string()!r} for an uploaded request "
               f"(serial {cert.serial_number}, valid until {cert.not_valid_after_utc:%Y-%m-%d})", flush=True)
@@ -1527,7 +1689,286 @@ class Handler(BaseHTTPRequestHandler):
         )
         self.page("Authority", body)
 
-    def tools_page(self, query):
+    TOOLS_MENU = (
+        ("/tools/groups", "Groups", "account-group", "OUs, SCEP URLs, and challenges"),
+        ("/tools/mdm", "MDM profiles", "cellphone", "SCEP values and ready-made profiles"),
+        ("/tools/sign", "Sign a request", "file-sign", "CSRs from servers or another CA"),
+        ("/tools/cas", "Other trusted CAs", "server-security", "CAs enrolled devices also trust"),
+        ("/tools/options", "Add-on options", "cog", "The running configuration"),
+    )
+
+    def tools_menu(self, current):
+        """The Tools tab: a menu of the tool pages (a <details>, so it works without the script)."""
+        here = urllib.parse.urlsplit(self.path).path.rstrip("/")
+        links = "".join(
+            f'<a href="{esc(self.url(path))}"{" aria-current=page" if path == here else ""}>{ui.icon(glyph)}'
+            f'<span class="menu-text"><span>{label}</span><span class="menu-sub">{sub}</span></span></a>'
+            for path, label, glyph, sub in self.TOOLS_MENU
+        )
+        return (
+            f'<details class="tab-menu"><summary class="tab{" current" if current == "/tools" else ""}">'
+            f'{ui.icon("wrench")}<span>Tools</span>{ui.icon("menu-down", "caret")}</summary>'
+            f'<nav class="menu" aria-label="Tools">{links}</nav></details>'
+        )
+
+    def tools_page(self):
+        rows = "".join(
+            f'<a class="row" href="{esc(self.url(path))}"><span class="row-icon">{ui.icon(glyph)}</span>'
+            f'<span class="row-text"><span class="row-title">{label}</span><span class="row-sub">{sub}</span></span>'
+            f'{ui.icon("chevron-right", "row-icon")}</a>'
+            for path, label, glyph, sub in self.TOOLS_MENU
+        )
+        self.page("Tools", f'<div class="card"><div class="card-header"><h2>Tools</h2></div>'
+                  f'<div class="rows">{rows}</div></div>', narrow=True)
+
+    def tools_notice(self, query, added=""):
+        if query.get("error"):
+            return ui.alert("error", esc(query["error"][0]), "That did not work")
+        if added and query.get("added"):
+            return ui.alert("success", esc(added), "Done")
+        return ""
+
+    def tools_error(self, path, message):
+        self.redirect(f"{path}?" + urllib.parse.urlencode({"error": str(message)[:300]}))
+
+    # -- groups ------------------------------------------------------------------
+
+    def groups_page(self, query, error="", values=None):
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        notice = ui.alert("error", esc(error), "The group was not saved") if error else ""
+        if query.get("saved"):
+            notice = ui.alert("success", f"Saved the group <b>{esc(query['saved'][0])}</b>.", "Saved")
+        elif query.get("deleted"):
+            notice = ui.alert("success", f"Removed the group <b>{esc(query['deleted'][0])}</b>.", "Removed")
+        elif query.get("error"):
+            notice = ui.alert("error", esc(query["error"][0]), "That did not work")
+        try:
+            options = saved_options()
+            groups = options.get("groups") or []
+            readable = True
+        except RuntimeError as err:
+            options, readable = {}, False
+            groups = [option_group(g) for g in GROUPS.values()]
+            notice += ui.alert("warning", f"{esc(err)}<br>These are the running groups; saving is unavailable.",
+                               "Could not read the saved add-on options")
+        running = {g["name"]: group_key(g) for g in GROUPS.values()}
+        saved = {g.get("name", ""): group_key(running_group(g)) for g in groups}
+        if readable and saved != running:
+            notice += ui.alert(
+                "warning",
+                "The saved groups differ from the running ones. Restart the add-on to apply them; "
+                "devices cannot enroll while it restarts (about a minute)."
+                f'<form method="post" action="{esc(self.url("/tools/restart"))}" class="alert-action">{csrf}'
+                f'<button class="btn">{ui.icon("restart")}Restart add-on</button></form>',
+                "Restart needed")
+        base = default_base_url(self.headers)
+
+        rows = ""
+        dialogs = ""
+        for index, g in enumerate(groups):
+            name = g.get("name", "")
+            details = [f"OU={esc(g.get('organizational_unit', ''))}",
+                       f"valid {esc(g['cert_duration'])}" if g.get("cert_duration") else "default lifetime",
+                       "challenge set" if g.get("challenge") else "one-time links only"]
+            if g.get("require_email"):
+                details.append("email required")
+            state = ""
+            if readable and running.get(name) != saved.get(name):
+                state = ui.chip("warn", "New" if name not in running else "Changed")
+            scep = f"{base}/api/step_ca_scep/scep/{name}" if base else f".../api/step_ca_scep/scep/{name}"
+            rows += (
+                f'<div class="row"><span class="row-icon">{ui.icon("account-group")}</span>'
+                f'<span class="row-text"><span class="row-title"><b>{esc(name)}</b> {state}</span>'
+                f'<span class="row-sub">{" · ".join(details)}</span>'
+                f'<span class="row-sub mono">{esc(scep)}</span></span><span class="row-actions">'
+                + (ui.copy_button(g["challenge"], f"challenge for {name}") if g.get("challenge") else "")
+                + (ui.copy_button(scep, f"SCEP URL for {name}") if base else "")
+            )
+            if readable:
+                rows += (
+                    f'<a class="icon-btn" href="{esc(self.url("/tools/groups?" + urllib.parse.urlencode({"edit": name})))}#group-form" '
+                    f'aria-label="Edit {esc(name)}" title="Edit">{ui.icon("pencil")}</a>'
+                    f'<form method="post" action="{esc(self.url(f"/tools/groups/{name}/delete"))}" '
+                    f'data-confirm="delete-group-{index}">{csrf}'
+                    f'<button class="icon-btn" aria-label="Remove {esc(name)}" title="Remove">'
+                    f'{ui.icon("delete-outline")}</button></form>'
+                )
+                dialogs += (
+                    f'<dialog id="delete-group-{index}" aria-labelledby="delete-group-{index}-title">'
+                    f'<h2 id="delete-group-{index}-title">Remove the group {esc(name)}?</h2>'
+                    "<p>After the restart its SCEP URL stops working, so devices and MDM profiles that use it "
+                    "cannot get or renew certificates. Certificates already issued stay valid.</p>"
+                    '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                    '<button type="button" class="btn danger" data-confirm-yes>Remove</button></div></dialog>'
+                )
+            rows += "</span></div>"
+        rows = rows or ui.empty_state("account-group", "No groups yet",
+                                      "Without groups every certificate uses the default SCEP URL and OU.")
+
+        edit = (query.get("edit") or [""])[0]
+        current = next((g for g in groups if g.get("name") == edit), None) if edit else None
+        if values is None:
+            values = {
+                "original": edit if current else "",
+                "name": (current or {}).get("name", ""),
+                "ou": (current or {}).get("organizational_unit", ""),
+                "challenge": (current or {}).get("challenge", ""),
+                "cert_duration": (current or {}).get("cert_duration", ""),
+                "require_email": "1" if (current or {}).get("require_email") else "",
+            }
+        form = self.group_form(csrf, values, options) if readable else ""
+        body = (
+            notice
+            + '<div class="grid"><div>'
+            '<div class="card"><div class="card-header"><h2>Certificate groups</h2>'
+            '<p class="muted">Each group has its own SCEP URL and challenge, and every certificate it issues '
+            "carries the group's OU, so your RADIUS server or Meraki Access Manager can tell adults, kids, and "
+            "guests apart. Choose the group when you create enrollment links, issue .p12 files, or download "
+            "MDM profiles.</p></div>"
+            f'<div class="rows">{rows}</div></div>'
+            "</div><div>" + form + "</div></div>" + dialogs
+        )
+        self.page("Groups", body)
+
+    def group_form(self, csrf, values, options):
+        v = lambda name: esc(values.get(name, ""))  # noqa: E731
+        original = values.get("original", "")
+        default = options.get("default_cert_duration") or "the default"
+        durations = [("", f"Default ({esc(default)})"), ("168h", "7 days"), ("720h", "30 days"),
+                     ("2160h", "90 days"), ("8760h", "1 year"), ("17520h", "2 years")]
+        presets = "".join(f'<option value="{value}">{label}</option>' for value, label in durations)
+        return (
+            f'<form class="card" id="group-form" method="post" action="{esc(self.url("/tools/groups/save"))}">'
+            f'{csrf}<input type="hidden" name="original" value="{v("original")}">'
+            f'<div class="card-header"><h2>{"Edit " + esc(original) if original else "Add a group"}</h2>'
+            '<p class="muted">Saved to the add-on options. Restart the add-on to apply.</p></div>'
+            '<div class="card-content">'
+            '<div class="field-row">'
+            '<div class="field"><label for="g-name">Name</label>'
+            f'<input id="g-name" name="name" required maxlength="32" pattern="[a-z0-9][a-z0-9_-]{{0,31}}" '
+            f'autocapitalize="off" spellcheck="false" value="{v("name")}" placeholder="e.g. kids">'
+            '<p class="hint">Lowercase letters, digits, _ and -. It ends the SCEP URL'
+            + (", so renaming changes the URL in your MDM profiles" if original else "") + ".</p></div>"
+            '<div class="field"><label for="g-ou">Organizational unit (OU)</label>'
+            f'<input id="g-ou" name="ou" required maxlength="64" value="{v("ou")}" placeholder="e.g. Kids">'
+            '<p class="hint">Every certificate in the group gets this OU.</p></div></div>'
+            '<div class="field"><label for="g-challenge">Challenge</label><div class="input-action">'
+            f'<input id="g-challenge" name="challenge" class="mono" maxlength="255" autocomplete="off" '
+            f'autocapitalize="off" spellcheck="false" value="{v("challenge")}" placeholder="One-time links only">'
+            f'<button type="button" class="btn text js-only" data-generate="g-challenge">{ui.icon("key-variant")}'
+            "Generate</button></div>"
+            '<p class="hint">The shared secret MDM profiles send to get a certificate in this group. Leave it '
+            "empty to accept only one-time enrollment links. Changing it breaks profiles that use the old one."
+            "</p></div>"
+            '<div class="field"><label for="g-duration">Certificate lifetime</label>'
+            f'<select class="preset js-only" data-for="g-duration" aria-label="Certificate lifetime">{presets}'
+            '<option value="" data-custom>Custom…</option></select>'
+            f'<input id="g-duration" name="cert_duration" maxlength="12" pattern="[0-9]+(h|m)" '
+            f'autocapitalize="off" value="{v("cert_duration")}" placeholder="e.g. 720h; empty for the default">'
+            '<p class="hint">Hours or minutes, such as 720h. Empty uses <b>default_cert_duration</b>.</p></div>'
+            '<div class="field"><label class="check"><input type="checkbox" name="require_email" value="1"'
+            f'{" checked" if values.get("require_email") else ""}>Require an email address</label>'
+            '<p class="hint">Refuse certificate requests in this group without an email alternative name, for '
+            "example when Meraki Access Manager matches the certificate's email to the user's Entra UPN. "
+            "Enrollment links, .p12 files, and MDM profiles for the group then need an email.</p></div>"
+            "</div><div class=\"card-actions\">"
+            + (f'<a class="btn text" href="{esc(self.url("/tools/groups"))}">Cancel</a>' if original else "")
+            + f'<button class="btn">{ui.icon("check")}Save group</button></div></form>'
+        )
+
+    def group_save(self, form):
+        field = lambda name: str(form.get(name, [""])[0]).strip()  # noqa: E731
+        values = {name: field(name) for name in ("original", "name", "ou", "challenge", "cert_duration",
+                                                 "require_email")}
+        original = values["original"]
+        entry = {"name": values["name"], "organizational_unit": values["ou"]}
+        if values["challenge"]:
+            entry["challenge"] = values["challenge"]
+        if values["cert_duration"]:
+            entry["cert_duration"] = values["cert_duration"]
+        if values["require_email"] == "1":
+            entry["require_email"] = True
+        try:
+            options = saved_options()
+            groups = list(options.get("groups") or [])
+            if original and original not in [g.get("name") for g in groups]:
+                raise ValueError(f"The group {original} no longer exists; it may have been removed elsewhere.")
+            check_group_option(entry, [g for g in groups if g.get("name") != original], options)
+            options["groups"] = ([entry if g.get("name") == original else g for g in groups]
+                                 if original else groups + [entry])
+            supervisor("POST", "/addons/self/options", {"options": options})
+        except (ValueError, RuntimeError) as err:
+            self.groups_page({}, str(err), values)
+            return
+        print(f"Saved the certificate group {entry['name']!r} (OU={entry['organizational_unit']})", flush=True)
+        self.redirect("/tools/groups?" + urllib.parse.urlencode({"saved": entry["name"]}))
+
+    def group_delete(self, name):
+        try:
+            options = saved_options()
+            groups = options.get("groups") or []
+            options["groups"] = [g for g in groups if g.get("name") != name]
+            if len(options["groups"]) != len(groups):
+                supervisor("POST", "/addons/self/options", {"options": options})
+        except RuntimeError as err:
+            self.tools_error("/tools/groups", err)
+            return
+        print(f"Removed the certificate group {name!r}", flush=True)
+        self.redirect("/tools/groups?" + urllib.parse.urlencode({"deleted": name}))
+
+    def restart_addon(self):
+        if not SUPERVISOR_TOKEN:
+            self.tools_error("/tools/groups", "The Supervisor API is not available.")
+            return
+        print("Restarting the add-on from the management page", flush=True)
+        back = self.url("/tools/groups")
+        self.page(
+            "Restarting",
+            '<div class="card">' + ui.empty_state(
+                "restart", "Restarting the add-on",
+                "This takes about a minute. The page reloads by itself; if Home Assistant shows that the app "
+                f'is starting, wait and then <a href="{esc(back)}">open Groups</a> again.') + "</div>",
+            narrow=True, head=f'<meta http-equiv="refresh" content="45;url={esc(back)}">')
+
+        def restart():
+            time.sleep(1)
+            try:
+                supervisor("POST", "/addons/self/restart")
+            except RuntimeError as err:
+                print(f"Could not restart the add-on: {err}", flush=True)
+
+        threading.Thread(target=restart, name="restart", daemon=True).start()
+
+    # -- other tools ---------------------------------------------------------------
+
+    def options_page(self):
+        def option(label, value):
+            return f'<div class="kv"><dt>{label}</dt><dd>{value}</dd><span></span></div>'
+
+        challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
+                     ui.chip("warn", "Not set") + " Needed for MDM profiles in the default group")
+        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, EAP-TLS" if wifi_enabled() else "Off")
+        groups = "<br>".join(
+            f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
+            + (f"valid {esc(g['duration'])}, " if g["duration"] else "")
+            + ("challenge set" if g["challenge"] else "one-time links only")
+            + (", email required" if g.get("require_email") else "")
+            for g in GROUPS.values()) or "None"
+        body = (
+            '<div class="card"><div class="card-header"><h2>Add-on options</h2>'
+            f'<p class="muted">The running configuration. Edit groups under <a href="{esc(self.url("/tools/groups"))}">'
+            "Groups</a>; change the rest on the add-on's Configuration tab in Home Assistant.</p></div>"
+            '<dl class="rows">'
+            + option("Issued subject", esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
+            + option("SCEP challenge", challenge)
+            + option("Groups", groups)
+            + option("Wi-Fi", wifi)
+            + option("Storage", "MariaDB" if db_enabled() else "Embedded database")
+            + "</dl></div>"
+        )
+        self.page("Add-on options", body, narrow=True)
+
+    def cas_page(self, query):
         extra = enroll.load_extra_cas()
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
 
@@ -1549,77 +1990,38 @@ class Handler(BaseHTTPRequestHandler):
             f'{ui.icon("delete-outline")}</button></form></span></div>'
             for cert in extra
         )
-        notice = ""
-        if query.get("error"):
-            notice = ui.alert("error", esc(query["error"][0]), "That did not work")
-        elif query.get("added"):
-            notice = ui.alert("success", "New profiles and .p12 files include it.", "Certificate added")
-        base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
-        base = esc(base) if not base.startswith("&lt;") else base
-        add_form = (
-            f'<form class="expand-body" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/extra"))}">'
-            f'{csrf}<p class="muted">CA certificates devices must also trust, such as the CA that issued your RADIUS '
+        body = (
+            self.tools_notice(query, "New profiles and .p12 files include the certificate.")
+            + '<div class="card"><div class="card-header"><h2>Other trusted CAs</h2>'
+            '<p class="muted">CA certificates devices must also trust, such as the CA that issued your RADIUS '
             "server's certificate for EAP-TLS Wi-Fi. They are added to Apple profiles (and trusted for the "
-            "Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p>"
+            "Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p></div>"
+            + (f'<div class="rows">{extra_rows}</div>' if extra else "")
+            + f'<form class="card-content" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/extra"))}">'
+            f"{csrf}"
             '<div class="field"><label for="file">Certificate file (.pem, .crt, .cer)</label>'
             '<input id="file" type="file" name="file" accept=".pem,.crt,.cer,.der"></div>'
             '<div class="field"><label for="pem">Or paste PEM</label>'
             '<textarea id="pem" name="pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----"></textarea></div>'
-            f'<button class="btn">{ui.icon("plus")}Add certificate</button></form>'
+            f'<button class="btn">{ui.icon("plus")}Add certificate</button></form></div>'
         )
-        trusted = (
-            '<details class="expand" id="trusted"><summary>'
-            f'<span class="row-icon">{ui.icon("server-security")}</span><span class="summary-text">'
-            '<span class="summary-title">Other trusted CAs</span>'
-            f'<span class="summary-sub">{len(extra) or "None"} added · trusted by enrolled devices</span></span>'
-            f'{ui.icon("chevron-down", "chev")}</summary>'
-            + (f'<div class="rows">{extra_rows}</div>' if extra else "")
-            + add_form + "</details>"
-        )
-        def option(label, value):
-            return f'<div class="kv"><dt>{label}</dt><dd>{value}</dd><span></span></div>'
+        self.page("Other trusted CAs", body, narrow=True)
 
-        challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
-                     ui.chip("warn", "Not set") + " Needed for MDM profiles")
-        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, EAP-TLS" if wifi_enabled() else "Off")
-        body = (
-            notice
-            + '<div class="grid"><div>'
-            '<div class="card"><div class="card-header"><h2>Tools</h2></div>'
-            + self.sign_card(csrf) + trusted + self.mdm_card(base, extra)
-            + "</div></div><div>"
-            '<div class="card"><div class="card-header"><h2>Options</h2>'
-            "<p class=\"muted\">Change these on the add-on's Configuration tab in Home Assistant.</p></div>"
-            '<dl class="rows">'
-            + option("Issued subject", esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
-            + option("SCEP challenge", challenge)
-            + option("Groups", "<br>".join(
-                f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
-                + (f"valid {esc(g['duration'])}, " if g["duration"] else "")
-                + ("challenge set" if g["challenge"] else "one-time links only")
-                for g in GROUPS.values()) or "None")
-            + option("Wi-Fi", wifi)
-            + option("Storage", "MariaDB" if db_enabled() else "Embedded database")
-            + "</dl></div></div></div>"
-        )
-        self.page("Tools", body)
-
-    def sign_card(self, csrf):
+    def sign_page(self, query):
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         years = enroll.SUBORDINATE_DAYS // 365
 
         def detail(rows):
             return '<dl class="choice-detail">' + "".join(
                 f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl>"
 
-        return (
-            '<details class="expand" id="sign"><summary>'
-            f'<span class="row-icon">{ui.icon("file-sign")}</span><span class="summary-text">'
-            '<span class="summary-title">Sign a request</span>'
-            "<span class=\"summary-sub\">CSRs from servers, VPNs, or another CA such as Meraki's SCEP CA</span>"
-            f'</span>{ui.icon("chevron-down", "chev")}</summary>'
-            f'<form class="expand-body" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/sign"))}">'
+        body = (
+            self.tools_notice(query)
+            + '<div class="card"><div class="card-header"><h2>Sign a request</h2>'
+            "<p class=\"muted\">CSRs from servers, VPNs, or another CA such as Meraki's SCEP CA. The download "
+            "holds the signed certificate followed by its CA chain.</p></div>"
+            f'<form class="card-content" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/sign"))}">'
             f"{csrf}"
-            '<p class="muted">The download holds the signed certificate followed by its CA chain.</p>'
             '<div class="choices field">'
             '<label class="choice"><input type="radio" name="kind" value="leaf" checked>'
             f'<span class="choice-icon">{ui.icon("server-security")}</span><span>'
@@ -1653,8 +2055,9 @@ class Handler(BaseHTTPRequestHandler):
             '<textarea id="signpem" name="pem" rows="4" placeholder="-----BEGIN CERTIFICATE REQUEST-----"></textarea>'
             '<p class="hint">Only sign requests from systems you control. Every signing is written to the add-on log.</p>'
             "</div>"
-            f'<button class="btn">{ui.icon("file-sign")}Sign and download</button></form></details>'
+            f'<button class="btn">{ui.icon("file-sign")}Sign and download</button></form></div>'
         )
+        self.page("Sign a request", body, narrow=True)
 
     def mdm_download(self, query):
         first = lambda name: (query.get(name) or [""])[0].strip()  # noqa: E731
@@ -1662,13 +2065,16 @@ class Handler(BaseHTTPRequestHandler):
             data, filename = mdm_profile(first("platform"), first("contents"), first("cn"),
                                          default_base_url(self.headers), first("email"), first("group"))
         except ValueError as err:
-            self.redirect("/tools?" + urllib.parse.urlencode({"error": str(err)}) + "#mdm")
+            self.tools_error("/tools/mdm", err)
             return
         print(f"Downloaded MDM profile {filename}", flush=True)
         self.download(data, filename, "application/x-apple-aspen-config")
 
-    def mdm_card(self, base, extra):
-        """Values for an MDM's SCEP, certificate, and Wi-Fi payloads."""
+    def mdm_page(self, query):
+        """Values for an MDM's SCEP, certificate, and Wi-Fi payloads, and ready-made profiles."""
+        extra = enroll.load_extra_cas()
+        base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
+        base = esc(base) if not base.startswith("&lt;") else base
         certs = [f'<a href="{esc(self.url("/download/ca-chain.pem"))}">ca-chain.pem</a> (this CA: '
                  "intermediate and root)"]
         # One payload per chain: skip uploaded CAs that are an issuer of another upload.
@@ -1687,10 +2093,12 @@ class Handler(BaseHTTPRequestHandler):
             *((f"SCEP URL, {esc(g)}", f'<span class="mono">{base}/api/step_ca_scep/scep/{esc(g)}</span>',
                None if base.startswith("&lt;") else html.unescape(f"{base}/api/step_ca_scep/scep/{g}"))
               for g in GROUPS),
-            ("Challenge", challenge + (" Each group uses its own <b>challenge</b> option." if GROUPS else ""),
+            ("Challenge", challenge + (" Each group uses its own challenge (see Groups)." if GROUPS else ""),
              None),
-            ("Subject", '<span class="mono">CN=&lt;unique device variable&gt;</span>, e.g. '
+            ("Subject", '<span class="mono">CN=&lt;unique device or user variable&gt;</span>, e.g. '
              '<span class="mono">CN=$SERIALNUMBER</span>', None),
+            ("Email name", "Your MDM's user email or UPN variable, when your RADIUS server or Meraki Access "
+             "Manager matches users by email", None),
             ("Key", "RSA, 2048 bits or more, usage signing and encryption, not exportable", None),
             ("Fingerprint", "Leave empty", None),
         ]
@@ -1703,56 +2111,80 @@ class Handler(BaseHTTPRequestHandler):
             + (ui.copy_button(c, k) if c else "<span></span>") + "</div>"
             for k, v, c in rows
         )
-        return (
-            '<details class="expand" id="mdm"><summary>'
-            f'<span class="row-icon">{ui.icon("cellphone")}</span><span class="summary-text">'
-            '<span class="summary-title">Using an MDM</span>'
-            '<span class="summary-sub">SCEP values and ready-made profiles for Jamf Pro, Kandji, Mosyle, '
-            "Meraki, and other MDMs with a static challenge</span></span>"
-            f'{ui.icon("chevron-down", "chev")}</summary>'
-            '<div class="expand-body flush"><p class="muted expand-note">Intune SCEP profiles are not '
-            "supported; see the add-on documentation.</p>"
-            f'<dl class="rows">{dl}</dl>' + self.mdm_profile_form() + "</div></details>"
+        body = (
+            self.tools_notice(query)
+            + '<div class="grid"><div>'
+            + self.mdm_profile_form()
+            + "</div><div>"
+            '<div class="card"><div class="card-header"><h2>SCEP values</h2>'
+            '<p class="muted">To build the profile in your MDM yourself instead. In Microsoft Intune, upload the '
+            "downloaded profile as a custom profile; Intune's own SCEP certificate profile is not supported "
+            "because it needs Microsoft's certificate connector.</p></div>"
+            f'<dl class="rows">{dl}</dl></div>'
+            "</div></div>"
         )
+        self.page("MDM profiles", body)
 
     def mdm_profile_form(self):
         """Ready-made, unsigned profiles to upload to an MDM instead of entering the values."""
-        options = [("scep", "Certificates and SCEP" + ("" if SCEP_CHALLENGE else " (needs scep_challenge)")),
+        options = [("scep", "Certificates and SCEP" + ("" if SCEP_CHALLENGE or GROUPS else " (needs scep_challenge)")),
                    ("trust", "Certificates only")]
         if wifi_enabled():
             options.insert(0, ("wifi", f"Certificates, SCEP, and Wi-Fi {esc(WIFI['ssid'])}"))
         contents = "".join(f'<option value="{v}">{label}</option>' for v, label in options)
         platforms = "".join(f'<option value="{v}">{label}</option>' for v, label in MDM_PLATFORMS.items())
+        mdms = "".join(f'<option value="{key}">{esc(name)}</option>' for key, name, _, _ in MDM_VARIABLES)
+
+        def presets(index):
+            return "".join(
+                f'<option value="{esc(value)}" data-mdm="{key}">{esc(label)} ({esc(value)})</option>'
+                for key, _, *lists in MDM_VARIABLES for value, label in lists[index]
+            )
+
+        email_groups = [g for g in GROUPS if group_requires_email(g)]
         return (
-            f'<form class="mdm-form" method="get" action="{esc(self.url("/download/mdm.mobileconfig"))}">'
-            '<h3>Download a profile for your MDM</h3>'
-            '<p class="muted">A standard, unsigned Apple configuration profile (.mobileconfig) with the payloads '
-            "above. Upload it to any MDM as a custom profile; it is unsigned so the MDM can replace device "
-            "variables and sign it. The macOS profile installs for the whole Mac (System keychain).</p>"
+            f'<form class="card" method="get" action="{esc(self.url("/download/mdm.mobileconfig"))}">'
+            '<div class="card-header"><h2>Download a profile for your MDM</h2>'
+            '<p class="muted">A standard, unsigned Apple configuration profile (.mobileconfig) with the CA '
+            "certificates, the SCEP payload, and optionally Wi-Fi. Upload it to your MDM as a custom profile; "
+            "it is unsigned so the MDM can replace its variables and sign it. The macOS profile installs for "
+            "the whole Mac (System keychain).</p></div><div class=\"card-content\">"
             '<div class="field-row">'
             f'<div class="field"><label for="mdm-platform">Platform</label><select id="mdm-platform" name="platform">{platforms}</select></div>'
             f'<div class="field"><label for="mdm-contents">Contents</label><select id="mdm-contents" name="contents">{contents}</select></div>'
             "</div>"
+            '<div class="field js-only"><label for="mdm-kind">Your MDM</label>'
+            f'<select id="mdm-kind" data-mdm-switch>{mdms}<option value="other">Another MDM</option></select>'
+            '<p class="hint">Lists its variables below. The MDM replaces them with each device&#39;s or '
+            "user&#39;s values.</p></div>"
             + group_select("mdm-group", hint="Each group has its own SCEP URL and challenge, and its "
                            "certificates get the group&#39;s OU. Upload one profile per group and assign it "
                            "to that group of devices or users in your MDM.")
             + '<div class="field"><label for="mdm-cn">Certificate name (Common Name)</label>'
-            '<input id="mdm-cn" name="cn" maxlength="64" autocapitalize="off" '
+            '<select class="preset js-only" data-for="mdm-cn" aria-label="Certificate name variable">'
+            f'{presets(0)}<option value="" data-custom>Custom…</option></select>'
+            '<input id="mdm-cn" name="cn" maxlength="64" autocapitalize="off" spellcheck="false" '
             'placeholder="Your MDM\'s serial number or user name variable">'
-            '<p class="hint">Your MDM\'s variable for a unique value, which it replaces on each device: the '
-            'serial number for a device certificate (<span class="mono">$SERIALNUMBER</span> in Jamf, '
-            '<span class="mono">$DEVICESERIAL</span> in Meraki, <span class="mono">$SERIAL_NUMBER</span> in '
-            'Kandji) or the user name for a user certificate (<span class="mono">$USERNAME</span> in Jamf, '
-            '<span class="mono">$OWNERUSERNAME</span> in Meraki). Not needed for Certificates only.</p></div>'
-            '<div class="field"><label for="mdm-email">Email address (optional)</label>'
-            '<input id="mdm-email" name="email" maxlength="64" autocapitalize="off" '
-            'placeholder="Your MDM\'s email variable">'
-            '<p class="hint">Added to the certificate as an email alternative name, e.g. '
-            '<span class="mono">$EMAIL</span> in Jamf or <span class="mono">$OWNEREMAIL</span> in Meraki. '
-            "The device must have a user assigned in the MDM.</p></div>"
+            '<p class="hint">A value unique to each device or user: the serial number for a device '
+            "certificate, the user name or UPN for a user certificate. Choose Custom… to type a variable "
+            "that is not listed. Not needed for Certificates only.</p></div>"
+            '<div class="field"><label for="mdm-email">Email address'
+            + ("" if email_groups else " (optional)") + "</label>"
+            '<select class="preset js-only" data-for="mdm-email" aria-label="Email variable">'
+            f'<option value="">None</option>{presets(1)}<option value="" data-custom>Custom…</option></select>'
+            '<input id="mdm-email" name="email" maxlength="64" autocapitalize="off" spellcheck="false" '
+            'data-email-field placeholder="Your MDM\'s email variable">'
+            '<p class="hint">Added to the certificate as an email alternative name, which Meraki Access Manager '
+            "and RADIUS servers can match to the user (for example the Entra UPN). The device needs a user "
+            "assigned in the MDM."
+            + (f" Required for the group{'s' if len(email_groups) > 1 else ''} "
+               + ", ".join(f"<b>{esc(g)}</b>" for g in email_groups) + "." if email_groups else "")
+            + "</p></div>"
             + ui.alert("warning", "SCEP profiles contain the challenge, so keep them private.")
-            + f'<div class="form-submit"><button class="btn">{ui.icon("download")}Download .mobileconfig</button></div></form>'
+            + f'</div><div class="card-actions"><button class="btn">{ui.icon("download")}Download .mobileconfig'
+            "</button></div></form>"
         )
+
 
 UPLOAD_LIMIT = 65536
 
@@ -1786,7 +2218,7 @@ class EnrollHandler(Handler):
     def public(self, path):
         return f"{enroll.PUBLIC_BASE}/{path.lstrip('/')}"
 
-    def page(self, title, body, status=200, back=None, narrow=False, heading=None):
+    def page(self, title, body, status=200, back=None, narrow=False, heading=None, head=""):
         self.document(
             title,
             '<main class="public"><div class="brand">'
@@ -1883,6 +2315,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
             csr = request.get("x509CertificateRequest") or {}
             cn = str((csr.get("subject") or {}).get("commonName") or "")
         except (ValueError, AttributeError):
+            self.reply(False)
+            return
+        # Checked first so a refused request does not use up an enrollment link.
+        if group_requires_email(group) and not csr_has_email(csr):
+            print(f"Refused a SCEP request for {cn!r} in group {group}: no email address", flush=True)
             self.reply(False)
             return
         if LINKS.consume_challenge(challenge, cn, group):

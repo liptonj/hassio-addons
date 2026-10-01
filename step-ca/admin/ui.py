@@ -42,6 +42,11 @@ ICONS = {
     'check': 'M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z',
     'file-download-outline': 'M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,19L8,15H10.5V12H13.5V15H16L12,19Z',
     'upload': 'M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z',
+    'account-group': 'M12,5.5A3.5,3.5 0 0,1 15.5,9A3.5,3.5 0 0,1 12,12.5A3.5,3.5 0 0,1 8.5,9A3.5,3.5 0 0,1 12,5.5M5,8C5.56,8 6.08,8.15 6.53,8.42C6.38,9.85 6.8,11.27 7.66,12.38C7.16,13.34 6.16,14 5,14A3,3 0 0,1 2,11A3,3 0 0,1 5,8M19,8A3,3 0 0,1 22,11A3,3 0 0,1 19,14C17.84,14 16.84,13.34 16.34,12.38C17.2,11.27 17.62,9.85 17.47,8.42C17.92,8.15 18.44,8 19,8M5.5,18.25C5.5,16.18 8.41,14.5 12,14.5C15.59,14.5 18.5,16.18 18.5,18.25V20H5.5V18.25M0,20V18.5C0,17.11 1.89,15.94 4.45,15.6C3.86,16.28 3.5,17.22 3.5,18.25V20H0M24,20H20.5V18.25C20.5,17.22 20.14,16.28 19.55,15.6C22.11,15.94 24,17.11 24,18.5V20Z',
+    'pencil': 'M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z',
+    'restart': 'M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z',
+    'cog': 'M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z',
+    'menu-down': 'M7,10L12,15L17,10H7Z',
     'close': 'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z',
 }
 
@@ -211,11 +216,30 @@ html:not(.js) .js-only { display: none !important; }
 }
 .tab .mdi { width: 20px; height: 20px; }
 .tab:hover { color: var(--primary-text-color); text-decoration: none; background: var(--hover); }
-.tab[aria-current="page"] { color: var(--accent-ink); }
-.tab[aria-current="page"]::after {
+.tab[aria-current="page"], .tab.current { color: var(--accent-ink); }
+.tab[aria-current="page"]::after, .tab.current::after {
   content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px;
   border-radius: 2px 2px 0 0; background: var(--primary-color);
 }
+/* The Tools tab is a menu: a <details> that works without the script. */
+.tab-menu { position: relative; height: 100%; }
+.tab-menu > summary { list-style: none; cursor: pointer; user-select: none; }
+.tab-menu > summary::-webkit-details-marker { display: none; }
+.tab-menu > summary .caret { width: 18px; height: 18px; margin-left: -4px; transition: transform .2s var(--ease-out); }
+.tab-menu[open] > summary .caret { transform: rotate(180deg); }
+.tab-menu > summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+.menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 6; min-width: 260px; padding: 8px 0;
+  background: var(--card-background-color); color: var(--primary-text-color); border-radius: 12px;
+  border: 1px solid var(--divider-color); box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.menu a { display: flex; align-items: center; gap: 16px; padding: 10px 16px; color: inherit; min-height: 48px; }
+.menu a:hover, .menu a:focus-visible { background: var(--hover); text-decoration: none; outline: none; }
+.menu a[aria-current="page"] { color: var(--accent-ink); background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+.menu a .mdi { color: var(--secondary-text-color); }
+.menu a[aria-current="page"] .mdi { color: var(--accent-ink); }
+.menu-text { display: flex; flex-direction: column; min-width: 0; }
+.menu-sub { font-size: 12px; color: var(--secondary-text-color); }
 .back { margin-left: -8px; color: inherit; }
 .content { max-width: 1120px; margin: 0 auto; padding: 24px 24px 48px; }
 .content.narrow { max-width: 760px; }
@@ -296,6 +320,13 @@ input[type=file]::file-selector-button {
 input[type=radio], input[type=checkbox] { accent-color: var(--primary-color); width: 18px; height: 18px; margin: 0; flex: none; }
 .hint { color: var(--secondary-text-color); font-size: 12px; line-height: 16px; margin-top: 6px; }
 .check { display: flex; gap: 12px; align-items: center; font-weight: 400; margin: 0; }
+/* A text input with a button beside it, e.g. a challenge and Generate. */
+.input-action { display: flex; gap: 8px; align-items: center; }
+.alert-action { margin-top: 8px; }
+.input-action > input { flex: 1; min-width: 0; }
+/* A menu of known values above the text input it fills ("Custom..." shows the input). */
+.preset + input { margin-top: 8px; }
+html.js .preset + input.preset-hidden { display: none; }
 
 /* Choice cards */
 .choices { display: grid; gap: 12px; }
@@ -414,6 +445,8 @@ td.actions form { margin: 0; }
 .row-sub { display: block; color: var(--secondary-text-color); overflow-wrap: anywhere; }
 .row-actions { display: flex; gap: 4px; align-items: center; flex: none; }
 .row-actions form { margin: 0; }
+a.row { color: inherit; }
+a.row:hover { background: var(--hover); text-decoration: none; }
 dl.rows dt { color: var(--secondary-text-color); }
 .kv { display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) auto; align-items: center;
   gap: 4px 16px; padding: 10px 16px; min-height: 48px; }
@@ -546,7 +579,11 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
     background: var(--app-header-background-color); border-top: 1px solid var(--divider-color);
   }
   .tab { flex: 1; flex-direction: column; justify-content: center; gap: 2px; padding: 0 4px; font-size: 12px; }
-  .tab[aria-current="page"]::after { top: 0; bottom: auto; border-radius: 0 0 2px 2px; left: 25%; right: 25%; }
+  .tab-menu { flex: 1; position: static; }
+  .tab-menu > summary { height: 100%; }
+  .tab-menu > summary .caret { display: none; }
+  .menu { position: fixed; top: auto; bottom: 64px; right: 8px; left: 8px; min-width: 0; }
+  .tab[aria-current="page"]::after, .tab.current::after { top: 0; bottom: auto; border-radius: 0 0 2px 2px; left: 25%; right: 25%; }
   .content { padding: 16px 12px 32px; }
   .field-row, .revoke-form { grid-template-columns: 1fr; }
   .hide-mobile { display: none; }
@@ -663,6 +700,94 @@ SCRIPT = r"""
       form.submit();
     });
     dialog.querySelector("[data-confirm-no]").addEventListener("click", function () { dialog.close(); });
+  });
+
+  // The Tools menu closes on a click elsewhere, on Escape, or when another opens.
+  var menus = Array.prototype.slice.call(document.querySelectorAll("details.tab-menu"));
+  document.addEventListener("click", function (event) {
+    menus.forEach(function (menu) { if (menu.open && !menu.contains(event.target)) menu.open = false; });
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    menus.forEach(function (menu) {
+      if (menu.open) { menu.open = false; menu.querySelector("summary").focus(); }
+    });
+  });
+
+  // Menus of known values: <select class="preset" data-for="id"> fills the
+  // text input with that id, which is what the form sends. "Custom..." (an
+  // empty data-custom option) shows the input for any other value.
+  function syncPreset(select, fromInput) {
+    var input = document.getElementById(select.getAttribute("data-for"));
+    if (!input) return;
+    var options = Array.prototype.slice.call(select.options).filter(function (o) { return !o.hidden && !o.disabled; });
+    if (fromInput) {
+      var match = options.filter(function (o) { return !o.hasAttribute("data-custom") && o.value === input.value; })[0];
+      var custom = options.filter(function (o) { return o.hasAttribute("data-custom"); })[0];
+      if (match) select.value = match.value;
+      else if (custom && input.value) custom.selected = true;
+      else if (options[0]) { select.value = options[0].value; input.value = options[0].hasAttribute("data-custom") ? input.value : options[0].value; }
+    }
+    var chosen = select.options[select.selectedIndex];
+    var isCustom = chosen && chosen.hasAttribute("data-custom");
+    if (!fromInput && !isCustom && chosen) input.value = chosen.value;
+    input.classList.toggle("preset-hidden", !isCustom);
+    if (!fromInput && isCustom) input.focus();
+  }
+  document.querySelectorAll("select.preset").forEach(function (select) {
+    syncPreset(select, true);
+    select.addEventListener("change", function () { syncPreset(select, false); });
+  });
+
+  // "Your MDM" shows only that MDM's variables in the menus below it.
+  document.querySelectorAll("select[data-mdm-switch]").forEach(function (picker) {
+    var form = picker.form;
+    function apply(keepValues) {
+      form.querySelectorAll("select.preset option[data-mdm]").forEach(function (option) {
+        var other = option.getAttribute("data-mdm") !== picker.value;
+        option.hidden = other;
+        option.disabled = other;
+      });
+      form.querySelectorAll("select.preset").forEach(function (select) {
+        if (!keepValues) {
+          var first = Array.prototype.slice.call(select.options).filter(function (o) { return !o.disabled; })[0];
+          var input = document.getElementById(select.getAttribute("data-for"));
+          if (first && input) input.value = first.hasAttribute("data-custom") ? "" : first.value;
+        }
+        syncPreset(select, true);
+      });
+      try { localStorage.setItem("mdm", picker.value); } catch (e) { /* not remembered */ }
+    }
+    var saved = null;
+    try { saved = localStorage.getItem("mdm"); } catch (e) { saved = null; }
+    if (saved && picker.querySelector('option[value="' + saved + '"]')) picker.value = saved;
+    apply(false);
+    picker.addEventListener("change", function () { apply(false); });
+  });
+
+  // Groups that require an email address make the email field required.
+  document.querySelectorAll("select[name=group]").forEach(function (select) {
+    var input = select.form && select.form.querySelector("[data-email-field]");
+    if (!input) return;
+    function apply() {
+      var option = select.options[select.selectedIndex];
+      input.required = !!(option && option.hasAttribute("data-require-email"));
+    }
+    apply();
+    select.addEventListener("change", apply);
+  });
+
+  // Generate a random challenge.
+  document.querySelectorAll("[data-generate]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var input = document.getElementById(button.getAttribute("data-generate"));
+      var bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      var text = btoa(String.fromCharCode.apply(null, bytes)).replace(/\+/g, "-").replace(/\//g, "_");
+      input.value = text;
+      input.dispatchEvent(new Event("input"));
+      say("Generated a new challenge");
+    });
   });
 
   // Instant search over the certificate table.

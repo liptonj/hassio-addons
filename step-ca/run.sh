@@ -100,7 +100,8 @@ subject_display="$(jq --raw-output '[["C", .country], ["ST", .province], ["L", .
 # Certificate groups (e.g. adults, kids, guests): each gets its own SCEP
 # provisioner and URL, and its certificates always carry the group's OU.
 groups_json="$(option '[(.groups // [])[] | {name, ou: .organizational_unit,
-  challenge: (.challenge // ""), duration: (.cert_duration // "")}]' | jq --compact-output .)"
+  challenge: (.challenge // ""), duration: (.cert_duration // ""),
+  require_email: (.require_email // false)}]' | jq --compact-output .)"
 clash="$(jq --raw-output --arg scep "${provisioner_name}" --arg enroll "${enroll_provisioner}" \
   '[.[].name, $scep, $enroll] | group_by(.) | map(select(length > 1))[0][0] // ""' <<<"${groups_json}")"
 [[ -z "${clash}" ]] \

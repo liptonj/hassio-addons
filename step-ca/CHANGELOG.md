@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.30.2.28
+
+- **Tools** is now a menu with a page for each tool: **Groups**, **MDM
+  profiles**, **Sign a request**, **Other trusted CAs**, and **Add-on
+  options**.
+- New **Groups** page: add, edit, and remove certificate groups (name, OU,
+  challenge with a **Generate** button, lifetime, require email) from the
+  panel. Saving writes the add-on options; **Restart** applies them.
+- New `require_email` group option: the group's certificates must carry an
+  email subject alternative name, for RADIUS servers such as Meraki Access
+  Manager that match it against the user's Entra ID UPN. The SCEP webhook
+  refuses requests without one, and enrollment links, **Enroll this device**,
+  .p12 issuing, and MDM profiles ask for it.
+- **MDM profiles**: choose your MDM (Meraki, Jamf Pro, Kandji, Intune) to
+  pick the certificate name and email variables from a menu, or choose
+  **Custom** to type your own. Intune can use the downloaded profile as a
+  custom profile.
+- Names and descriptions for every option in the add-on's Configuration tab.
+
 ## 0.30.2.27
 
 - New `groups` option: certificate groups such as adults, kids, and guests.

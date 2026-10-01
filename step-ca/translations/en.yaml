@@ -1,0 +1,141 @@
+configuration:
+  ca_name:
+    name: CA name
+    description: >-
+      Name used in the root and intermediate CA subjects. Only applied when
+      the CA is first created.
+  certificate_subject:
+    name: Certificate subject
+    description: >-
+      Fields added to the CA certificates (on creation) and to every issued
+      certificate. A group's OU replaces the OU here.
+    fields:
+      organization:
+        name: Organization (O)
+      organizational_unit:
+        name: Organizational unit (OU)
+        description: >-
+          OU for certificates from the default SCEP URL. Groups set their own.
+      locality:
+        name: Locality (L)
+      state:
+        name: State or province (ST)
+      country:
+        name: Country (C)
+        description: Two-letter uppercase country code, for example US.
+  dns_names:
+    name: DNS names
+    description: >-
+      Hostnames and IP addresses in step-ca's own HTTPS certificate. Only
+      needed for the direct port 9000.
+  scep_provisioner_name:
+    name: SCEP provisioner name
+    description: Last part of the default SCEP URL, …/api/step_ca_scep/scep/<name>.
+  scep_challenge:
+    name: SCEP challenge
+    description: >-
+      Shared password devices send to the default SCEP URL. If empty, anyone
+      who can reach the URL can get a certificate.
+  groups:
+    name: Certificate groups
+    description: >-
+      Groups such as adults, kids, and guests. Each has its own SCEP URL
+      (…/scep/<name>), OU, challenge, and lifetime. Easier to edit under
+      Certificates → Tools → Certificate groups.
+    fields:
+      name:
+        name: Name
+        description: >-
+          Lowercase letters, digits, - and _. Used in the group's SCEP URL.
+      organizational_unit:
+        name: Organizational unit (OU)
+        description: Every certificate in the group gets this OU.
+      challenge:
+        name: Challenge
+        description: >-
+          The group's SCEP challenge for MDMs. Leave empty to accept only
+          one-time enrollment links.
+      cert_duration:
+        name: Certificate lifetime
+        description: >-
+          Optional default and maximum lifetime, for example 720h. Empty uses
+          the add-on's lifetimes.
+      require_email:
+        name: Require an email address
+        description: >-
+          Refuse certificates without an email subject alternative name, for
+          example when a RADIUS server matches it against the user's UPN.
+  encryption_algorithm:
+    name: SCEP encryption algorithm
+    description: >-
+      0 DES-CBC, 1 AES-128-CBC, 2 AES-256-CBC (default), 3 AES-128-GCM,
+      4 AES-256-GCM. Use 0 only for legacy clients.
+  min_public_key_length:
+    name: Minimum RSA key size
+    description: Smallest RSA key accepted from devices.
+  include_root:
+    name: Include the root CA
+    description: Include the root CA in the GetCACert response.
+  force_cn:
+    name: Add the CN to the SANs
+    description: Always add the Common Name to the certificate's subject alternative names.
+  default_cert_duration:
+    name: Default certificate lifetime
+    description: For example 8760h (one year).
+  max_cert_duration:
+    name: Maximum certificate lifetime
+    description: Must be at least the default lifetime.
+  install_integration:
+    name: Install the integration
+    description: >-
+      Copy the Step CA SCEP integration into custom_components on start.
+      Turn off if you manage it yourself.
+  database:
+    name: Database
+    description: >-
+      mariadb stores step-ca's records in the MariaDB add-on and enables the
+      certificate list. embedded uses step-ca's built-in database.
+  mariadb_database:
+    name: MariaDB database name
+    description: Do not use a database that something else uses.
+  enrollment:
+    name: Enrollment
+    description: Enrollment links and the Home Assistant URL they use.
+    fields:
+      public_url:
+        name: Public URL
+        description: >-
+          Overrides the detected Home Assistant URL, for example
+          https://ha.example.com. Not normally needed.
+      link_hours:
+        name: Link lifetime (hours)
+        description: How long enrollment links stay valid (1-168).
+  profile_signing:
+    name: Profile signing
+    description: >-
+      Publicly trusted certificate in /ssl for signing Apple profiles, such
+      as the one from the Let's Encrypt add-on.
+    fields:
+      ssl_certificate:
+        name: Certificate file
+        description: File name in /ssl.
+      ssl_key:
+        name: Key file
+        description: File name in /ssl.
+  wifi:
+    name: Wi-Fi
+    description: EAP-TLS Wi-Fi network added to Apple profiles. Leave the SSID empty for none.
+    fields:
+      ssid:
+        name: SSID
+        description: Network name.
+      security:
+        name: Security
+      hidden:
+        name: Hidden network
+        description: The network does not broadcast its name.
+      auto_join:
+        name: Join automatically
+      radius_server_names:
+        name: RADIUS server names
+        description: Names in your RADIUS server's certificate that devices should trust.

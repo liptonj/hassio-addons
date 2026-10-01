@@ -56,7 +56,13 @@ It lets you:
   [Enrolling devices](#enrolling-devices));
 - sign certificate requests (CSRs) from other systems, such as a RADIUS or
   web server, or another CA (see
-  [Signing certificate requests](#signing-certificate-requests)).
+  [Signing certificate requests](#signing-certificate-requests));
+- add, edit, and remove [certificate groups](#certificate-groups) and
+  download MDM profiles.
+
+The **Tools** tab is a menu: **Groups**, **MDM profiles**, **Sign a
+request**, **Other trusted CAs**, and **Add-on options** (a read-only
+summary of the running configuration).
 
 The certificate list is read from step-ca's database, so it needs the
 `database` option set to `mariadb` (the default).
@@ -149,7 +155,15 @@ RADIUS server or firewall can treat them differently. Each group has:
   fields still apply;
 - its own challenge, so a device can only join the group whose challenge
   it was given;
-- optionally its own certificate lifetime.
+- optionally its own certificate lifetime;
+- optionally `require_email`: certificates must carry an email subject
+  alternative name (see [Requiring an email address](#requiring-an-email-address)).
+
+Manage groups under **Certificates → Tools → Groups**: add a group, edit or
+remove one, and click **Generate** for a random challenge. Saving writes the
+add-on options; the panel then shows **Restart needed**, and **Restart** applies
+the change (devices cannot reach the CA for the few seconds it takes). You can
+also edit `groups` in the add-on's Configuration tab:
 
 ```yaml
 groups:
@@ -166,7 +180,7 @@ groups:
 ```
 
 - **MDM**: make one SCEP profile per group, with the group's SCEP URL and
-  challenge (or download it under **Tools → Using an MDM** with the group
+  challenge (or download it under **Tools → MDM profiles** with the group
   selected). Assign each profile to that group of devices or users.
 - **Without an MDM**: choose the group when you create an enrollment link,
   enroll this device, or issue a .p12. A group without a `challenge` (like
@@ -177,6 +191,25 @@ groups:
 
 Group names use lowercase letters, digits, `-`, and `_`, and cannot be
 `enrollment` or the `scep_provisioner_name`.
+
+### Requiring an email address
+
+Some RADIUS servers identify the user from the certificate. Cisco Meraki
+Access Manager, for example, matches a certificate field (an email subject
+alternative name is recommended) against the user's Entra ID UPN, then
+applies Entra group membership. Set `require_email: true` (or tick **Require
+an email address**) on the groups whose certificates must carry one:
+
+- the SCEP webhook refuses a request without an email SAN for the group,
+  from an MDM or an enrollment link;
+- enrollment links, **Enroll this device**, and .p12 issuing ask for an
+  email under **Alternative names** and refuse to continue without one;
+- MDM profiles for the group need the **Email address** variable, for
+  example `{{userprincipalname}}` in Intune or `$OWNEREMAIL` in Meraki.
+
+The OU still sets the group's baseline; Entra groups can grant more on top.
+A guest group can leave `require_email` off, since guests are usually not in
+your directory.
 
 ### Moving a device to another group
 
@@ -290,8 +323,8 @@ certificates get all three.
 If your RADIUS server's certificate comes from another CA (for example a
 public CA or your network's own CA), add that CA so devices trust the server:
 
-1. Open **Certificates → Tools**.
-2. Under **Other trusted CAs**, choose the certificate file (PEM or DER,
+1. Open **Certificates → Tools → Other trusted CAs**.
+2. Choose the certificate file (PEM or DER,
    `.pem`, `.crt`, `.cer`) or paste the PEM, and click **Add**. A PEM file may
    hold several certificates. Only CA certificates are accepted.
 
@@ -362,7 +395,7 @@ why.
 
 An MDM can deploy the same SCEP enrollment that enrollment links do. The
 values for your installation, and each certificate as a separate download,
-are on **Certificates → Tools → Using an MDM**.
+are on **Certificates → Tools → MDM profiles**.
 
 Before you start:
 
@@ -375,7 +408,7 @@ Before you start:
 ### Download a ready-made profile (Apple devices)
 
 Instead of entering the values by hand, download a profile under
-**Certificates → Tools → Using an MDM → Download a profile for your
+**Certificates → Tools → MDM profiles → Download a profile for your
 MDM** and upload it to your MDM as a custom profile. Choose:
 
 - **Platform**: iOS and iPadOS, or macOS. The macOS profile installs for the
@@ -383,13 +416,18 @@ MDM** and upload it to your MDM as a custom profile. Choose:
 - **Contents**: certificates only; certificates and SCEP; or certificates,
   SCEP, and Wi-Fi when `wifi.ssid` is set. Every certificate is included: the
   root CA, the intermediate CA, and each of the **Other trusted CAs**.
+- **Your MDM**: Meraki, Jamf Pro, Kandji, Intune, or another MDM. This fills the
+  two menus below with that MDM's variables. Choose **Custom** in either menu
+  to type a variable that is not listed.
 - **Certificate name**: your MDM's variable for a unique value, which the
   MDM replaces on each device. For a device certificate use the serial
   number: `$SERIALNUMBER` in Jamf, `$DEVICESERIAL` in Meraki,
-  `$SERIAL_NUMBER` in Kandji. For a user certificate use the user name:
-  `$USERNAME` in Jamf, `$OWNERUSERNAME` in Meraki.
-- **Email address** (optional): your MDM's email variable, such as `$EMAIL`
-  in Jamf or `$OWNEREMAIL` in Meraki. It is added to the certificate as an
+  `$SERIAL_NUMBER` in Kandji, `{{serialnumber}}` in Intune. For a user
+  certificate use the user name: `$USERNAME` in Jamf, `$OWNERUSERNAME` in
+  Meraki, `{{userprincipalname}}` in Intune.
+- **Email address** (optional, unless the group requires one): your MDM's
+  email variable, such as `$EMAIL` in Jamf, `$OWNEREMAIL` in Meraki, or
+  `{{userprincipalname}}` in Intune. It is added to the certificate as an
   email subject alternative name, which RADIUS servers can match for
   EAP-TLS. The device needs a user assigned in the MDM.
 
@@ -450,8 +488,12 @@ with these payloads.
 - **Microsoft Intune**: Intune's SCEP profiles use a one-time challenge that
   the CA must verify with Intune's validation API. step-ca's open-source
   release does not do this, so Intune SCEP profiles do not work with this
-  add-on. You can still deploy the CA certificates with Intune *Trusted
-  certificate* profiles and enroll devices with enrollment links.
+  add-on. Instead, download a ready-made profile with **Your MDM** set to
+  Intune and upload it as a *Custom* profile (iOS/iPadOS or macOS): it
+  carries the static challenge, and Intune replaces `{{…}}` variables such as
+  `{{userprincipalname}}`. You can also deploy the CA certificates with
+  Intune *Trusted certificate* profiles and enroll devices with enrollment
+  links.
 - **Android Enterprise and Windows MDMs** with a static-challenge SCEP
   profile (for example Workspace ONE): use the same URL, challenge, and
   certificates.
@@ -523,9 +565,10 @@ the SCEP URL can obtain a certificate**, and a warning is logged.
 ### `groups`
 
 Certificate groups, each with `name`, `organizational_unit`, an optional
-`challenge`, and an optional `cert_duration` (for example `720h`) that sets
-both the default and maximum lifetime. See
-[Certificate groups](#certificate-groups).
+`challenge`, an optional `cert_duration` (for example `720h`) that sets
+both the default and maximum lifetime, and an optional `require_email`. See
+[Certificate groups](#certificate-groups); edit them under
+**Certificates → Tools → Groups**.
 
 ### `encryption_algorithm`
 
