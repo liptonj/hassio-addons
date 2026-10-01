@@ -73,9 +73,9 @@ ENROLL_ALLOWED_CLIENTS = set(os.environ.get("ENROLL_ALLOWED_CLIENTS", "172.30.32
 ENROLL_PUBLIC_URL = os.environ.get("ENROLL_PUBLIC_URL", "")
 ENROLL_LINK_HOURS = int(os.environ.get("ENROLL_LINK_HOURS", "24"))
 try:
-    WIFI = json.loads(os.environ.get("WIFI_JSON") or "{}")
+    WIFI_OPTIONS = json.loads(os.environ.get("WIFI_JSON") or "{}")
 except ValueError:
-    WIFI = {}
+    WIFI_OPTIONS = {}
 # Certificate groups: {name: {"name", "ou", "challenge", "duration", "require_email"}}. Each has
 # its own SCEP provisioner (named after the group) whose certificates carry
 # the group's OU.
@@ -353,7 +353,13 @@ def full_bundle():
 
 
 def wifi_enabled():
-    return bool(WIFI.get("ssid"))
+    return bool(WIFI_NETWORKS)
+
+
+def wifi_names():
+    """The configured networks' names for a sentence, such as <b>Home</b> and <b>Guest</b>."""
+    names = [f"<b>{esc(enroll.wifi_name(w))}</b>" for w in WIFI_NETWORKS]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else ""
 
 
 _core_urls = {"at": float("-inf"), "external": "", "cloud": "", "internal": ""}
@@ -519,27 +525,70 @@ def supervisor(method, path, payload=None):
 
 
 WIFI_SECURITY = ("WPA2", "WPA3", "Any")
+WIFI_PROXY = ("none", "manual", "auto")
+WIFI_QOS = ("default", "allowlist", "off")
 SERVER_NAME_RE = re.compile(r"^[A-Za-z0-9*][A-Za-z0-9*._-]{0,252}$")
+HOST_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$|^\[?[0-9A-Fa-f:.]+\]?$")
+BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+RCOI_RE = re.compile(r"^[0-9A-Fa-f]{6}([0-9A-Fa-f]{4})?$")
+MCC_MNC_RE = re.compile(r"^[0-9]{6}$")
+HESSID_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+WIFI_LISTS = ("radius_server_names", "qos_apps", "passpoint_roaming_consortium_ois", "passpoint_nai_realms",
+              "passpoint_mcc_mncs")
 
 
 def wifi_settings(option):
-    """A saved wifi option in the form of WIFI (the defaults run.sh fills in)."""
+    """One saved Wi-Fi network option with every setting filled in."""
     option = option or {}
-    return {"ssid": option.get("ssid") or "", "authentication": option.get("authentication") or "eap_tls",
-            "password": option.get("password") or "", "security": option.get("security") or "WPA2",
-            "hidden": bool(option.get("hidden", False)), "auto_join": bool(option.get("auto_join", True)),
-            "disable_mac_randomization": bool(option.get("disable_mac_randomization", False)),
-            "radius_server": option.get("radius_server") or "custom",
-            "radius_server_names": [n for n in option.get("radius_server_names") or [] if n]}
+    text = lambda name: str(option.get(name) or "").strip()  # noqa: E731
+    flag = lambda name, default=False: bool(option.get(name, default))  # noqa: E731
+    settings = {
+        "ssid": str(option.get("ssid") or ""), "authentication": text("authentication") or "eap_tls",
+        "password": str(option.get("password") or ""), "security": text("security") or "WPA2",
+        "hidden": flag("hidden"), "auto_join": flag("auto_join", True),
+        "disable_mac_randomization": flag("disable_mac_randomization"),
+        "radius_server": text("radius_server") or "custom",
+        "proxy": text("proxy") or "none", "proxy_server": text("proxy_server"),
+        "proxy_port": int(option.get("proxy_port") or 0) or None, "proxy_username": text("proxy_username"),
+        "proxy_password": str(option.get("proxy_password") or ""), "proxy_pac_url": text("proxy_pac_url"),
+        "proxy_pac_fallback": flag("proxy_pac_fallback"),
+        "captive_bypass": flag("captive_bypass"), "mac_login_window": flag("mac_login_window"),
+        "qos_marking": text("qos_marking") or "default", "qos_apple_calls": flag("qos_apple_calls", True),
+        "passpoint": flag("passpoint"), "passpoint_domain": text("passpoint_domain"),
+        "passpoint_operator_name": text("passpoint_operator_name"), "passpoint_hessid": text("passpoint_hessid"),
+        "passpoint_roaming": flag("passpoint_roaming"),
+    }
+    for name in WIFI_LISTS:
+        settings[name] = [str(n).strip() for n in option.get(name) or [] if n and str(n).strip()]
+    return settings
 
 
-def check_wifi_option(wifi):
-    """Raise ValueError when a wifi option would not pass the add-on's schema."""
-    if len(wifi["ssid"]) > 32 or len(wifi["ssid"].encode()) > 32:
+def wifi_networks(options):
+    """The Wi-Fi networks in the add-on options: wifi_networks, or the older single wifi option."""
+    networks = [wifi_settings(n) for n in options.get("wifi_networks") or []]
+    networks = [n for n in networks if enroll.wifi_name(n)]
+    if not networks and (options.get("wifi") or {}).get("ssid"):
+        networks = [wifi_settings(options["wifi"])]
+    return networks
+
+
+def wifi_option(wifi):
+    """A network as saved in wifi_networks: empty text settings left out, as the schema allows."""
+    return {k: v for k, v in wifi.items() if v not in ("", None)}
+
+
+def check_wifi_option(wifi, others=()):
+    """Raise ValueError when a Wi-Fi network would not pass the add-on's schema or would not install."""
+    name = enroll.wifi_name(wifi)
+    if not name:
+        raise ValueError("Enter the network name (SSID), or a Passpoint domain for a Passpoint network.")
+    if name.lower() in {enroll.wifi_name(o).lower() for o in others}:
+        raise ValueError(f"There is already a network named {name}.")
+    if len(wifi["ssid"].encode()) > 32:
         raise ValueError("The network name (SSID) can be at most 32 bytes.")
     if wifi["authentication"] not in ("eap_tls", "psk"):
         raise ValueError("Choose EAP-TLS or a pre-shared key for authentication.")
-    if wifi["authentication"] == "psk" and wifi["ssid"] and not (
+    if wifi["authentication"] == "psk" and not (
             8 <= len(wifi["password"]) <= 63 and wifi["password"].isascii() and wifi["password"].isprintable()
             or re.fullmatch(r"[0-9A-Fa-f]{64}", wifi["password"])):
         raise ValueError("The Wi-Fi password must be 8 to 63 characters (or 64 hex digits).")
@@ -547,9 +596,47 @@ def check_wifi_option(wifi):
         raise ValueError("Choose WPA2, WPA3, or Any for security.")
     if wifi["radius_server"] != "custom" and wifi["radius_server"] not in enroll.RADIUS_SERVICES:
         raise ValueError("Choose a RADIUS server from the list.")
-    for name in wifi["radius_server_names"]:
-        if not SERVER_NAME_RE.fullmatch(name):
-            raise ValueError(f"{name!r} is not a server name, such as radius.example.com.")
+    for server in wifi["radius_server_names"]:
+        if not SERVER_NAME_RE.fullmatch(server):
+            raise ValueError(f"{server!r} is not a server name, such as radius.example.com.")
+    if wifi["proxy"] not in WIFI_PROXY:
+        raise ValueError("Choose None, Manual, or Automatic for the proxy.")
+    if wifi["proxy"] == "manual":
+        if not HOST_RE.fullmatch(wifi["proxy_server"]):
+            raise ValueError("Enter the proxy server's name or IP address, such as proxy.example.com.")
+        if not wifi["proxy_port"] or not 1 <= wifi["proxy_port"] <= 65535:
+            raise ValueError("Enter the proxy port, 1 to 65535.")
+        if len(wifi["proxy_username"]) > 255 or len(wifi["proxy_password"]) > 255:
+            raise ValueError("The proxy user name and password can be at most 255 characters.")
+    if wifi["proxy"] == "auto" and wifi["proxy_pac_url"] and not re.fullmatch(
+            r"https?://[^\s]{1,2000}", wifi["proxy_pac_url"]):
+        raise ValueError("The PAC URL must start with http:// or https://.")
+    if wifi["qos_marking"] not in WIFI_QOS:
+        raise ValueError("Choose a QoS marking setting from the list.")
+    for app in wifi["qos_apps"]:
+        if not BUNDLE_ID_RE.fullmatch(app):
+            raise ValueError(f"{app!r} is not an app bundle ID, such as com.microsoft.teams.")
+    if wifi["passpoint"]:
+        if wifi["authentication"] != "eap_tls":
+            raise ValueError("Passpoint networks need EAP-TLS; a pre-shared key does not work with Passpoint.")
+        if not SERVER_NAME_RE.fullmatch(wifi["passpoint_domain"]) or "*" in wifi["passpoint_domain"]:
+            raise ValueError("Enter the Passpoint domain, such as example.com.")
+        if len(wifi["passpoint_operator_name"]) > 64:
+            raise ValueError("The operator name can be at most 64 characters.")
+        if wifi["passpoint_hessid"] and not HESSID_RE.fullmatch(wifi["passpoint_hessid"]):
+            raise ValueError("The HESSID is a MAC address, such as 00:11:22:33:44:55.")
+        for oi in wifi["passpoint_roaming_consortium_ois"]:
+            if not RCOI_RE.fullmatch(oi):
+                raise ValueError(f"{oi!r} is not a roaming consortium OI (6 or 10 hex digits, such as 5A03BA).")
+        for realm in wifi["passpoint_nai_realms"]:
+            if not SERVER_NAME_RE.fullmatch(realm) or "*" in realm:
+                raise ValueError(f"{realm!r} is not an NAI realm, such as example.com.")
+        for code in wifi["passpoint_mcc_mncs"]:
+            if not MCC_MNC_RE.fullmatch(code):
+                raise ValueError(f"{code!r} is not an MCC/MNC pair (six digits, such as 310410).")
+
+
+WIFI_NETWORKS = wifi_networks(WIFI_OPTIONS)
 
 
 def saved_options():
@@ -744,7 +831,7 @@ def profile_for(cn, challenge, base_url, wifi, sans=(), group=""):
         cn=cn, challenge=challenge,
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=organization, root=root, intermediate=inter,
-        wifi=WIFI if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
+        wifi=WIFI_NETWORKS if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
     )
     return SIGNER.sign(xml)
 
@@ -764,7 +851,7 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
     if platform not in MDM_PLATFORMS or contents not in MDM_CONTENTS:
         raise ValueError("Unknown platform or profile contents.")
     if contents == "wifi" and not wifi_enabled():
-        raise ValueError("Wi-Fi is not configured; set wifi.ssid in the add-on options.")
+        raise ValueError("Wi-Fi is not configured; add a network under Tools > Wi-Fi networks.")
     group = parse_group(group)
     challenge = GROUPS[group]["challenge"] if group else SCEP_CHALLENGE
     if contents != "trust":
@@ -787,14 +874,14 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
                              "or the enrollment.public_url add-on option.")
     root, inter = cert_chain()
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
-    names = {"trust": "CA certificates", "scep": "SCEP certificate", "wifi": f"Wi-Fi {WIFI.get('ssid', '')}"}
+    names = {"trust": "CA certificates", "scep": "SCEP certificate", "wifi": "Wi-Fi " + ", ".join(enroll.wifi_name(w) for w in WIFI_NETWORKS)}
     # Certificates only is the same for every group.
     group = group if contents != "trust" else ""
     xml = enroll.build_profile(
         cn=cn or "device", challenge=challenge,
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=match.group(1) if match else "", root=root, intermediate=inter,
-        wifi=WIFI if contents == "wifi" else None, extra_cas=enroll.load_extra_cas(),
+        wifi=WIFI_NETWORKS if contents == "wifi" else None, extra_cas=enroll.load_extra_cas(),
         include_scep=contents != "trust", system_scope=platform == "macos", email_sans=[email],
         identifier=f"mdm.{group + '.' if group else ''}{contents}.{platform}",
         display_name=f"{CA_NAME}: {names[contents]}{', ' + group if group else ''} ({MDM_PLATFORMS[platform]})",
@@ -845,19 +932,21 @@ def safe_filename(cn):
 
 def wifi_help():
     """Manual Wi-Fi settings for devices that installed a .p12."""
-    if not wifi_enabled():
-        return ""
-    if WIFI.get("authentication") == "psk":
-        rows = [("Network (SSID)", esc(WIFI["ssid"])),
-                ("Security", f'{esc(WIFI.get("security", "WPA2"))} Personal'),
-                ("Password", f'<span class="mono">{esc(WIFI.get("password", ""))}</span>')]
+    return "".join(network_help(w) for w in WIFI_NETWORKS)
+
+
+def network_help(wifi):
+    title = f'<div class="card"><div class="card-header"><h2>Connect to Wi-Fi {esc(enroll.wifi_name(wifi))}</h2></div>'
+    if wifi.get("authentication") == "psk":
+        rows = [("Network (SSID)", esc(wifi["ssid"])),
+                ("Security", f'{esc(wifi.get("security", "WPA2"))} Personal'),
+                ("Password", f'<span class="mono">{esc(wifi.get("password", ""))}</span>')]
         return (
-            '<div class="card"><div class="card-header"><h2>Connect to Wi-Fi</h2></div>'
-            '<dl class="card-content flush rows">'
+            title + '<dl class="card-content flush rows">'
             + "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl></div>"
         )
-    names = WIFI.get("radius_server_names") or []
-    service = enroll.radius_service(WIFI)
+    names = wifi.get("radius_server_names") or []
+    service = enroll.radius_service(wifi)
     if service:
         names = names + [n for n in service["server_names"] if n not in names]
         ca = (f'{esc(enroll.common_name(service["roots"][0]))}, a public root '
@@ -867,16 +956,19 @@ def wifi_help():
     else:
         ca = "the root CA above (Android: install it as a CA certificate)"
     rows = [
-        ("Network (SSID)", esc(WIFI["ssid"])),
-        ("Security", f'{esc(WIFI.get("security", "WPA2"))} Enterprise, EAP method <b>TLS</b>'),
+        ("Network (SSID)", esc(wifi["ssid"]) if wifi["ssid"] else f'Passpoint, domain {esc(wifi["passpoint_domain"])}'),
+        ("Security", f'{esc(wifi.get("security", "WPA2"))} Enterprise, EAP method <b>TLS</b>'),
         ("CA certificate", ca),
         ("Identity", "your certificate name"),
     ]
     if names:
         rows.append(("Domain / server name", esc(names[0])))
+    if wifi.get("proxy") == "manual":
+        rows.append(("Proxy", f'{esc(wifi["proxy_server"])}:{wifi["proxy_port"]}'))
+    elif wifi.get("proxy") == "auto":
+        rows.append(("Proxy", f'Automatic{", " + esc(wifi["proxy_pac_url"]) if wifi["proxy_pac_url"] else ""}'))
     return (
-        '<div class="card"><div class="card-header"><h2>Connect to Wi-Fi</h2></div>'
-        '<dl class="card-content flush rows">'
+        title + '<dl class="card-content flush rows">'
         + "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl></div>"
     )
 
@@ -1139,7 +1231,8 @@ class Handler(BaseHTTPRequestHandler):
     def handle_post(self):
         path = urllib.parse.urlsplit(self.path).path
         length = int(self.headers.get("Content-Length") or 0)
-        if length > (UPLOAD_LIMIT if path in ("/ca/extra", "/ca/sign") else 4096):
+        if length > (UPLOAD_LIMIT if path in ("/ca/extra", "/ca/sign") else 16384 if path == "/tools/wifi/save"
+                     else 4096):
             self.send(413, "Request too large", "text/plain")
             return
         body = self.rfile.read(length)
@@ -1164,6 +1257,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/tools/wifi/save":
             self.wifi_save(form)
+            return
+        if path == "/tools/wifi/delete":
+            self.wifi_delete(form)
             return
         if path == "/tools/groups/save":
             self.group_save(form)
@@ -1599,7 +1695,7 @@ class Handler(BaseHTTPRequestHandler):
             extra = f'<div class="field">{extra}</div>' if 'class="field"' not in extra else extra
         wifi = ""
         if link["wifi"] and wifi_enabled():
-            wifi = f' It also sets up Wi-Fi network <b>{esc(WIFI["ssid"])}</b>.'
+            wifi = f" It also sets up Wi-Fi {wifi_names()}."
         body = (
             (ui.alert("error", esc(error)) if error else "")
             + f'<form class="card" method="post" action="{esc(action)}">'
@@ -1808,7 +1904,7 @@ class Handler(BaseHTTPRequestHandler):
         if wifi_enabled():
             wifi_opt = (
                 '<div class="field"><label class="check"><input type="checkbox" name="wifi" value="1" checked>'
-                f'Apple profiles also configure Wi-Fi <b>{esc(WIFI["ssid"])}</b></label></div>'
+                f"Apple profiles also configure Wi-Fi {wifi_names()}</label></div>"
             )
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -2192,7 +2288,7 @@ class Handler(BaseHTTPRequestHandler):
 
     TOOLS_MENU = (
         ("/tools/groups", "Groups", "account-group", "OUs, SCEP URLs, and challenges"),
-        ("/tools/wifi", "Wi-Fi network", "wifi", "SSID, security, and RADIUS trust"),
+        ("/tools/wifi", "Wi-Fi networks", "wifi", "SSIDs, security, proxy, and Passpoint"),
         ("/tools/mdm", "MDM profiles", "cellphone", "SCEP values and ready-made profiles"),
         ("/tools/sign", "Sign a request", "file-sign", "CSRs from servers or another CA"),
         ("/tools/cas", "Other trusted CAs", "server-security", "CAs enrolled devices also trust"),
@@ -2476,44 +2572,128 @@ class Handler(BaseHTTPRequestHandler):
 
     def wifi_page(self, query, error="", values=None):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
-        notice = ui.alert("error", esc(error), "The Wi-Fi settings were not saved") if error else ""
+        notice = ui.alert("error", esc(error), "The network was not saved") if error else ""
+        later = (" Profiles already on devices or uploaded to an MDM keep the old settings until you replace "
+                 "them.")
         if query.get("saved"):
-            notice = ui.alert("success", "New profiles use the saved Wi-Fi settings now. Profiles already on "
-                              "devices or uploaded to an MDM keep the old ones until you replace them.", "Saved")
+            notice = ui.alert("success", f"New profiles set up <b>{esc(query['saved'][0])}</b> with these "
+                              f"settings now.{later}", "Saved")
+        elif query.get("deleted"):
+            notice = ui.alert("success", f"New profiles leave out <b>{esc(query['deleted'][0])}</b>.{later}",
+                              "Removed")
         elif query.get("error"):
             notice = ui.alert("error", esc(query["error"][0]), "That did not work")
-        readable = True
+        try:
+            networks = wifi_networks(saved_options())
+            readable = True
+        except RuntimeError as err:
+            networks, readable = list(WIFI_NETWORKS), False
+            notice += ui.alert("warning", f"{esc(err)}<br>These are the running settings; saving is "
+                               "unavailable.", "Could not read the saved add-on options")
+        rows = dialogs = ""
+        for index, w in enumerate(networks):
+            name = enroll.wifi_name(w)
+            service = enroll.radius_service(w)
+            details = [("Pre-shared key" if w["authentication"] == "psk" else "EAP-TLS") + f" · {esc(w['security'])}"]
+            if service and w["authentication"] != "psk":
+                details.append(esc(service["label"]))
+            details += [label for flag, label in (
+                (w["passpoint"], "Passpoint"), (w["hidden"], "hidden"), (not w["auto_join"], "no auto-join"),
+                (w["disable_mac_randomization"], "fixed Wi-Fi address"), (w["proxy"] != "none", f"{w['proxy']} proxy"),
+                (w["captive_bypass"], "captive portal bypass"), (w["mac_login_window"], "Mac login window"),
+                (w["qos_marking"] != "default", f"QoS {'off' if w['qos_marking'] == 'off' else 'listed apps'}"))
+                if flag]
+            edit = self.url("/tools/wifi?" + urllib.parse.urlencode({"edit": name}))
+            rows += (
+                f'<div class="row"><span class="row-icon">{ui.icon("wifi")}</span>'
+                f'<span class="row-text"><span class="row-title"><b>{esc(name)}</b></span>'
+                f'<span class="row-sub">{" · ".join(details)}</span></span><span class="row-actions">'
+            )
+            if readable:
+                rows += (
+                    f'<a class="icon-btn" href="{esc(edit)}#wifi-form" aria-label="Edit {esc(name)}" title="Edit">'
+                    f'{ui.icon("pencil")}</a>'
+                    f'<form method="post" action="{esc(self.url("/tools/wifi/delete"))}" '
+                    f'data-confirm="delete-wifi-{index}">{csrf}<input type="hidden" name="name" value="{esc(name)}">'
+                    f'<button class="icon-btn" aria-label="Remove {esc(name)}" title="Remove">'
+                    f'{ui.icon("delete-outline")}</button></form>'
+                )
+                dialogs += (
+                    f'<dialog id="delete-wifi-{index}" aria-labelledby="delete-wifi-{index}-title">'
+                    f'<h2 id="delete-wifi-{index}-title">Remove the network {esc(name)}?</h2>'
+                    "<p>New profiles leave it out. Devices that already have a profile keep the network until "
+                    "they install a new one or remove the profile.</p>"
+                    '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                    '<button type="button" class="btn danger" data-confirm-yes>Remove</button></div></dialog>'
+                )
+            rows += "</span></div>"
+        rows = rows or ui.empty_state("wifi", "No Wi-Fi networks",
+                                      "Profiles install the certificate only. Add a network to set up Wi-Fi too.")
+        edit = (query.get("edit") or [""])[0]
+        current = next((w for w in networks if enroll.wifi_name(w) == edit), None) if edit else None
         if values is None:
-            try:
-                values = wifi_settings(saved_options().get("wifi"))
-            except RuntimeError as err:
-                values, readable = dict(WIFI), False
-                notice += ui.alert("warning", f"{esc(err)}<br>These are the running settings; saving is "
-                                   "unavailable.", "Could not read the saved add-on options")
-        values = wifi_settings(values)
-        v = lambda name: esc(values.get(name, ""))  # noqa: E731
+            values = dict(current or wifi_settings({}), original=edit if current else "")
+        form = self.wifi_form(csrf, values) if readable else ""
+        body = (
+            notice
+            + '<div class="grid"><div>'
+            '<div class="card"><div class="card-header"><h2>Wi-Fi networks</h2>'
+            '<p class="muted">The networks that Apple profiles set up, and that the setup help on the certificate '
+            "pages describes. Saved to the add-on options and used right away; no restart.</p></div>"
+            f'<div class="rows">{rows}</div></div>'
+            "</div><div>" + form + "</div></div>" + dialogs
+        )
+        self.page("Wi-Fi networks", body)
+
+    def wifi_form(self, csrf, values):
+        values = dict(wifi_settings(values), original=values.get("original", ""))
+        original = values["original"]
+        v = lambda name: esc(values.get(name) or "")  # noqa: E731
+        lines = lambda name: esc(chr(10).join(values[name]))  # noqa: E731
+        check = lambda name: " checked" if values.get(name) else ""  # noqa: E731
         select = lambda name, choices: "".join(  # noqa: E731
             f'<option value="{key}"{" selected" if values[name] == key else ""}>{esc(label)}</option>'
             for key, label in choices)
+
+        def checkbox(name, label, hint="", field_id=""):
+            return (f'<div class="field"><label class="check"><input type="checkbox" name="{name}" value="1"'
+                    f'{f" id={chr(34)}{field_id}{chr(34)}" if field_id else ""}{check(name)}>{label}</label>'
+                    + (f'<p class="hint">{hint}</p>' if hint else "") + "</div>")
+
+        def text(name, label, hint="", placeholder="", field_id="", **attrs):
+            extra = "".join(f' {k.replace("_", "-")}="{esc(val)}"' for k, val in attrs.items())
+            return (f'<div class="field"><label for="{field_id or "w-" + name}">{label}</label>'
+                    f'<input id="{field_id or "w-" + name}" name="{name}" value="{v(name)}" '
+                    f'placeholder="{esc(placeholder)}" autocapitalize="off" spellcheck="false"{extra}>'
+                    + (f'<p class="hint">{hint}</p>' if hint else "") + "</div>")
+
+        def textarea(name, label, hint, placeholder):
+            return (f'<div class="field"><label for="w-{name}">{label}</label>'
+                    f'<textarea id="w-{name}" name="{name}" rows="2" class="mono" autocapitalize="off" '
+                    f'spellcheck="false" placeholder="{esc(placeholder)}">{lines(name)}</textarea>'
+                    f'<p class="hint">{hint}</p></div>')
+
+        def section(title, content, open_=False):
+            return f'<details class="field"{" open" if open_ else ""}><summary>{title}</summary>{content}</details>'
+
         auth = select("authentication", (("eap_tls", "EAP-TLS (certificate, WPA Enterprise)"),
                                          ("psk", "Pre-shared key (password, WPA Personal)")))
         security = select("security", (("WPA2", "WPA2"), ("WPA3", "WPA3"), ("Any", "Any (WPA2 or WPA3)")))
         radius = select("radius_server", [("custom", "My own RADIUS server")]
                         + [(key, service["label"]) for key, service in enroll.RADIUS_SERVICES.items()])
-        check = lambda name: " checked" if values.get(name) else ""  # noqa: E731
-        body = (
-            notice
-            + f'<form class="card" method="post" action="{esc(self.url("/tools/wifi/save"))}">{csrf}'
-            '<div class="card-header"><h2>Wi-Fi network</h2>'
-            '<p class="muted">The network that Apple profiles set up, and that the setup help on the '
-            "certificate pages describes. Saved to the add-on options and used right away; no restart.</p></div>"
+        proxy = select("proxy", (("none", "None"), ("manual", "Manual"), ("auto", "Automatic")))
+        qos = select("qos_marking", (("default", "All apps (default)"), ("allowlist", "Only the apps below"),
+                                     ("off", "Off")))
+        saved_password = bool(original and values["password"])
+        saved_proxy_password = bool(original and values["proxy_password"])
+        return (
+            f'<form class="card" id="wifi-form" method="post" action="{esc(self.url("/tools/wifi/save"))}">{csrf}'
+            f'<input type="hidden" name="original" value="{v("original")}">'
+            f'<div class="card-header"><h2>{"Edit " + esc(original) if original else "Add a network"}</h2></div>'
             '<div class="card-content">'
-            '<div class="field"><label for="w-ssid">Network name (SSID)</label>'
-            f'<input id="w-ssid" name="ssid" maxlength="32" autocapitalize="off" spellcheck="false" '
-            f'value="{v("ssid")}" placeholder="Empty turns Wi-Fi off">'
-            '<p class="hint">Exactly as the network broadcasts it, including case. Empty leaves Wi-Fi out of '
-            "profiles.</p></div>"
-            '<div class="field"><label for="w-auth">Authentication</label>'
+            + text("ssid", "Network name (SSID)", "Exactly as the network broadcasts it, including case.",
+                   "e.g. Home", maxlength="32")
+            + '<div class="field"><label for="w-auth">Authentication</label>'
             f'<select id="w-auth" name="authentication">{auth}</select>'
             '<p class="hint">EAP-TLS signs each device in with the certificate this CA issues, through a RADIUS '
             "server. A pre-shared key is one password for everyone.</p></div>"
@@ -2522,64 +2702,162 @@ class Handler(BaseHTTPRequestHandler):
             '<p class="hint">Match the SSID\'s setting. Any lets the device use either.</p></div>'
             '<div class="field" data-show-when="w-auth=psk"><label for="w-password">Password</label>'
             '<input id="w-password" name="password" type="password" maxlength="64" autocomplete="new-password" '
-            f'placeholder="{"Leave empty to keep the saved password" if values["password"] else "8 to 63 characters"}">'
+            f'placeholder="{"Leave empty to keep the saved password" if saved_password else "8 to 63 characters"}">'
             '<p class="hint">The network password. Profiles with this network include it.</p></div>'
-            '<div class="field"><label class="check"><input type="checkbox" name="auto_join" value="1"'
-            f'{check("auto_join")}>Join automatically</label></div>'
-            '<div class="field"><label class="check"><input type="checkbox" name="hidden" value="1"'
-            f'{check("hidden")}>Hidden network</label>'
-            '<p class="hint">Turn on when the SSID is not broadcast.</p></div>'
-            '<div class="field"><label class="check"><input type="checkbox" name="disable_mac_randomization" '
-            f'value="1"{check("disable_mac_randomization")}>Fixed Wi-Fi address</label>'
-            '<p class="hint">Turns off Private Wi-Fi Address for this network, so the device always uses its '
-            "real MAC address here (for DHCP reservations or MAC-based rules). iOS 14, iPadOS 14, and macOS 15 "
-            "or later; devices show a privacy warning for the network.</p></div>"
-            '<div data-show-when="w-auth=eap_tls">'
+            + checkbox("auto_join", "Join automatically")
+            + checkbox("hidden", "Hidden network", "Turn on when the SSID is not broadcast.")
+            + checkbox("disable_mac_randomization", "Fixed Wi-Fi address",
+                       "Turns off Private Wi-Fi Address for this network, so the device always uses its real MAC "
+                       "address here (for DHCP reservations or MAC-based rules). iOS 14 and macOS 15 or later; "
+                       "devices show a privacy warning for the network.")
+            + '<div data-show-when="w-auth=eap_tls">'
             '<div class="field"><label for="w-radius">RADIUS server</label>'
             f'<select id="w-radius" name="radius_server">{radius}</select>'
             '<p class="hint">With Cisco Meraki Access Manager, profiles trust its server '
             "(eap.meraki.com, under IdenTrust Commercial Root CA 1) without anything else to add. With your "
             f'own server, add the CA that issued its certificate under <a href="{esc(self.url("/tools/cas"))}">'
             "Other trusted CAs</a> if it is not this CA.</p></div>"
-            f'<details class="field"{" open" if values["radius_server_names"] else ""}><summary>Advanced</summary>'
-            '<label for="w-names">RADIUS server names (optional)</label>'
-            f'<textarea id="w-names" name="radius_server_names" rows="3" class="mono" autocapitalize="off" '
-            f'spellcheck="false" placeholder="radius.example.com">{esc(chr(10).join(values["radius_server_names"]))}'
-            "</textarea>"
-            '<p class="hint">Usually leave this empty. Devices then accept any RADIUS certificate issued by a '
-            "trusted CA above. Listing names (one per line, wildcards such as *.example.com work) pins the "
-            "server, which matters only when that CA also issues certificates to other servers, such as a "
-            "public CA. Meraki's name is added for you.</p></details></div>"
-            '</div><div class="card-actions">'
-            + (f'<button class="btn">{ui.icon("check")}Save</button>' if readable else "")
-            + "</div></form>"
+            + section("RADIUS server names", textarea(
+                "radius_server_names", "RADIUS server names (optional)",
+                "Usually leave this empty. Devices then accept any RADIUS certificate issued by a trusted CA "
+                "above. Listing names (one per line, wildcards such as *.example.com work) pins the server, which "
+                "matters only when that CA also issues certificates to other servers, such as a public CA. "
+                "Meraki's name is added for you.", "radius.example.com"), bool(values["radius_server_names"]))
+            + "</div>"
+            + section("Proxy", (
+                '<div class="field"><label for="w-proxy">Proxy</label>'
+                f'<select id="w-proxy" name="proxy">{proxy}</select>'
+                '<p class="hint">A web proxy for this network only. iPhone and iPad; Macs take the manual server '
+                "and the PAC URL too.</p></div>"
+                '<div data-show-when="w-proxy=manual"><div class="field-row">'
+                + text("proxy_server", "Server", "", "proxy.example.com", maxlength="253")
+                + text("proxy_port", "Port", "", "8080", inputmode="numeric", maxlength="5")
+                + "</div><div class=\"field-row\">"
+                + text("proxy_username", "User name (optional)", "", "", maxlength="255", autocomplete="off")
+                + '<div class="field"><label for="w-proxy_password">Password (optional)</label>'
+                '<input id="w-proxy_password" name="proxy_password" type="password" maxlength="255" '
+                'autocomplete="new-password" placeholder="'
+                + ("Leave empty to keep the saved password" if saved_proxy_password else "") + '"></div>'
+                "</div></div>"
+                '<div data-show-when="w-proxy=auto">'
+                + text("proxy_pac_url", "PAC URL (optional)", "Empty finds the proxy with WPAD.",
+                       "http://wpad.example.com/proxy.pac", maxlength="2000")
+                + checkbox("proxy_pac_fallback", "Connect directly when the PAC file cannot be reached")
+                + "</div>"), values["proxy"] != "none")
+            + section("Joining", (
+                checkbox("captive_bypass", "Skip captive portal detection",
+                         "The device does not check for a sign-in page on this network or show the captive portal "
+                         "sheet. iPhone and iPad.")
+                + checkbox("mac_login_window", "Mac: connect at the login window",
+                           "The Mac joins before anyone signs in, using the certificate in the System keychain, so "
+                           "network accounts and FileVault unlock work. The profile then installs for the whole "
+                           "Mac (an administrator approves it).")), values["captive_bypass"] or values["mac_login_window"])
+            + section("QoS (Cisco Fast Lane)", (
+                '<div class="field"><label for="w-qos">QoS marking</label>'
+                f'<select id="w-qos" name="qos_marking">{qos}</select>'
+                '<p class="hint">On Cisco and Meraki networks with Fast Lane, apps can mark their traffic for '
+                "priority. Off makes the device ignore Fast Lane on this network.</p></div>"
+                '<div data-show-when="w-qos=allowlist">'
+                + checkbox("qos_apple_calls", "Include FaceTime and Wi-Fi Calling")
+                + textarea("qos_apps", "App bundle IDs", "One per line.", "com.microsoft.teams\ncom.cisco.webex.meetings")
+                + "</div>"), values["qos_marking"] != "default")
+            + section("Passpoint (Hotspot 2.0)", (
+                checkbox("passpoint", "Passpoint network",
+                         "Devices find and join the network by its Passpoint domain or roaming consortium instead of "
+                         "only its SSID. Needs EAP-TLS; the SSID is then optional.", "w-passpoint")
+                + '<div data-show-when="w-passpoint=1">'
+                + text("passpoint_domain", "Domain", "The Passpoint (home operator) domain name.", "example.com",
+                       maxlength="253")
+                + text("passpoint_operator_name", "Operator name (optional)", "Shown when connected.",
+                       "Example Wi-Fi", maxlength="64", autocapitalize="sentences")
+                + textarea("passpoint_roaming_consortium_ois", "Roaming consortium OIs (optional)",
+                           "One per line, 6 or 10 hex digits.", "5A03BA")
+                + textarea("passpoint_nai_realms", "NAI realms (optional)", "One per line.", "example.com")
+                + textarea("passpoint_mcc_mncs", "MCC/MNC pairs (optional)",
+                           "One per line, six digits. iPhone and iPad.", "310410")
+                + text("passpoint_hessid", "HESSID (optional)", "iPhone and iPad.", "00:11:22:33:44:55",
+                       maxlength="17")
+                + checkbox("passpoint_roaming", "Allow roaming to partner service providers")
+                + "</div>"), values["passpoint"])
+            + '</div><div class="card-actions">'
+            + (f'<a class="btn text" href="{esc(self.url("/tools/wifi"))}">Cancel</a>' if original else "")
+            + f'<button class="btn">{ui.icon("check")}Save network</button></div></form>'
         )
-        self.page("Wi-Fi network", body, narrow=True)
 
     def wifi_save(self, form):
         field = lambda name: str(form.get(name, [""])[0])  # noqa: E731
-        names = [n.strip() for n in re.split(r"[\s,]+", field("radius_server_names")) if n.strip()]
-        values = {"ssid": field("ssid").strip(), "authentication": field("authentication") or "eap_tls",
-                  "password": field("password"), "security": field("security"),
-                  "hidden": field("hidden") == "1", "auto_join": field("auto_join") == "1",
-                  "disable_mac_randomization": field("disable_mac_randomization") == "1",
-                  "radius_server": field("radius_server") or "custom",
-                  "radius_server_names": list(dict.fromkeys(names))}
+        listed = lambda name: list(dict.fromkeys(  # noqa: E731
+            n.strip() for n in re.split(r"[\s,]+", field(name)) if n.strip()))
+        original = field("original")
+        port = field("proxy_port").strip()
+        values = {
+            "original": original, "ssid": field("ssid").strip(), "authentication": field("authentication"),
+            "password": field("password"), "security": field("security"),
+            "proxy": field("proxy"), "proxy_server": field("proxy_server"),
+            "proxy_port": int(port) if port.isdigit() and len(port) <= 5 else (-1 if port else None),
+            "proxy_username": field("proxy_username"), "proxy_password": field("proxy_password"),
+            "proxy_pac_url": field("proxy_pac_url"), "qos_marking": field("qos_marking"),
+            "passpoint_domain": field("passpoint_domain"), "passpoint_operator_name": field("passpoint_operator_name"),
+            "passpoint_hessid": field("passpoint_hessid"),
+            **{name: field(name) == "1" for name in (
+                "hidden", "auto_join", "disable_mac_randomization", "proxy_pac_fallback", "captive_bypass",
+                "mac_login_window", "qos_apple_calls", "passpoint", "passpoint_roaming")},
+            **{name: listed(name) for name in WIFI_LISTS},
+        }
+        values["radius_server"] = field("radius_server")
         try:
             options = saved_options()
-            if not values["password"]:
-                values["password"] = wifi_settings(options.get("wifi"))["password"]
-            check_wifi_option(values)
-            options["wifi"] = {**(options.get("wifi") or {}), **values}
-            supervisor("POST", "/addons/self/options", {"options": options})
+            networks = wifi_networks(options)
+            names = [enroll.wifi_name(n) for n in networks]
+            if original and original not in names:
+                raise ValueError(f"The network {original} no longer exists; it may have been removed elsewhere.")
+            saved = networks[names.index(original)] if original else {}
+            for secret in ("password", "proxy_password"):
+                if not values[secret] and saved:
+                    values[secret] = saved[secret]
+            if values["proxy_port"] == -1:
+                raise ValueError("Enter the proxy port, 1 to 65535.")
+            network = wifi_settings(values)
+            network["proxy_port"] = values["proxy_port"]
+            others = [n for n in networks if enroll.wifi_name(n) != original]
+            check_wifi_option(network, others)
+            if network["authentication"] != "psk":
+                network["password"] = ""
+            networks = ([network if enroll.wifi_name(n) == original else n for n in networks]
+                        if original else networks + [network])
+            self.save_wifi_networks(options, networks)
         except (ValueError, RuntimeError) as err:
             self.wifi_page({}, str(err), values)
             return
-        WIFI.clear()
-        WIFI.update(wifi_settings(values))
-        print(f"Saved the Wi-Fi settings (SSID {values['ssid']!r}, {values['authentication']}, "
-              f"{values['security']}, RADIUS {values['radius_server']})", flush=True)
-        self.redirect("/tools/wifi?saved=1")
+        name = enroll.wifi_name(network)
+        print(f"Saved the Wi-Fi network {name!r} ({network['authentication']}, {network['security']}"
+              + (f", RADIUS {network['radius_server']}" if network["authentication"] != "psk" else "") + ")",
+              flush=True)
+        self.redirect("/tools/wifi?" + urllib.parse.urlencode({"saved": name}))
+
+    def wifi_delete(self, form):
+        name = str(form.get("name", [""])[0])
+        try:
+            options = saved_options()
+            networks = wifi_networks(options)
+            remaining = [n for n in networks if enroll.wifi_name(n) != name]
+            if len(remaining) != len(networks):
+                self.save_wifi_networks(options, remaining)
+        except RuntimeError as err:
+            self.tools_error("/tools/wifi", err)
+            return
+        print(f"Removed the Wi-Fi network {name!r}", flush=True)
+        self.redirect("/tools/wifi?" + urllib.parse.urlencode({"deleted": name}))
+
+    @staticmethod
+    def save_wifi_networks(options, networks):
+        """Save the networks to the add-on options and use them right away."""
+        options["wifi_networks"] = [wifi_option(n) for n in networks]
+        if (options.get("wifi") or {}).get("ssid"):
+            # The older single-network option, now moved into wifi_networks.
+            options["wifi"] = {**options["wifi"], "ssid": ""}
+        supervisor("POST", "/addons/self/options", {"options": options})
+        WIFI_NETWORKS[:] = [wifi_settings(n) for n in networks]
 
     # -- other tools ---------------------------------------------------------------
 
@@ -2589,12 +2867,11 @@ class Handler(BaseHTTPRequestHandler):
 
         challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
                      ui.chip("warn", "Not set") + " Needed for MDM profiles in the default group")
-        service = enroll.radius_service(WIFI)
-        psk = WIFI.get("authentication") == "psk"
-        wifi = (f"<b>{esc(WIFI['ssid'])}</b>, " + ("pre-shared key" if psk else "EAP-TLS")
-                + (f", RADIUS {esc(service['label'])} ({esc(', '.join(service['server_names']))})"
-                   if service and not psk else "")
-                if wifi_enabled() else "Off")
+        wifi = "<br>".join(
+            f"<b>{esc(enroll.wifi_name(w))}</b>, " + ("pre-shared key" if w["authentication"] == "psk" else "EAP-TLS")
+            + (f", RADIUS {esc(service['label'])} ({esc(', '.join(service['server_names']))})"
+               if (service := enroll.radius_service(w)) and w["authentication"] != "psk" else "")
+            for w in WIFI_NETWORKS) or "Off"
         groups = "<br>".join(
             f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
             + (f"valid {esc(g['duration'])}, " if g["duration"] else "")
@@ -2604,7 +2881,7 @@ class Handler(BaseHTTPRequestHandler):
         body = (
             '<div class="card"><div class="card-header"><h2>Add-on options</h2>'
             f'<p class="muted">The running configuration. Edit groups under <a href="{esc(self.url("/tools/groups"))}">'
-            f'Groups</a> and the network under <a href="{esc(self.url("/tools/wifi"))}">Wi-Fi network</a>; '
+            f'Groups</a> and the networks under <a href="{esc(self.url("/tools/wifi"))}">Wi-Fi networks</a>; '
             "change the rest on the add-on's Configuration tab in Home Assistant.</p></div>"
             '<dl class="rows">'
             + option("Issued subject", esc(SUBJECT_POLICY) if SUBJECT_POLICY else "Taken from the client request")
@@ -2750,13 +3027,16 @@ class Handler(BaseHTTPRequestHandler):
             ("Key", "RSA, 2048 bits or more, usage signing and encryption, not exportable", None),
             ("Fingerprint", "Leave empty", None),
         ]
-        if wifi_enabled() and WIFI.get("authentication") == "psk":
-            rows.append(("Wi-Fi", f"SSID <b>{esc(WIFI['ssid'])}</b>, {esc(WIFI.get('security', 'WPA2'))} "
-                         "Personal with the saved password", None))
-        elif wifi_enabled():
-            names = ", ".join(WIFI.get("radius_server_names") or []) or "the names in your RADIUS certificate"
-            rows.append(("Wi-Fi", f"SSID <b>{esc(WIFI['ssid'])}</b>, EAP-TLS, identity = the SCEP payload, trusted "
-                         f"certificates = the certificate payloads above, trusted server names = {esc(names)}", None))
+        for wifi in WIFI_NETWORKS:
+            label = f"<b>{esc(enroll.wifi_name(wifi))}</b>"
+            if wifi["authentication"] == "psk":
+                rows.append(("Wi-Fi", f"SSID {label}, {esc(wifi['security'])} Personal with the saved password",
+                             None))
+            else:
+                names = ", ".join(wifi["radius_server_names"]) or "the names in your RADIUS certificate"
+                rows.append(("Wi-Fi", f"{'Passpoint ' if not wifi['ssid'] else 'SSID '}{label}, EAP-TLS, identity = "
+                             "the SCEP payload, trusted certificates = the certificate payloads above, trusted "
+                             f"server names = {esc(names)}", None))
         dl = "".join(
             f'<div class="kv"><dt>{k}</dt><dd>{v}</dd>'
             + (ui.copy_button(c, k) if c else "<span></span>") + "</div>"
@@ -2781,7 +3061,8 @@ class Handler(BaseHTTPRequestHandler):
         options = [("scep", "Certificates and SCEP" + ("" if SCEP_CHALLENGE or GROUPS else " (needs scep_challenge)")),
                    ("trust", "Certificates only")]
         if wifi_enabled():
-            options.insert(0, ("wifi", f"Certificates, SCEP, and Wi-Fi {esc(WIFI['ssid'])}"))
+            options.insert(0, ("wifi", "Certificates, SCEP, and Wi-Fi "
+                               + esc(", ".join(enroll.wifi_name(w) for w in WIFI_NETWORKS))))
         contents = "".join(f'<option value="{v}">{label}</option>' for v, label in options)
         platforms = "".join(f'<option value="{v}">{label}</option>' for v, label in MDM_PLATFORMS.items())
         mdms = "".join(f'<option value="{key}">{esc(name)}</option>' for key, name, _, _ in MDM_VARIABLES)

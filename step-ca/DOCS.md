@@ -331,13 +331,11 @@ devices can import them.
 
 ### Wi-Fi in the profile
 
-Set the SSID under **Tools → Wi-Fi network** (or `wifi.ssid`) to add an EAP-TLS
-Wi-Fi payload to Apple profiles. It uses the
+Add networks under **Tools → Wi-Fi networks** (or `wifi_networks`) to add a
+Wi-Fi payload for each to Apple profiles. An EAP-TLS network uses the
 certificate from the profile's SCEP payload and trusts the root and
 intermediate CA, and any CAs added under **Tools → Other trusted CAs**, for the RADIUS
-server's certificate. List your RADIUS server
-certificate names in `wifi.radius_server_names` (e.g. `radius.example.com`)
-so devices do not ask to trust the server. For .p12 devices the page shows the
+server's certificate. For .p12 devices the page shows the
 settings to enter by hand (EAP method TLS, CA certificate, identity, and
 domain).
 
@@ -449,7 +447,7 @@ MDM** and upload it to your MDM as a custom profile. Choose:
 - **Platform**: iOS and iPadOS, or macOS. The macOS profile installs for the
   whole Mac (`PayloadScope` `System`, so the System keychain).
 - **Contents**: certificates only; certificates and SCEP; or certificates,
-  SCEP, and Wi-Fi when `wifi.ssid` is set. Every certificate is included: the
+  SCEP, and Wi-Fi when a network is set up. Every certificate is included: the
   root CA, the intermediate CA, and each of the **Other trusted CAs**.
 - **Your MDM**: Meraki, Jamf Pro, Kandji, Intune, or another MDM. This fills the
   two menus below with that MDM's variables. Choose **Custom** in either menu
@@ -670,22 +668,24 @@ Publicly trusted certificate for signing Apple profiles. See
 - `ssl_certificate`, `ssl_key`: file names in `/ssl` (default
   `fullchain.pem` and `privkey.pem`, as written by the Let's Encrypt add-on).
 
-### `wifi`
+### `wifi_networks`
 
-Wi-Fi network added to Apple profiles. Leave `ssid` empty for none.
-Edit it in the panel under **Tools > Wi-Fi network**: changes are saved here
-and used by new profiles right away, without a restart. Profiles already on
-devices or uploaded to an MDM keep the old settings until you replace them.
+Wi-Fi networks added to Apple profiles, one payload each. Edit them in the
+panel under **Tools > Wi-Fi networks**: changes are saved here and used by new
+profiles right away, without a restart. Profiles already on devices or
+uploaded to an MDM keep the old settings until you replace them.
 
-- `ssid`: network name.
+Each network:
+
+- `ssid`: network name. Optional for a Passpoint network.
 - `authentication`: `eap_tls` (default), where each device signs in with the
   certificate from this CA through a RADIUS server (WPA Enterprise); or
   `psk`, one shared password (WPA Personal).
 - `password`: the network password for `psk`, 8 to 63 characters (or 64
   hex digits). Profiles with the network include it.
-- `security`: `WPA2`, `WPA3`, or `Any`.
+- `security`: `WPA2` (default), `WPA3`, or `Any`.
 - `hidden`: the network does not broadcast its name.
-- `auto_join`: join automatically.
+- `auto_join`: join automatically (default on).
 - `disable_mac_randomization`: turns off Private Wi-Fi Address for this
   network, so devices use their real MAC address on it (for DHCP
   reservations or MAC-based rules). iOS and iPadOS 14, macOS 15, and later;
@@ -699,6 +699,41 @@ devices or uploaded to an MDM keep the old settings until you replace them.
   certificate issued by the CAs the profile trusts, which is fine when that
   is this CA. It matters only when the CA also issues certificates to other
   servers, such as a public CA; Meraki's name is added for you.
+- `proxy`: `none` (default), `manual`, or `auto`. A web proxy used on this
+  network only. Apple applies it on iPhone and iPad; Macs also take the
+  manual server and the PAC URL.
+  - `manual`: `proxy_server`, `proxy_port`, and optionally `proxy_username`
+    and `proxy_password`.
+  - `auto`: `proxy_pac_url` (empty finds the proxy with WPAD) and
+    `proxy_pac_fallback`, which connects directly when the PAC file cannot be
+    reached.
+- `captive_bypass`: the device does not look for a captive portal (sign-in
+  page) on this network. iPhone and iPad.
+- `mac_login_window`: a Mac joins the network at the login window, before
+  anyone signs in, using the certificate in the System keychain (for network
+  accounts and FileVault). The profile then installs for the whole Mac, which
+  an administrator approves.
+- `qos_marking`: Cisco Fast Lane QoS marking. `default` lets every app mark
+  its traffic; `allowlist` lets only FaceTime and Wi-Fi Calling
+  (`qos_apple_calls`) and the apps in `qos_apps` (bundle IDs) do it; `off`
+  makes the device ignore Fast Lane on this network.
+- `passpoint`: a Passpoint (Hotspot 2.0) network, found by its operator
+  rather than only its SSID. Needs `eap_tls` and `passpoint_domain`.
+  Optional: `passpoint_operator_name` (shown when connected),
+  `passpoint_roaming_consortium_ois` (6 or 10 hex digits each),
+  `passpoint_nai_realms`, `passpoint_mcc_mncs` (six digits each; iPhone and
+  iPad), `passpoint_hessid` (iPhone and iPad), and `passpoint_roaming`, which
+  allows roaming to partner providers.
+
+Apple's option to join before the first unlock after a restart
+(`AllowJoinBeforeFirstUnlock`) works only on Apple Vision Pro, so it is not
+offered.
+
+### `wifi`
+
+The single network from earlier versions, with the first fields above. It is
+used only while `wifi_networks` is empty; saving in the panel moves it to
+`wifi_networks` and clears its `ssid`.
 
 Apple profiles trust only the CAs they install for the Wi-Fi server's
 certificate and do not ask the user. If the RADIUS server's certificate does
@@ -710,7 +745,7 @@ EAP-TLS needs trust in both directions.
 
 **Devices trust Meraki.** Access Manager's RADIUS server presents a
 certificate for `eap.meraki.com` issued under IdenTrust Commercial Root CA 1.
-Set `wifi.radius_server: meraki_access_manager`; every Wi-Fi profile
+Set the network's RADIUS server to Meraki Access Manager; every Wi-Fi profile
 (enrollment links, **Enroll this device**, and MDM downloads) then installs
 that root as a trusted anchor and trusts the server name `eap.meraki.com`.
 No upload is needed. Devices that installed a profile before the change need

@@ -649,6 +649,72 @@ def _identifier_part(value):
     return re.sub(r"[^A-Za-z0-9-]+", "-", value).strip("-").lower() or "device"
 
 
+def wifi_name(wifi):
+    """The network's SSID, or its Passpoint domain for a Passpoint network without one."""
+    wifi = wifi or {}
+    return wifi.get("ssid") or (wifi.get("passpoint_domain") if wifi.get("passpoint") else "") or ""
+
+
+def wifi_payload(wifi, prefix, identifiers):
+    """A com.apple.wifi.managed payload without its credentials (Password or EAP)."""
+    name = wifi_name(wifi)
+    identifier = f"{prefix}.wifi.{_identifier_part(name)}"
+    while identifier in identifiers:
+        identifier += "-2"
+    identifiers.add(identifier)
+    payload = {
+        "PayloadType": "com.apple.wifi.managed",
+        "PayloadVersion": 1,
+        "PayloadIdentifier": identifier,
+        "PayloadUUID": str(uuid.uuid4()).upper(),
+        "PayloadDisplayName": f"Wi-Fi {name}",
+        "HIDDEN_NETWORK": bool(wifi.get("hidden")),
+        "AutoJoin": bool(wifi.get("auto_join", True)),
+        "EncryptionType": wifi.get("security") or "WPA2",
+        "IsHotspot": bool(wifi.get("passpoint")),
+        "DisableAssociationMACRandomization": bool(wifi.get("disable_mac_randomization")),
+    }
+    if wifi.get("ssid"):
+        payload["SSID_STR"] = wifi["ssid"]
+    proxy = wifi.get("proxy") or "none"
+    if proxy == "manual":
+        payload.update(ProxyType="Manual", ProxyServer=wifi.get("proxy_server") or "",
+                       ProxyServerPort=int(wifi.get("proxy_port") or 0))
+        if wifi.get("proxy_username"):
+            payload["ProxyUsername"] = wifi["proxy_username"]
+            payload["ProxyPassword"] = wifi.get("proxy_password") or ""
+    elif proxy == "auto":
+        payload["ProxyType"] = "Auto"
+        if wifi.get("proxy_pac_url"):
+            payload["ProxyPACURL"] = wifi["proxy_pac_url"]
+        payload["ProxyPACFallbackAllowed"] = bool(wifi.get("proxy_pac_fallback"))
+    if wifi.get("captive_bypass"):
+        payload["CaptiveBypass"] = True
+    if wifi.get("mac_login_window"):
+        payload["SetupModes"] = ["System", "Loginwindow"]
+    qos = wifi.get("qos_marking") or "default"
+    if qos == "off":
+        payload["QoSMarkingPolicy"] = {"QoSMarkingEnabled": False}
+    elif qos == "allowlist":
+        payload["QoSMarkingPolicy"] = {
+            "QoSMarkingEnabled": True,
+            "QoSMarkingAppleAudioVideoCalls": bool(wifi.get("qos_apple_calls", True)),
+            "QoSMarkingAllowListAppIdentifiers": [a for a in wifi.get("qos_apps") or [] if a],
+        }
+    if wifi.get("passpoint"):
+        for key, option in (("DomainName", "passpoint_domain"), ("DisplayedOperatorName", "passpoint_operator_name"),
+                            ("HESSID", "passpoint_hessid")):
+            if wifi.get(option):
+                payload[key] = wifi[option]
+        for key, option in (("RoamingConsortiumOIs", "passpoint_roaming_consortium_ois"),
+                            ("NAIRealmNames", "passpoint_nai_realms"), ("MCCAndMNCs", "passpoint_mcc_mncs")):
+            values = [v for v in wifi.get(option) or [] if v]
+            if values:
+                payload[key] = values
+        payload["ServiceProviderRoamingEnabled"] = bool(wifi.get("passpoint_roaming"))
+    return payload
+
+
 def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, intermediate, wifi,
                   extra_cas=(), sans=(), include_scep=True, system_scope=False, identifier=None,
                   display_name=None, email_sans=()):
@@ -724,31 +790,26 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             "PayloadCertificateFileName": f"extra_ca_{index}.cer",
             "PayloadContent": cert.public_bytes(serialization.Encoding.DER),
         })
-    has_wifi = bool(wifi and wifi.get("ssid"))
-    if has_wifi and wifi.get("authentication") == "psk":
-        payloads.append({
-            "PayloadType": "com.apple.wifi.managed",
-            "PayloadVersion": 1,
-            "PayloadIdentifier": f"{prefix}.wifi.{_identifier_part(wifi['ssid'])}",
-            "PayloadUUID": str(uuid.uuid4()).upper(),
-            "PayloadDisplayName": f"Wi-Fi {wifi['ssid']}",
-            "SSID_STR": wifi["ssid"],
-            "HIDDEN_NETWORK": bool(wifi.get("hidden")),
-            "AutoJoin": bool(wifi.get("auto_join", True)),
-            "DisableAssociationMACRandomization": bool(wifi.get("disable_mac_randomization")),
-            "EncryptionType": wifi.get("security") or "WPA2",
-            "IsHotspot": False,
-            "Password": wifi.get("password") or "",
-        })
-    elif has_wifi:
+    if isinstance(wifi, dict):
+        wifi = [wifi]
+    networks = [w for w in wifi or [] if wifi_name(w)]
+    has_wifi = bool(networks)
+    known = {fingerprint(c) for c in extra_cas}
+    identifiers = set()
+    for network in networks:
+        payload = wifi_payload(network, prefix, identifiers)
+        if network.get("authentication") == "psk":
+            payload["Password"] = network.get("password") or ""
+            payloads.append(payload)
+            continue
         eap = {"AcceptEAPTypes": [13], "UserName": cn, "TLSMinimumVersion": "1.2"}
-        server_names = [n for n in wifi.get("radius_server_names") or [] if n]
-        service = radius_service(wifi)
+        server_names = [n for n in network.get("radius_server_names") or [] if n]
+        service = radius_service(network)
         if service:
-            known = {fingerprint(c) for c in extra_cas}
             for cert in service["roots"]:
                 if fingerprint(cert) in known:
                     continue
+                known.add(fingerprint(cert))
                 service_uuid = str(uuid.uuid4()).upper()
                 anchors.append(service_uuid)
                 payloads.append({
@@ -763,25 +824,18 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             server_names += [n for n in service["server_names"] if n not in server_names]
         if server_names:
             eap["TLSTrustedServerNames"] = server_names
-        payloads.append({
-            "PayloadType": "com.apple.wifi.managed",
-            "PayloadVersion": 1,
-            "PayloadIdentifier": f"{prefix}.wifi.{_identifier_part(wifi['ssid'])}",
-            "PayloadUUID": str(uuid.uuid4()).upper(),
-            "PayloadDisplayName": f"Wi-Fi {wifi['ssid']}",
-            "SSID_STR": wifi["ssid"],
-            "HIDDEN_NETWORK": bool(wifi.get("hidden")),
-            "AutoJoin": bool(wifi.get("auto_join", True)),
-            "DisableAssociationMACRandomization": bool(wifi.get("disable_mac_randomization")),
-            "EncryptionType": wifi.get("security") or "WPA2",
-            "IsHotspot": False,
+        payload.update({
             "EAPClientConfiguration": eap,
             # The identity comes from the SCEP payload; the RADIUS server's
-            # certificate must chain to this CA, an uploaded extra CA, or the
+            # certificate must chain to this CA, an uploaded extra CA, or a
             # selected RADIUS service's root.
             "PayloadCertificateUUID": scep_uuid,
             "PayloadCertificateAnchorUUID": anchors,
         })
+        payloads.append(payload)
+    if any(n.get("mac_login_window") for n in networks):
+        # Joining at the Mac login window needs the identity in the System keychain.
+        system_scope = True
     profile = {
         "PayloadType": "Configuration",
         "PayloadVersion": 1,

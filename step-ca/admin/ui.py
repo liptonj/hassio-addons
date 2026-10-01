@@ -783,12 +783,15 @@ SCRIPT = r"""
     picker.addEventListener("change", function () { apply(false); });
   });
 
-  // Fields shown only for one choice of a menu: data-show-when="select-id=value".
+  // Fields shown only for one choice of a menu (or a ticked checkbox): data-show-when="id=value".
   document.querySelectorAll("[data-show-when]").forEach(function (block) {
     var rule = block.getAttribute("data-show-when").split("=");
     var select = document.getElementById(rule[0]);
     if (!select) return;
-    function apply() { block.hidden = select.value !== rule[1]; }
+    function apply() {
+      var value = select.type === "checkbox" ? (select.checked ? select.value : "") : select.value;
+      block.hidden = value !== rule[1];
+    }
     apply();
     select.addEventListener("change", apply);
   });

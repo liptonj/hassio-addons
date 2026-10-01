@@ -123,10 +123,10 @@ configuration:
         name: Key file
         description: File name in /ssl.
   wifi:
-    name: Wi-Fi
+    name: Wi-Fi (older single network)
     description: >-
-      Wi-Fi network added to Apple profiles. Leave the SSID empty for none. Also editable in the
-      panel under Tools > Wi-Fi network.
+      The single network from earlier versions, used only while Wi-Fi networks is empty. Saving in
+      the panel under Tools > Wi-Fi networks moves it there.
     fields:
       ssid:
         name: SSID
@@ -162,3 +162,8 @@ configuration:
         description: >-
           Optional. Pins which RADIUS server certificate names devices accept. Not needed with your
           own CA or meraki_access_manager.
+  wifi_networks:
+    name: Wi-Fi networks
+    description: >-
+      Wi-Fi networks added to Apple profiles, with proxy, captive portal, QoS, and Passpoint
+      settings. Easiest to edit in the panel under Tools > Wi-Fi networks.

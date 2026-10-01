@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2.38"
+version: "0.30.2.39"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -71,6 +71,7 @@ options:
     disable_mac_randomization: false
     radius_server: "custom"
     radius_server_names: []
+  wifi_networks: []
 
 schema:
   ca_name: str(2,64)
@@ -116,3 +117,38 @@ schema:
     radius_server: list(custom|meraki_access_manager)?
     radius_server_names:
       - str?
+  wifi_networks:
+    - ssid: str(0,32)?
+      authentication: list(eap_tls|psk)?
+      password: password?
+      security: list(WPA2|WPA3|Any)?
+      hidden: bool?
+      auto_join: bool?
+      disable_mac_randomization: bool?
+      radius_server: list(custom|meraki_access_manager)?
+      radius_server_names:
+        - str?
+      proxy: list(none|manual|auto)?
+      proxy_server: str?
+      proxy_port: int(1,65535)?
+      proxy_username: str?
+      proxy_password: password?
+      proxy_pac_url: str?
+      proxy_pac_fallback: bool?
+      captive_bypass: bool?
+      mac_login_window: bool?
+      qos_marking: list(default|allowlist|off)?
+      qos_apple_calls: bool?
+      qos_apps:
+        - str?
+      passpoint: bool?
+      passpoint_domain: str?
+      passpoint_operator_name: str?
+      passpoint_roaming_consortium_ois:
+        - str?
+      passpoint_nai_realms:
+        - str?
+      passpoint_mcc_mncs:
+        - str?
+      passpoint_hessid: str?
+      passpoint_roaming: bool?

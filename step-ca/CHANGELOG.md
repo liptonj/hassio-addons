@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.30.2.39
+
+- **Wi-Fi networks**: profiles can set up more than one network. **Tools >
+  Wi-Fi networks** lists them, with add, edit, and remove; the new
+  `wifi_networks` option holds them. The single `wifi` network moves there the
+  first time you save in the panel.
+- New per-network settings: a manual or automatic (PAC) **proxy**, **skip
+  captive portal detection** (iPhone and iPad), **connect at the Mac login
+  window**, **QoS marking** (Cisco Fast Lane) with an app allow list, and
+  **Passpoint** (Hotspot 2.0): domain, operator name, roaming consortium OIs,
+  NAI realms, MCC/MNC, HESSID, and roaming.
 ## 0.30.2.38
 
 - **Wi-Fi network**: new **Fixed Wi-Fi address** setting
