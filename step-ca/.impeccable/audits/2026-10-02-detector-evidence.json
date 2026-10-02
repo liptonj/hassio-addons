@@ -1,0 +1,492 @@
+{
+  "engine": "Bundled Impeccable detector with HTML parser modules available",
+  "rawFindings": [
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px, 22px (ratio 1.8:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/__status_all.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/__status_all.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px, 22px (ratio 1.8:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/__status_all.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/__status_expired.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/__status_expired.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px, 22px (ratio 1.8:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/__status_expired.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_ca.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_ca.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_ca.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_cert_201.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_cert_201.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_cert_204.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_cert_204.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_enroll.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_enroll.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px, 22px (ratio 1.8:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_enroll.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_enroll_self.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_enroll_self.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 14px, 16px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_enroll_self.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "cramped-padding",
+      "name": "Cramped padding",
+      "description": "Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) \u2014 children land flush against the boundary line. Add at least 8px (ideally 12\u201316px) of padding inside bordered, outlined, or colored containers.",
+      "severity": "warning",
+      "category": "quality",
+      "file": "/tmp/codex-stepca-audit-html/_residents.html",
+      "line": 0,
+      "snippet": "<div> \"card\": children flush against border+bg on all sides (no inset)"
+    },
+    {
+      "antipattern": "cramped-padding",
+      "name": "Cramped padding",
+      "description": "Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) \u2014 children land flush against the boundary line. Add at least 8px (ideally 12\u201316px) of padding inside bordered, outlined, or colored containers.",
+      "severity": "warning",
+      "category": "quality",
+      "file": "/tmp/codex-stepca-audit-html/_residents.html",
+      "line": 0,
+      "snippet": "<section> \"card\": children flush against border+bg on all sides (no inset)"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_residents.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_residents.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 14px, 20px, 22px (ratio 1.8:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_residents.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 14px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_cas.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_cas.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 14px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_cas.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_groups.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_groups.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 20px, 22px (ratio 1.8:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_groups.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_mdm.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_mdm.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_mdm.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_options.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_options.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 14px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_options.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_sign.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_sign.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_sign.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    },
+    {
+      "antipattern": "overused-font",
+      "name": "Overused font",
+      "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_wifi.html",
+      "line": 0,
+      "snippet": "Primary font: roboto"
+    },
+    {
+      "antipattern": "flat-type-hierarchy",
+      "name": "Flat type hierarchy",
+      "description": "Font sizes are too close together \u2014 no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_wifi.html",
+      "line": 0,
+      "snippet": "Sizes: 12px, 14px, 16px, 20px (ratio 1.7:1)"
+    },
+    {
+      "antipattern": "dark-glow",
+      "name": "Glowing shadow accents",
+      "description": "Colored glow shadows \u2014 a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background \u2014 are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+      "severity": "warning",
+      "category": "slop",
+      "file": "/tmp/codex-stepca-audit-html/_tools_wifi.html",
+      "line": 0,
+      "snippet": "Colored box-shadow glow (#03a9f4) on dark page"
+    }
+  ],
+  "verifiedActionable": 0,
+  "dispositions": {
+    "overused-font": "Incumbent Home Assistant Roboto stack is required product identity.",
+    "flat-type-hierarchy": "Compact settings hierarchy; visible headings and form structure verified in screenshots.",
+    "dark-glow": "Zero-blur focus/selected border strokes, not decorative blurred halos.",
+    "cramped-padding": "Padding supplied by card-header/card-content or table cells; screenshots confirm text inset."
+  }
+}

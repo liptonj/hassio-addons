@@ -1,0 +1,5191 @@
+{
+  "date": "2026-10-02",
+  "scope": "One bounded technical confirmation; original independent Assessment B detector evidence unchanged; no detector rerun and no shipping edits",
+  "summary": {
+    "matrix": [
+      "1280 light",
+      "1280 dark",
+      "320 light",
+      "320 dark",
+      "390 light",
+      "390 dark"
+    ],
+    "rawAssertions": 246,
+    "rawPassed": 243,
+    "rawFailed": 3,
+    "resolvedAsyncSamplingFailures": 3,
+    "finalPassedAssertions": 246,
+    "settledStyleChecks": 1,
+    "axeScans": 48,
+    "axeRawViolations": 4,
+    "axeRawNodes": 4,
+    "axeSettledUnresolvedViolations": 0,
+    "axeIncompleteRuleResults": 8,
+    "axePassRuleResults": 1758,
+    "nonceInjectionSuccesses": 48,
+    "documentOverflowStates": 0,
+    "consoleErrors": 12,
+    "expectedValidationHttp400Errors": 12,
+    "pageErrors": 0,
+    "busyCaptures": 6
+  },
+  "sourceHashesSha256": {
+    "/Users/jolipton/Projects/hassio-addons-1/step-ca/admin/app.py": "d003f9f326c314445d21c45efbf1a65313815a0c7d7496fda6ed8f512373366b",
+    "/Users/jolipton/Projects/hassio-addons-1/step-ca/admin/ui.py": "154dd56adb1f2a704d38eb3058e055f0d9ab0a74911088992a95b6f338d50e6b",
+    "/Users/jolipton/Projects/hassio-addons-1/step-ca/admin/enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+    "/Users/jolipton/Projects/hassio-addons-1/step-ca/admin/ipsk.py": "8f6b96cd55c8cbff10b8187f1e2fb5e40efc087bf7f3b86b819c0602b5626524",
+    "/Users/jolipton/Projects/hassio-addons-1/step-ca/admin/resident_access.py": "dfb75bbf99f264e3206a0d6a1da384ae8f828ab58427021d6587b6becfa7178d"
+  },
+  "fixture": {
+    "path": "/tmp/codex-stepca-critique-technical-preview.py",
+    "sha256": "509f15e5c89db60c2ec911615e78e977bcb9adbee5e5a098ced629bf8cc0d1d2",
+    "runtime": "/tmp/codex-stepca-critique-venv/bin/python",
+    "pid": 22728,
+    "ports": [
+      49808,
+      49809,
+      49810
+    ],
+    "mockOnly": true,
+    "mutations": [
+      "fixture route /axe.js serves isolated axe-core file",
+      "mock legacy register sleeps 2 seconds before rejecting invalid invite"
+    ],
+    "csp": "Unmodified application per-response nonce policy; injected script uses document nonce",
+    "axeVersion": "4.13.0",
+    "playwrightVersion": "1.63.0",
+    "nativeAttempt": "IAB unavailable: Browser is not available: iab",
+    "fallback": "Playwright skill read; CLI unavailable for reliable pending navigation evaluation; direct Playwright Google Chrome headless; owned contexts all closed",
+    "harnessLimitations": [
+      "Initial batch pending-navigation evaluation lost old execution context after group state completed",
+      "Continuation initially failed ReferenceError: response is not defined before testing app; scratch declaration repaired",
+      "Three disclosure observations sampled before asynchronous hashchange event; condition wait <=1000ms proved each opens"
+    ]
+  },
+  "batches": [
+    {
+      "combo": {
+        "width": 1280,
+        "scheme": "dark"
+      },
+      "assertions": [
+        {
+          "name": "resident-current: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-current: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-current: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "current target hides disables and does not require MAC",
+          "passed": true,
+          "observed": {
+            "hidden": true,
+            "disabled": true,
+            "required": false
+          }
+        },
+        {
+          "name": "other target reveals enables and requires MAC",
+          "passed": true,
+          "observed": {
+            "hidden": false,
+            "disabled": false,
+            "required": true
+          }
+        },
+        {
+          "name": "resident-other: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-other: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-other: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "existing": true
+          }
+        },
+        {
+          "name": "device error retains draft",
+          "passed": true,
+          "observed": {
+            "device": "Fixture TV",
+            "target": "other",
+            "mac": "02:11:22:33:44:55",
+            "unit": "B-204"
+          }
+        },
+        {
+          "name": "resident-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "resident success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "resident passphrase copied exactly",
+          "passed": true,
+          "observed": "fixture-device-password"
+        },
+        {
+          "name": "resident-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "slow POST exposes busy disabled Working state",
+          "passed": true,
+          "observed": {
+            "busy": "true",
+            "disabled": true,
+            "text": "Working\u2026"
+          }
+        },
+        {
+          "name": "legacy invalid invite retains nonsecret data",
+          "passed": true,
+          "observed": {
+            "name": "Taylor Fixture",
+            "email": "taylor@example.org",
+            "unit": "Room 310",
+            "invite": ""
+          }
+        },
+        {
+          "name": "legacy invite secret excluded",
+          "passed": true,
+          "observed": {
+            "values": {
+              "name": "Taylor Fixture",
+              "email": "taylor@example.org",
+              "unit": "Room 310",
+              "invite": ""
+            },
+            "invitationSecretInHtml": false
+          }
+        },
+        {
+          "name": "legacy-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "legacy-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "legacy success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "legacy-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "legacy-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "keyboard skip focuses main",
+          "passed": true,
+          "observed": "main-content"
+        },
+        {
+          "name": "certificate search shows no-match row",
+          "passed": true,
+          "observed": "No certificates match\n\nTry another name, alternative name, or serial."
+        },
+        {
+          "name": "clearing certificate search restores rows",
+          "passed": true,
+          "observed": 2
+        },
+        {
+          "name": "table region labelled keyboard focusable with headers",
+          "passed": true,
+          "observed": {
+            "role": "region",
+            "label": "Table",
+            "tabIndex": 0,
+            "headerCount": 7
+          }
+        },
+        {
+          "name": "table region accepts keyboard focus",
+          "passed": true,
+          "observed": true
+        },
+        {
+          "name": "certificates: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "certificates: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "certificates: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "admin filtered records show no matching keys",
+          "passed": true,
+          "observed": "Wi-Fi keys\n\nNo matching keys\n\nChange or clear the filters above."
+        },
+        {
+          "name": "admin clear filters restores key rows",
+          "passed": true,
+          "observed": 1
+        },
+        {
+          "name": "create-key jump opens disclosure",
+          "passed": true,
+          "observed": {
+            "tag": "DETAILS",
+            "open": true,
+            "hash": "#create-device-key"
+          }
+        },
+        {
+          "name": "residents-admin-open: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "residents-admin-open: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "residents-admin-open: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        }
+      ],
+      "states": [
+        {
+          "name": "resident-current",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "YlM3DHlO_gPTEfqDLe27IWqe_03Q1gpq",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 32,
+            "incomplete": [],
+            "inapplicable": 57
+          }
+        },
+        {
+          "name": "resident-other",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "YlM3DHlO_gPTEfqDLe27IWqe_03Q1gpq",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "ITqRqqpjsUo1_oJI7Jm_Kh0r1kRxoFiT",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-ITqRqqpjsUo1_oJI7Jm_Kh0r1kRxoFiT'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Your device key is ready \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "68rrqPdetTXALADAcWhjkEpF05OT_69U",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-68rrqPdetTXALADAcWhjkEpF05OT_69U'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "tags": [
+                  "cat.color",
+                  "wcag2aa",
+                  "wcag143",
+                  "TTv5",
+                  "TT13.c",
+                  "EN-301-549",
+                  "EN-9.1.4.3",
+                  "ACT",
+                  "RGAAv4",
+                  "RGAA-3.2.1"
+                ],
+                "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                "help": "Elements must meet minimum color contrast ratio thresholds",
+                "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "fgColor": "#696969",
+                          "bgColor": "#242424",
+                          "contrastRatio": 2.82,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": null,
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                            "target": [
+                              ".toast"
+                            ]
+                          },
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element has insufficient color contrast of 2.82 (foreground color: #696969, background color: #242424, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.82 (foreground color: #696969, background color: #242424, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                  }
+                ]
+              }
+            ],
+            "passes": 33,
+            "incomplete": [],
+            "inapplicable": 56
+          }
+        },
+        {
+          "name": "legacy-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "Qu28dUpdfipmgZ3TsxRt9NULTHynKFUg",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-Qu28dUpdfipmgZ3TsxRt9NULTHynKFUg'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 31,
+            "incomplete": [],
+            "inapplicable": 58
+          }
+        },
+        {
+          "name": "legacy-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "You are ready to connect \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "VJDeZu_lwpsojP1rF-zXjuXU_JjRXJ39",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-VJDeZu_lwpsojP1rF-zXjuXU_JjRXJ39'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 34,
+            "incomplete": [],
+            "inapplicable": 55
+          }
+        },
+        {
+          "name": "certificates",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/#main-content",
+            "title": "Certificates",
+            "js": true,
+            "nonce": "Pr3fo_M7CepBMFNS-ek-bw",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-Pr3fo_M7CepBMFNS-ek-bw'; img-src data:; form-action 'self'; frame-ancestors 'self'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 43,
+            "incomplete": [],
+            "inapplicable": 46
+          }
+        },
+        {
+          "name": "residents-admin-open",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/residents?network=N_fixture#create-device-key",
+            "title": "Residents",
+            "js": true,
+            "nonce": "1XvZBlCWmNfoYNBopG1YGw",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 46,
+            "incomplete": [],
+            "inapplicable": 43
+          }
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      ],
+      "pageErrors": [],
+      "busyCapture": {
+        "busy": "true",
+        "disabled": true,
+        "text": "Working\u2026"
+      },
+      "initialHarnessError": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    },
+    {
+      "combo": {
+        "width": 1280,
+        "scheme": "light"
+      },
+      "assertions": [
+        {
+          "name": "resident-current: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-current: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-current: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "current target hides disables and does not require MAC",
+          "passed": true,
+          "observed": {
+            "hidden": true,
+            "disabled": true,
+            "required": false
+          }
+        },
+        {
+          "name": "other target reveals enables and requires MAC",
+          "passed": true,
+          "observed": {
+            "hidden": false,
+            "disabled": false,
+            "required": true
+          }
+        },
+        {
+          "name": "resident-other: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-other: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-other: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "existing": true
+          }
+        },
+        {
+          "name": "device error retains draft",
+          "passed": true,
+          "observed": {
+            "device": "Fixture TV",
+            "target": "other",
+            "mac": "02:11:22:33:44:55",
+            "unit": "B-204"
+          }
+        },
+        {
+          "name": "resident-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "resident success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "resident passphrase copied exactly",
+          "passed": true,
+          "observed": "fixture-device-password"
+        },
+        {
+          "name": "resident-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "resident-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "slow POST exposes busy disabled Working state",
+          "passed": true,
+          "observed": {
+            "busy": "true",
+            "disabled": true,
+            "text": "Working\u2026"
+          }
+        },
+        {
+          "name": "legacy invalid invite retains nonsecret data",
+          "passed": true,
+          "observed": {
+            "name": "Taylor Fixture",
+            "email": "taylor@example.org",
+            "unit": "Room 310",
+            "invite": ""
+          }
+        },
+        {
+          "name": "legacy invite secret excluded",
+          "passed": true,
+          "observed": {
+            "values": {
+              "name": "Taylor Fixture",
+              "email": "taylor@example.org",
+              "unit": "Room 310",
+              "invite": ""
+            },
+            "invitationSecretInHtml": false
+          }
+        },
+        {
+          "name": "legacy-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "legacy-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "legacy success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "legacy-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "legacy-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "keyboard skip focuses main",
+          "passed": true,
+          "observed": "main-content"
+        },
+        {
+          "name": "certificate search shows no-match row",
+          "passed": true,
+          "observed": "No certificates match\n\nTry another name, alternative name, or serial."
+        },
+        {
+          "name": "clearing certificate search restores rows",
+          "passed": true,
+          "observed": 2
+        },
+        {
+          "name": "table region labelled keyboard focusable with headers",
+          "passed": true,
+          "observed": {
+            "role": "region",
+            "label": "Table",
+            "tabIndex": 0,
+            "headerCount": 7
+          }
+        },
+        {
+          "name": "table region accepts keyboard focus",
+          "passed": true,
+          "observed": true
+        },
+        {
+          "name": "certificates: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "certificates: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "certificates: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "admin filtered records show no matching keys",
+          "passed": true,
+          "observed": "Wi-Fi keys\n\nNo matching keys\n\nChange or clear the filters above."
+        },
+        {
+          "name": "admin clear filters restores key rows",
+          "passed": true,
+          "observed": 1
+        },
+        {
+          "name": "create-key jump opens disclosure",
+          "passed": false,
+          "observed": {
+            "tag": "DETAILS",
+            "open": false,
+            "hash": "#create-device-key"
+          }
+        },
+        {
+          "name": "residents-admin-open: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "residents-admin-open: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280
+          }
+        },
+        {
+          "name": "residents-admin-open: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        }
+      ],
+      "states": [
+        {
+          "name": "resident-current",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "aP38mVQ_CEc2TQhAlgx-vzwsqu_GLpcW",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 32,
+            "incomplete": [],
+            "inapplicable": 57
+          }
+        },
+        {
+          "name": "resident-other",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "aP38mVQ_CEc2TQhAlgx-vzwsqu_GLpcW",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "Mi_tHHiFxxzvaDvur_QXodFqI_P-Q911",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-Mi_tHHiFxxzvaDvur_QXodFqI_P-Q911'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Your device key is ready \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "TPHjSx3mLYi7pxtd2gqfc-T7exG7oLB5",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-TPHjSx3mLYi7pxtd2gqfc-T7exG7oLB5'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "tags": [
+                  "cat.color",
+                  "wcag2aa",
+                  "wcag143",
+                  "TTv5",
+                  "TT13.c",
+                  "EN-301-549",
+                  "EN-9.1.4.3",
+                  "ACT",
+                  "RGAAv4",
+                  "RGAA-3.2.1"
+                ],
+                "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                "help": "Elements must meet minimum color contrast ratio thresholds",
+                "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "fgColor": "#fafafa",
+                          "bgColor": "#b5b5b5",
+                          "contrastRatio": 1.96,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": null,
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                            "target": [
+                              ".toast"
+                            ]
+                          },
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element has insufficient color contrast of 1.96 (foreground color: #fafafa, background color: #b5b5b5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 1.96 (foreground color: #fafafa, background color: #b5b5b5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                  }
+                ]
+              }
+            ],
+            "passes": 33,
+            "incomplete": [],
+            "inapplicable": 56
+          }
+        },
+        {
+          "name": "legacy-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "OBU-Dv2NqY2eClfXNcg3BWf7Gemho8oI",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-OBU-Dv2NqY2eClfXNcg3BWf7Gemho8oI'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 31,
+            "incomplete": [],
+            "inapplicable": 58
+          }
+        },
+        {
+          "name": "legacy-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "You are ready to connect \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "miSD8goB96O2AhXH8-xU-bulIdEcCHOI",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-miSD8goB96O2AhXH8-xU-bulIdEcCHOI'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 34,
+            "incomplete": [],
+            "inapplicable": 55
+          }
+        },
+        {
+          "name": "certificates",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/#main-content",
+            "title": "Certificates",
+            "js": true,
+            "nonce": "SVZYtniGHDDrCCpHI5vE0Q",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-SVZYtniGHDDrCCpHI5vE0Q'; img-src data:; form-action 'self'; frame-ancestors 'self'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 43,
+            "incomplete": [],
+            "inapplicable": 46
+          }
+        },
+        {
+          "name": "residents-admin-open",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/residents?network=N_fixture#create-device-key",
+            "title": "Residents",
+            "js": true,
+            "nonce": "MUail2DUa918ctOqMsU81Q",
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 46,
+            "incomplete": [],
+            "inapplicable": 43
+          }
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      ],
+      "pageErrors": [],
+      "busyCapture": {
+        "busy": "true",
+        "disabled": true,
+        "text": "Working\u2026"
+      },
+      "initialHarnessError": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    },
+    {
+      "combo": {
+        "width": 320,
+        "scheme": "dark"
+      },
+      "assertions": [
+        {
+          "name": "resident-current: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-current: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-current: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "current target hides disables and does not require MAC",
+          "passed": true,
+          "observed": {
+            "hidden": true,
+            "disabled": true,
+            "required": false
+          }
+        },
+        {
+          "name": "other target reveals enables and requires MAC",
+          "passed": true,
+          "observed": {
+            "hidden": false,
+            "disabled": false,
+            "required": true
+          }
+        },
+        {
+          "name": "resident-other: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-other: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-other: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "existing": true
+          }
+        },
+        {
+          "name": "device error retains draft",
+          "passed": true,
+          "observed": {
+            "device": "Fixture TV",
+            "target": "other",
+            "mac": "02:11:22:33:44:55",
+            "unit": "B-204"
+          }
+        },
+        {
+          "name": "resident-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "resident success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "resident passphrase copied exactly",
+          "passed": true,
+          "observed": "fixture-device-password"
+        },
+        {
+          "name": "resident-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "slow POST exposes busy disabled Working state",
+          "passed": true,
+          "observed": {
+            "busy": "true",
+            "disabled": true,
+            "text": "Working\u2026"
+          }
+        },
+        {
+          "name": "legacy invalid invite retains nonsecret data",
+          "passed": true,
+          "observed": {
+            "name": "Taylor Fixture",
+            "email": "taylor@example.org",
+            "unit": "Room 310",
+            "invite": ""
+          }
+        },
+        {
+          "name": "legacy invite secret excluded",
+          "passed": true,
+          "observed": {
+            "values": {
+              "name": "Taylor Fixture",
+              "email": "taylor@example.org",
+              "unit": "Room 310",
+              "invite": ""
+            },
+            "invitationSecretInHtml": false
+          }
+        },
+        {
+          "name": "legacy-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "legacy-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "legacy success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "legacy-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "legacy-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "keyboard skip focuses main",
+          "passed": true,
+          "observed": "main-content"
+        },
+        {
+          "name": "certificate search shows no-match row",
+          "passed": true,
+          "observed": "No certificates match\n\nTry another name, alternative name, or serial."
+        },
+        {
+          "name": "clearing certificate search restores rows",
+          "passed": true,
+          "observed": 2
+        },
+        {
+          "name": "table region labelled keyboard focusable with headers",
+          "passed": true,
+          "observed": {
+            "role": "region",
+            "label": "Table",
+            "tabIndex": 0,
+            "headerCount": 7
+          }
+        },
+        {
+          "name": "table region accepts keyboard focus",
+          "passed": true,
+          "observed": true
+        },
+        {
+          "name": "certificates: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "certificates: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "certificates: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "admin filtered records show no matching keys",
+          "passed": true,
+          "observed": "Wi-Fi keys\n\nNo matching keys\n\nChange or clear the filters above."
+        },
+        {
+          "name": "admin clear filters restores key rows",
+          "passed": true,
+          "observed": 1
+        },
+        {
+          "name": "create-key jump opens disclosure",
+          "passed": false,
+          "observed": {
+            "tag": "DETAILS",
+            "open": false,
+            "hash": "#create-device-key"
+          }
+        },
+        {
+          "name": "residents-admin-open: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "residents-admin-open: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "residents-admin-open: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        }
+      ],
+      "states": [
+        {
+          "name": "resident-current",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "DWSRNtkJZr3JXlW_tXmA7AyDJQ-H26iO",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 32,
+            "incomplete": [],
+            "inapplicable": 57
+          }
+        },
+        {
+          "name": "resident-other",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "DWSRNtkJZr3JXlW_tXmA7AyDJQ-H26iO",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "pKKIPrWUMPQzXmpPTcaBDOCNlW9PTRtW",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-pKKIPrWUMPQzXmpPTcaBDOCNlW9PTRtW'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Your device key is ready \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "85EU6d9phIraoqhb1_HfO1iUG9ZcMdXJ",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-85EU6d9phIraoqhb1_HfO1iUG9ZcMdXJ'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 33,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscuring",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it partially overlaps other elements"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 56
+          }
+        },
+        {
+          "name": "legacy-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "bqLUIbQNTl0icIVNdsKx06_W-nzZLY8-",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-bqLUIbQNTl0icIVNdsKx06_W-nzZLY8-'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 31,
+            "incomplete": [],
+            "inapplicable": 58
+          }
+        },
+        {
+          "name": "legacy-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "You are ready to connect \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "VactDyinWixDErqRrSUg_ZMJ81j-Iy59",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-VactDyinWixDErqRrSUg_ZMJ81j-Iy59'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 34,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscuring",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it partially overlaps other elements"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 55
+          }
+        },
+        {
+          "name": "certificates",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/#main-content",
+            "title": "Certificates",
+            "js": true,
+            "nonce": "5Pot4hZ6DZ3YVY-seMolwA",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-5Pot4hZ6DZ3YVY-seMolwA'; img-src data:; form-action 'self'; frame-ancestors 'self'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 42,
+            "incomplete": [],
+            "inapplicable": 47
+          }
+        },
+        {
+          "name": "residents-admin-open",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/residents?network=N_fixture#create-device-key",
+            "title": "Residents",
+            "js": true,
+            "nonce": "SLl1A2ggjkvpKLH-vMNR1A",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 47,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Status</th>",
+                    "target": [
+                      "div[aria-label=\"Wi-Fi keys\"] > table > thead > tr > th:nth-child(4)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Actions</th>",
+                    "target": [
+                      "div[aria-label=\"Wi-Fi keys\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "9.0pt (12px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<span class=\"chip ok\">active</span>",
+                            "target": [
+                              ".chip"
+                            ]
+                          },
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<span class=\"chip ok\">active</span>",
+                    "target": [
+                      ".chip"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Reveal</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(1) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Show QR</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(2) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Revoke</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-revoke\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Delete</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-delete\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Wi-Fi key</th>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > thead > tr > th:nth-child(4)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Device MAC</th>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Registered</th>",
+                    "target": [
+                      "th:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<td>Living room TV</td>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > tbody > tr > td:nth-child(4)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<code>00:11:22:33:44:55</code>",
+                    "target": [
+                      "td:nth-child(5) > code"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<td>2026-10-02 21:55 UTC</td>",
+                    "target": [
+                      "td:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 42
+          }
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      ],
+      "pageErrors": [],
+      "busyCapture": {
+        "busy": "true",
+        "disabled": true,
+        "text": "Working\u2026"
+      },
+      "initialHarnessError": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    },
+    {
+      "combo": {
+        "width": 320,
+        "scheme": "light"
+      },
+      "assertions": [
+        {
+          "name": "resident-current: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-current: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-current: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "current target hides disables and does not require MAC",
+          "passed": true,
+          "observed": {
+            "hidden": true,
+            "disabled": true,
+            "required": false
+          }
+        },
+        {
+          "name": "other target reveals enables and requires MAC",
+          "passed": true,
+          "observed": {
+            "hidden": false,
+            "disabled": false,
+            "required": true
+          }
+        },
+        {
+          "name": "resident-other: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-other: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-other: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "existing": true
+          }
+        },
+        {
+          "name": "device error retains draft",
+          "passed": true,
+          "observed": {
+            "device": "Fixture TV",
+            "target": "other",
+            "mac": "02:11:22:33:44:55",
+            "unit": "B-204"
+          }
+        },
+        {
+          "name": "resident-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "resident success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "resident passphrase copied exactly",
+          "passed": true,
+          "observed": "fixture-device-password"
+        },
+        {
+          "name": "resident-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "resident-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "slow POST exposes busy disabled Working state",
+          "passed": true,
+          "observed": {
+            "busy": "true",
+            "disabled": true,
+            "text": "Working\u2026"
+          }
+        },
+        {
+          "name": "legacy invalid invite retains nonsecret data",
+          "passed": true,
+          "observed": {
+            "name": "Taylor Fixture",
+            "email": "taylor@example.org",
+            "unit": "Room 310",
+            "invite": ""
+          }
+        },
+        {
+          "name": "legacy invite secret excluded",
+          "passed": true,
+          "observed": {
+            "values": {
+              "name": "Taylor Fixture",
+              "email": "taylor@example.org",
+              "unit": "Room 310",
+              "invite": ""
+            },
+            "invitationSecretInHtml": false
+          }
+        },
+        {
+          "name": "legacy-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "legacy-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "legacy success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "legacy-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "legacy-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "keyboard skip focuses main",
+          "passed": true,
+          "observed": "main-content"
+        },
+        {
+          "name": "certificate search shows no-match row",
+          "passed": true,
+          "observed": "No certificates match\n\nTry another name, alternative name, or serial."
+        },
+        {
+          "name": "clearing certificate search restores rows",
+          "passed": true,
+          "observed": 2
+        },
+        {
+          "name": "table region labelled keyboard focusable with headers",
+          "passed": true,
+          "observed": {
+            "role": "region",
+            "label": "Table",
+            "tabIndex": 0,
+            "headerCount": 7
+          }
+        },
+        {
+          "name": "table region accepts keyboard focus",
+          "passed": true,
+          "observed": true
+        },
+        {
+          "name": "certificates: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "certificates: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "certificates: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "admin filtered records show no matching keys",
+          "passed": true,
+          "observed": "Wi-Fi keys\n\nNo matching keys\n\nChange or clear the filters above."
+        },
+        {
+          "name": "admin clear filters restores key rows",
+          "passed": true,
+          "observed": 1
+        },
+        {
+          "name": "create-key jump opens disclosure",
+          "passed": true,
+          "observed": {
+            "tag": "DETAILS",
+            "open": true,
+            "hash": "#create-device-key"
+          }
+        },
+        {
+          "name": "residents-admin-open: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "residents-admin-open: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 320,
+            "scrollWidth": 320
+          }
+        },
+        {
+          "name": "residents-admin-open: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        }
+      ],
+      "states": [
+        {
+          "name": "resident-current",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "3eyDTGDckHfWuP0oWIziEaIL-5Q7JKKk",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 32,
+            "incomplete": [],
+            "inapplicable": 57
+          }
+        },
+        {
+          "name": "resident-other",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "3eyDTGDckHfWuP0oWIziEaIL-5Q7JKKk",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "D5HI_4iF8KIeQoAQm-Kcg4KN9m-orSPR",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-D5HI_4iF8KIeQoAQm-Kcg4KN9m-orSPR'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Your device key is ready \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "TsVMzIn91_RghJUCiMS1GsACYiAxvAtE",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-TsVMzIn91_RghJUCiMS1GsACYiAxvAtE'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 33,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscuring",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it partially overlaps other elements"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 56
+          }
+        },
+        {
+          "name": "legacy-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "AMXRkMIflgsJO-6vDPbUoTnkB2l25Dee",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-AMXRkMIflgsJO-6vDPbUoTnkB2l25Dee'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 31,
+            "incomplete": [],
+            "inapplicable": 58
+          }
+        },
+        {
+          "name": "legacy-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "You are ready to connect \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "PIHbF_HOPkf8WFkOaZ3ErzkRbbgtcOq8",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-PIHbF_HOPkf8WFkOaZ3ErzkRbbgtcOq8'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 34,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscuring",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it partially overlaps other elements"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 55
+          }
+        },
+        {
+          "name": "certificates",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/#main-content",
+            "title": "Certificates",
+            "js": true,
+            "nonce": "P3PR1edbMeTjQgCXIizcKg",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-P3PR1edbMeTjQgCXIizcKg'; img-src data:; form-action 'self'; frame-ancestors 'self'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 42,
+            "incomplete": [],
+            "inapplicable": 47
+          }
+        },
+        {
+          "name": "residents-admin-open",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/residents?network=N_fixture#create-device-key",
+            "title": "Residents",
+            "js": true,
+            "nonce": "7JnIcnlQuyTPJqBBO5qjng",
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 47,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Status</th>",
+                    "target": [
+                      "div[aria-label=\"Wi-Fi keys\"] > table > thead > tr > th:nth-child(4)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Actions</th>",
+                    "target": [
+                      "div[aria-label=\"Wi-Fi keys\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "9.0pt (12px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<span class=\"chip ok\">active</span>",
+                            "target": [
+                              ".chip"
+                            ]
+                          },
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<span class=\"chip ok\">active</span>",
+                    "target": [
+                      ".chip"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Reveal</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(1) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Show QR</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(2) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Revoke</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-revoke\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Delete</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-delete\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Wi-Fi key</th>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > thead > tr > th:nth-child(4)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Device MAC</th>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Registered</th>",
+                    "target": [
+                      "th:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<td>Living room TV</td>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > tbody > tr > td:nth-child(4)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<code>00:11:22:33:44:55</code>",
+                    "target": [
+                      "td:nth-child(5) > code"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<td>2026-10-02 21:55 UTC</td>",
+                    "target": [
+                      "td:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 42
+          }
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      ],
+      "pageErrors": [],
+      "busyCapture": {
+        "busy": "true",
+        "disabled": true,
+        "text": "Working\u2026"
+      },
+      "initialHarnessError": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    },
+    {
+      "combo": {
+        "width": 390,
+        "scheme": "dark"
+      },
+      "assertions": [
+        {
+          "name": "resident-current: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-current: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-current: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "current target hides disables and does not require MAC",
+          "passed": true,
+          "observed": {
+            "hidden": true,
+            "disabled": true,
+            "required": false
+          }
+        },
+        {
+          "name": "other target reveals enables and requires MAC",
+          "passed": true,
+          "observed": {
+            "hidden": false,
+            "disabled": false,
+            "required": true
+          }
+        },
+        {
+          "name": "resident-other: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-other: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-other: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "existing": true
+          }
+        },
+        {
+          "name": "device error retains draft",
+          "passed": true,
+          "observed": {
+            "device": "Fixture TV",
+            "target": "other",
+            "mac": "02:11:22:33:44:55",
+            "unit": "B-204"
+          }
+        },
+        {
+          "name": "resident-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "resident success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "resident passphrase copied exactly",
+          "passed": true,
+          "observed": "fixture-device-password"
+        },
+        {
+          "name": "resident-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "slow POST exposes busy disabled Working state",
+          "passed": true,
+          "observed": {
+            "busy": "true",
+            "disabled": true,
+            "text": "Working\u2026"
+          }
+        },
+        {
+          "name": "legacy invalid invite retains nonsecret data",
+          "passed": true,
+          "observed": {
+            "name": "Taylor Fixture",
+            "email": "taylor@example.org",
+            "unit": "Room 310",
+            "invite": ""
+          }
+        },
+        {
+          "name": "legacy invite secret excluded",
+          "passed": true,
+          "observed": {
+            "values": {
+              "name": "Taylor Fixture",
+              "email": "taylor@example.org",
+              "unit": "Room 310",
+              "invite": ""
+            },
+            "invitationSecretInHtml": false
+          }
+        },
+        {
+          "name": "legacy-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "legacy-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "legacy success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "legacy-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "legacy-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "keyboard skip focuses main",
+          "passed": true,
+          "observed": "main-content"
+        },
+        {
+          "name": "certificate search shows no-match row",
+          "passed": true,
+          "observed": "No certificates match\n\nTry another name, alternative name, or serial."
+        },
+        {
+          "name": "clearing certificate search restores rows",
+          "passed": true,
+          "observed": 2
+        },
+        {
+          "name": "table region labelled keyboard focusable with headers",
+          "passed": true,
+          "observed": {
+            "role": "region",
+            "label": "Table",
+            "tabIndex": 0,
+            "headerCount": 7
+          }
+        },
+        {
+          "name": "table region accepts keyboard focus",
+          "passed": true,
+          "observed": true
+        },
+        {
+          "name": "certificates: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "certificates: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "certificates: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "admin filtered records show no matching keys",
+          "passed": true,
+          "observed": "Wi-Fi keys\n\nNo matching keys\n\nChange or clear the filters above."
+        },
+        {
+          "name": "admin clear filters restores key rows",
+          "passed": true,
+          "observed": 1
+        },
+        {
+          "name": "create-key jump opens disclosure",
+          "passed": false,
+          "observed": {
+            "tag": "DETAILS",
+            "open": false,
+            "hash": "#create-device-key"
+          }
+        },
+        {
+          "name": "residents-admin-open: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "residents-admin-open: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "residents-admin-open: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        }
+      ],
+      "states": [
+        {
+          "name": "resident-current",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "qK3euekDD_6mZYDQg5WL9I60Au_FuYkI",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 32,
+            "incomplete": [],
+            "inapplicable": 57
+          }
+        },
+        {
+          "name": "resident-other",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "qK3euekDD_6mZYDQg5WL9I60Au_FuYkI",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "NyX3I5M19CfayHKEKhPIVw6TW4S6fTCz",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-NyX3I5M19CfayHKEKhPIVw6TW4S6fTCz'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Your device key is ready \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "Sc65lAbK4rK33CNJrpvLKL8jN3Dptgze",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-Sc65lAbK4rK33CNJrpvLKL8jN3Dptgze'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "tags": [
+                  "cat.color",
+                  "wcag2aa",
+                  "wcag143",
+                  "TTv5",
+                  "TT13.c",
+                  "EN-301-549",
+                  "EN-9.1.4.3",
+                  "ACT",
+                  "RGAAv4",
+                  "RGAA-3.2.1"
+                ],
+                "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                "help": "Elements must meet minimum color contrast ratio thresholds",
+                "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "fgColor": "#717171",
+                          "bgColor": "#2c2c2c",
+                          "contrastRatio": 2.86,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": null,
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                            "target": [
+                              ".toast"
+                            ]
+                          },
+                          {
+                            "html": "<div class=\"copy-field secret\">",
+                            "target": [
+                              ".copy-field"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element has insufficient color contrast of 2.86 (foreground color: #717171, background color: #2c2c2c, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.86 (foreground color: #717171, background color: #2c2c2c, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                  }
+                ]
+              }
+            ],
+            "passes": 33,
+            "incomplete": [],
+            "inapplicable": 56
+          }
+        },
+        {
+          "name": "legacy-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "3-lVilbn9WxFZsyy3N9NDQz4tPefg5F9",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-3-lVilbn9WxFZsyy3N9NDQz4tPefg5F9'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 31,
+            "incomplete": [],
+            "inapplicable": 58
+          }
+        },
+        {
+          "name": "legacy-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "You are ready to connect \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "NxhdxXC5uiP2VMuM2e01RY_vvXsFyezg",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-NxhdxXC5uiP2VMuM2e01RY_vvXsFyezg'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 34,
+            "incomplete": [],
+            "inapplicable": 55
+          }
+        },
+        {
+          "name": "certificates",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/#main-content",
+            "title": "Certificates",
+            "js": true,
+            "nonce": "3f3iQS_xA7CofTq7iCl0Gw",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-3f3iQS_xA7CofTq7iCl0Gw'; img-src data:; form-action 'self'; frame-ancestors 'self'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 42,
+            "incomplete": [],
+            "inapplicable": 47
+          }
+        },
+        {
+          "name": "residents-admin-open",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/residents?network=N_fixture#create-device-key",
+            "title": "Residents",
+            "js": true,
+            "nonce": "y4Cipz1gupW_QUGoquZ1Ug",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(17, 17, 17)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 47,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Actions</th>",
+                    "target": [
+                      "div[aria-label=\"Wi-Fi keys\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Reveal</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(1) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Show QR</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(2) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Revoke</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-revoke\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Delete</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-delete\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Device MAC</th>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Registered</th>",
+                    "target": [
+                      "th:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<code>00:11:22:33:44:55</code>",
+                    "target": [
+                      "td:nth-child(5) > code"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<td>2026-10-02 21:55 UTC</td>",
+                    "target": [
+                      "td:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 42
+          }
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      ],
+      "pageErrors": [],
+      "busyCapture": {
+        "busy": "true",
+        "disabled": true,
+        "text": "Working\u2026"
+      },
+      "initialHarnessError": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    },
+    {
+      "combo": {
+        "width": 390,
+        "scheme": "light"
+      },
+      "assertions": [
+        {
+          "name": "resident-current: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-current: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-current: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "current target hides disables and does not require MAC",
+          "passed": true,
+          "observed": {
+            "hidden": true,
+            "disabled": true,
+            "required": false
+          }
+        },
+        {
+          "name": "other target reveals enables and requires MAC",
+          "passed": true,
+          "observed": {
+            "hidden": false,
+            "disabled": false,
+            "required": true
+          }
+        },
+        {
+          "name": "resident-other: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-other: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-other: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "existing": true
+          }
+        },
+        {
+          "name": "device error retains draft",
+          "passed": true,
+          "observed": {
+            "device": "Fixture TV",
+            "target": "other",
+            "mac": "02:11:22:33:44:55",
+            "unit": "B-204"
+          }
+        },
+        {
+          "name": "resident-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "resident success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "resident passphrase copied exactly",
+          "passed": true,
+          "observed": "fixture-device-password"
+        },
+        {
+          "name": "resident-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "resident-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "resident-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "slow POST exposes busy disabled Working state",
+          "passed": true,
+          "observed": {
+            "busy": "true",
+            "disabled": true,
+            "text": "Working\u2026"
+          }
+        },
+        {
+          "name": "legacy invalid invite retains nonsecret data",
+          "passed": true,
+          "observed": {
+            "name": "Taylor Fixture",
+            "email": "taylor@example.org",
+            "unit": "Room 310",
+            "invite": ""
+          }
+        },
+        {
+          "name": "legacy invite secret excluded",
+          "passed": true,
+          "observed": {
+            "values": {
+              "name": "Taylor Fixture",
+              "email": "taylor@example.org",
+              "unit": "Room 310",
+              "invite": ""
+            },
+            "invitationSecretInHtml": false
+          }
+        },
+        {
+          "name": "legacy-validation: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-validation: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "legacy-validation: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "legacy success copy toast",
+          "passed": true,
+          "observed": "Copied Wi-Fi password"
+        },
+        {
+          "name": "legacy-ready: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "legacy-ready: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "legacy-ready: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "keyboard skip focuses main",
+          "passed": true,
+          "observed": "main-content"
+        },
+        {
+          "name": "certificate search shows no-match row",
+          "passed": true,
+          "observed": "No certificates match\n\nTry another name, alternative name, or serial."
+        },
+        {
+          "name": "clearing certificate search restores rows",
+          "passed": true,
+          "observed": 2
+        },
+        {
+          "name": "table region labelled keyboard focusable with headers",
+          "passed": true,
+          "observed": {
+            "role": "region",
+            "label": "Table",
+            "tabIndex": 0,
+            "headerCount": 7
+          }
+        },
+        {
+          "name": "table region accepts keyboard focus",
+          "passed": true,
+          "observed": true
+        },
+        {
+          "name": "certificates: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "certificates: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "certificates: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        },
+        {
+          "name": "admin filtered records show no matching keys",
+          "passed": true,
+          "observed": "Wi-Fi keys\n\nNo matching keys\n\nChange or clear the filters above."
+        },
+        {
+          "name": "admin clear filters restores key rows",
+          "passed": true,
+          "observed": 1
+        },
+        {
+          "name": "create-key jump opens disclosure",
+          "passed": true,
+          "observed": {
+            "tag": "DETAILS",
+            "open": true,
+            "hash": "#create-device-key"
+          }
+        },
+        {
+          "name": "residents-admin-open: app script executes under response nonce",
+          "passed": true,
+          "observed": {
+            "js": true,
+            "noncePresent": true,
+            "cspMatches": true
+          }
+        },
+        {
+          "name": "residents-admin-open: no document overflow",
+          "passed": true,
+          "observed": {
+            "innerWidth": 390,
+            "scrollWidth": 390
+          }
+        },
+        {
+          "name": "residents-admin-open: axe nonce injection",
+          "passed": true,
+          "observed": {
+            "loaded": true,
+            "noncePresent": true
+          }
+        }
+      ],
+      "states": [
+        {
+          "name": "resident-current",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "FyUvsfIac4-jsficQW1PvSTSjA-tw8Qg",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 32,
+            "incomplete": [],
+            "inapplicable": 57
+          }
+        },
+        {
+          "name": "resident-other",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=account",
+            "title": "Resident device access \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "FyUvsfIac4-jsficQW1PvSTSjA-tw8Qg",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "IWEQ2yXgTD9WvjWprB8jW9J1ECp0CL7g",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-IWEQ2yXgTD9WvjWprB8jW9J1ECp0CL7g'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 37,
+            "incomplete": [],
+            "inapplicable": 52
+          }
+        },
+        {
+          "name": "resident-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal?action=create_device",
+            "title": "Your device key is ready \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "1atHBNUJG5XN3nhiTXIP1QEnKkUokqmZ",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-1atHBNUJG5XN3nhiTXIP1QEnKkUokqmZ'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "tags": [
+                  "cat.color",
+                  "wcag2aa",
+                  "wcag143",
+                  "TTv5",
+                  "TT13.c",
+                  "EN-301-549",
+                  "EN-9.1.4.3",
+                  "ACT",
+                  "RGAAv4",
+                  "RGAA-3.2.1"
+                ],
+                "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+                "help": "Elements must meet minimum color contrast ratio thresholds",
+                "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "fgColor": "#e9e9e9",
+                          "bgColor": "#a5a5a5",
+                          "contrastRatio": 2.02,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": null,
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                            "target": [
+                              ".toast"
+                            ]
+                          },
+                          {
+                            "html": "<div class=\"copy-field secret\">",
+                            "target": [
+                              ".copy-field"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element has insufficient color contrast of 2.02 (foreground color: #e9e9e9, background color: #a5a5a5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                    "target": [
+                      ".toast"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.02 (foreground color: #e9e9e9, background color: #a5a5a5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+                  }
+                ]
+              }
+            ],
+            "passes": 33,
+            "incomplete": [],
+            "inapplicable": 56
+          }
+        },
+        {
+          "name": "legacy-validation",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "Check your details \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "uxF7LnxpzKNtTWBYzZtaFzsK_CxnoDMR",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-uxF7LnxpzKNtTWBYzZtaFzsK_CxnoDMR'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 31,
+            "incomplete": [],
+            "inapplicable": 58
+          }
+        },
+        {
+          "name": "legacy-ready",
+          "metrics": {
+            "url": "http://127.0.0.1:49810/portal",
+            "title": "You are ready to connect \u00b7 Resident Wi-Fi",
+            "js": true,
+            "nonce": "EqUbfTJ-L71MVMXTHuuKlXG4xQc3MMod",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-EqUbfTJ-L71MVMXTHuuKlXG4xQc3MMod'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 34,
+            "incomplete": [],
+            "inapplicable": 55
+          }
+        },
+        {
+          "name": "certificates",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/#main-content",
+            "title": "Certificates",
+            "js": true,
+            "nonce": "dgubnCfB1BE1x4q_ArZBPg",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-dgubnCfB1BE1x4q_ArZBPg'; img-src data:; form-action 'self'; frame-ancestors 'self'",
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 42,
+            "incomplete": [],
+            "inapplicable": 47
+          }
+        },
+        {
+          "name": "residents-admin-open",
+          "metrics": {
+            "url": "http://127.0.0.1:49808/residents?network=N_fixture#create-device-key",
+            "title": "Residents",
+            "js": true,
+            "nonce": "ZvdmDYPwHaRW8BKHDBTbtg",
+            "innerWidth": 390,
+            "scrollWidth": 390,
+            "background": "rgb(250, 250, 250)"
+          },
+          "csp": null,
+          "axe": {
+            "version": "4.13.0",
+            "violations": [],
+            "passes": 47,
+            "incomplete": [
+              {
+                "id": "color-contrast",
+                "impact": "serious",
+                "nodes": [
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Actions</th>",
+                    "target": [
+                      "div[aria-label=\"Wi-Fi keys\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Reveal</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(1) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text\" type=\"submit\">Show QR</button>",
+                    "target": [
+                      "form[action=\"/residents/ipsk/action\"][method=\"post\"]:nth-child(2) > .text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Revoke</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-revoke\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.0pt (13.3333px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\" id=\"device-keys\">",
+                            "target": [
+                              "#device-keys"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<button class=\"btn text danger\" type=\"submit\">Delete</button>",
+                    "target": [
+                      "form[data-confirm=\"ipsk-0-delete\"] > .danger.text[type=\"submit\"]"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Device MAC</th>",
+                    "target": [
+                      "div[aria-label=\"Registered devices\"] > table > thead > tr > th:nth-child(5)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<th>Registered</th>",
+                    "target": [
+                      "th:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<code>00:11:22:33:44:55</code>",
+                    "target": [
+                      "td:nth-child(5) > code"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  },
+                  {
+                    "any": [
+                      {
+                        "id": "color-contrast",
+                        "data": {
+                          "contrastRatio": 0,
+                          "fontSize": "10.5pt (14px)",
+                          "fontWeight": "normal",
+                          "messageKey": "elmPartiallyObscured",
+                          "expectedContrastRatio": "4.5:1"
+                        },
+                        "relatedNodes": [
+                          {
+                            "html": "<div class=\"card\">",
+                            "target": [
+                              ".card:nth-child(3)"
+                            ]
+                          }
+                        ],
+                        "impact": "serious",
+                        "message": "Element's background color could not be determined because it's partially obscured by another element"
+                      }
+                    ],
+                    "all": [],
+                    "none": [],
+                    "impact": "serious",
+                    "html": "<td>2026-10-02 21:55 UTC</td>",
+                    "target": [
+                      "td:nth-child(6)"
+                    ],
+                    "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+                  }
+                ]
+              }
+            ],
+            "inapplicable": 42
+          }
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      ],
+      "pageErrors": [],
+      "busyCapture": {
+        "busy": "true",
+        "disabled": true,
+        "text": "Working\u2026"
+      },
+      "initialHarnessError": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+    }
+  ],
+  "settledChecks": {
+    "disclosures": [
+      {
+        "combo": {
+          "width": 1280,
+          "scheme": "light"
+        },
+        "passed": true,
+        "observed": {
+          "open": true,
+          "hash": "#create-device-key"
+        }
+      },
+      {
+        "combo": {
+          "width": 320,
+          "scheme": "dark"
+        },
+        "passed": true,
+        "observed": {
+          "open": true,
+          "hash": "#create-device-key"
+        }
+      },
+      {
+        "combo": {
+          "width": 390,
+          "scheme": "dark"
+        },
+        "passed": true,
+        "observed": {
+          "open": true,
+          "hash": "#create-device-key"
+        }
+      }
+    ],
+    "toast": {
+      "text": "Copied Wi-Fi password",
+      "opacity": "1",
+      "foreground": "rgb(241, 241, 241)",
+      "background": "rgb(50, 50, 50)",
+      "transition": "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+      "visible": true
+    },
+    "pageErrors": []
+  },
+  "rawAxeViolationIndex": [
+    {
+      "combo": {
+        "width": 1280,
+        "scheme": "dark"
+      },
+      "state": "resident-ready",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#696969",
+                "bgColor": "#242424",
+                "contrastRatio": 2.82,
+                "fontSize": "10.5pt (14px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                  "target": [
+                    ".toast"
+                  ]
+                },
+                {
+                  "html": "<div class=\"card\">",
+                  "target": [
+                    ".card"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.82 (foreground color: #696969, background color: #242424, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+          "target": [
+            ".toast"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.82 (foreground color: #696969, background color: #242424, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    },
+    {
+      "combo": {
+        "width": 1280,
+        "scheme": "light"
+      },
+      "state": "resident-ready",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#fafafa",
+                "bgColor": "#b5b5b5",
+                "contrastRatio": 1.96,
+                "fontSize": "10.5pt (14px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                  "target": [
+                    ".toast"
+                  ]
+                },
+                {
+                  "html": "<div class=\"card\">",
+                  "target": [
+                    ".card"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 1.96 (foreground color: #fafafa, background color: #b5b5b5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+          "target": [
+            ".toast"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 1.96 (foreground color: #fafafa, background color: #b5b5b5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    },
+    {
+      "combo": {
+        "width": 390,
+        "scheme": "dark"
+      },
+      "state": "resident-ready",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#717171",
+                "bgColor": "#2c2c2c",
+                "contrastRatio": 2.86,
+                "fontSize": "10.5pt (14px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                  "target": [
+                    ".toast"
+                  ]
+                },
+                {
+                  "html": "<div class=\"copy-field secret\">",
+                  "target": [
+                    ".copy-field"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.86 (foreground color: #717171, background color: #2c2c2c, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+          "target": [
+            ".toast"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.86 (foreground color: #717171, background color: #2c2c2c, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    },
+    {
+      "combo": {
+        "width": 390,
+        "scheme": "light"
+      },
+      "state": "resident-ready",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#e9e9e9",
+                "bgColor": "#a5a5a5",
+                "contrastRatio": 2.02,
+                "fontSize": "10.5pt (14px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+                  "target": [
+                    ".toast"
+                  ]
+                },
+                {
+                  "html": "<div class=\"copy-field secret\">",
+                  "target": [
+                    ".copy-field"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.02 (foreground color: #e9e9e9, background color: #a5a5a5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<div class=\"toast show\" role=\"status\">Copied Wi-Fi password</div>",
+          "target": [
+            ".toast"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.02 (foreground color: #e9e9e9, background color: #a5a5a5, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    }
+  ],
+  "dispositions": {
+    "disclosure": "Three raw failures are sampling race, all pass after actual hashchange handler; original failed observations preserved",
+    "toast": "Four immediate resident-ready color-contrast nodes during opacity fade; settled opacity 1 rgb(241,241,241) on rgb(50,50,50), contrast 11.351250628453023:1; settled legacy toast axe checks all six zero violations",
+    "console": "Twelve expected HTTP 400 resource errors from deliberately invalid MAC and invitation, no JavaScript page errors",
+    "remainingDefects": []
+  },
+  "cleanup": {
+    "status": "complete",
+    "ownedBrowserContextsClosed": true,
+    "originalDetectorEvidenceUnchanged": true,
+    "previewProcessAlive": false,
+    "portsClosed": {
+      "49808": true,
+      "49809": true,
+      "49810": true
+    },
+    "stopMethod": "kill -TERM 22728; os.kill(pid,0) and socket.connect_ex verification"
+  }
+}

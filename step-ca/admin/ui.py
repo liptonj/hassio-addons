@@ -84,6 +84,12 @@ def copy_button(value, what):
             f'aria-label="Copy {esc(what)}" title="Copy {esc(what)}">{icon("content-copy")}</button>')
 
 
+def kv_row(label, value, button=""):
+    """A valid definition-list group; its action belongs to the definition."""
+    return (f'<div class="kv"><dt>{label}</dt><dd class="kv-value">'
+            f'<span class="kv-content">{value}</span>{button}</dd></div>')
+
+
 def copy_field(value, what, cls=""):
     """A value shown in full with a copy action, e.g. a link or a password."""
     return (f'<div class="copy-field {cls}"><span class="mono">{esc(value)}</span>'
@@ -115,6 +121,16 @@ def when(value, now=None):
     return (f'<time datetime="{iso}" title="{value:%Y-%m-%d %H:%M} UTC">{value:%Y-%m-%d}</time>'
             f' <span class="rel" data-rel="{iso}">{relative(value, now)}</span>')
 
+
+DIRECTION = """<!--
+THESIS: Certificate setup stays understandable from the network choice through installation.
+OWN-WORLD: The established Home Assistant theme, outlined surfaces, MDI icons, regular headings, and shared controls.
+STORY: Match the network, choose how the device authenticates, verify server trust, then install a fresh profile.
+FIRST VIEWPORT: A compact saved-network list and setup guide beside a wider editor; mobile puts the editor first.
+FORM: Established Settings-page world extended with task sections; no replacement identity or generated comp.
+SIGNATURE: Changing authentication reveals only its credentials and updates a readable profile summary.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->"""
 
 STYLE = """
 :root {
@@ -168,6 +184,7 @@ STYLE = """
   --warn-ink: color-mix(in srgb, var(--warning-color) 58%, var(--mix-ink));
   --bad-ink: color-mix(in srgb, var(--error-color) var(--ink-amount), var(--mix-ink));
   --info-ink: color-mix(in srgb, var(--info-color) var(--ink-amount), var(--mix-ink));
+  --focus-color: var(--accent-ink);
   --danger-fill: color-mix(in srgb, var(--error-color) 86%, #000);
   --hover: color-mix(in srgb, var(--primary-text-color) 5%, transparent);
   --outline: color-mix(in srgb, var(--primary-text-color) 28%, transparent);
@@ -190,7 +207,7 @@ body {
 }
 ::selection { background: color-mix(in srgb, var(--primary-color) 32%, transparent); }
 input, textarea { caret-color: var(--primary-color); }
-:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
 a { color: var(--accent-ink); text-decoration: none; text-underline-offset: 3px; }
 a:hover { text-decoration: underline; }
 b { font-weight: 500; }
@@ -229,7 +246,7 @@ html:not(.js) .js-only { display: none !important; }
 .tab-menu > summary::-webkit-details-marker { display: none; }
 .tab-menu > summary .caret { width: 18px; height: 18px; margin-left: -4px; transition: transform .2s var(--ease-out); }
 .tab-menu[open] > summary .caret { transform: rotate(180deg); }
-.tab-menu > summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+.tab-menu > summary:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -2px; }
 .menu {
   position: absolute; top: calc(100% + 4px); right: 0; z-index: 6; min-width: 260px; padding: 8px 0;
   background: var(--card-background-color); color: var(--primary-text-color); border-radius: 12px;
@@ -293,10 +310,60 @@ html:not(.js) .js-only { display: none !important; }
 .icon-btn:hover { background: var(--hover); color: var(--primary-text-color); }
 a.icon-btn:hover { text-decoration: none; }
 
+/* Shared navigation and task forms */
+[hidden] { display: none !important; }
+.skip-link { position: fixed; top: -100px; left: 16px; z-index: 20; padding: 12px 16px;
+  background: var(--card-background-color); color: var(--accent-ink); border-radius: 8px; }
+.skip-link:focus { top: 8px; }
+.tool-nav { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 24px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--divider-color); }
+.tool-nav a { padding: 10px 12px; min-height: 44px; border-radius: 8px; color: var(--secondary-text-color); }
+.tool-nav a:hover { background: var(--hover); text-decoration: none; }
+.tool-nav a[aria-current=page] { color: var(--accent-ink); font-weight: 500;
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+.network-layout { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr); gap: 24px; align-items: start; }
+.network-layout > aside { grid-column: 1; grid-row: 1; }
+.network-layout > div { grid-column: 2; grid-row: 1; }
+.page-jumps { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
+.page-jumps a { min-height: 44px; display: inline-flex; align-items: center; }
+[id] { scroll-margin-top: 72px; }
+.network-layout .row { flex-wrap: wrap; }
+.network-layout .row-actions { margin-left: auto; }
+.network-layout .row-sub { overflow-wrap: anywhere; }
+.network-fields { padding: 0 !important; }
+.form-section { border-top: 1px solid var(--divider-color); }
+.form-section > summary { list-style: none; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 16px 20px; min-height: 56px; cursor: pointer; }
+.form-section > summary::-webkit-details-marker { display: none; }
+.form-section > summary:hover { background: var(--hover); }
+.form-section .chev { width: 20px; height: 20px; color: var(--secondary-text-color); transition: transform .2s var(--ease-out); }
+.form-section[open] > summary .chev { transform: rotate(180deg); }
+.section-body { padding: 0 20px 20px; }
+.network-summary { padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 8px 16px;
+  background: var(--hover); color: var(--secondary-text-color); min-height: 44px; }
+.network-summary:empty { display: none; }
+.network-summary b { color: var(--primary-text-color); }
+.method-row { display: grid; gap: 2px; padding: 10px 0; }
+.method-row + .method-row { border-top: 1px solid var(--divider-color); }
+.secret-input { display: flex; align-items: center; gap: 8px; }
+.secret-input input { min-width: 0; flex: 1; }
+input:disabled, select:disabled, textarea:disabled { background: var(--hover); color: var(--secondary-text-color); cursor: default; }
+form[aria-busy=true] { cursor: progress; }
+@media (max-width: 860px) {
+  .network-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .network-layout > aside, .network-layout > div { grid-column: auto; grid-row: auto; }
+}
+@media (max-width: 640px) {
+  .tool-nav { gap: 4px; margin-bottom: 16px; }
+  .tool-nav a { padding: 8px 10px; }
+  .section-body { padding: 0 16px 16px; }
+  .form-section > summary { padding: 14px 16px; }
+}
+
 /* Form fields */
 .field { margin-bottom: 16px; }
 .field:last-child { margin-bottom: 0; }
-details.field > summary { cursor: pointer; width: fit-content; color: var(--primary-color); font-weight: 500; }
+details.field > summary { cursor: pointer; width: fit-content; color: var(--accent-ink); font-weight: 500; }
 details.field[open] > summary { margin-bottom: 12px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 label, .label { display: block; font-weight: 500; margin-bottom: 6px; }
@@ -313,8 +380,8 @@ input:where(:not([type=radio], [type=checkbox], [type=file])), select, textarea 
 }
 textarea { font-family: var(--mono); font-size: 13px; resize: vertical; min-height: 96px; }
 input:hover, select:hover, textarea:hover { border-color: var(--primary-text-color); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px var(--primary-color); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--focus-color);
+  box-shadow: 0 0 0 1px var(--focus-color); }
 input::placeholder, textarea::placeholder { color: var(--secondary-text-color); opacity: 1; }
 input[type=file] { font: inherit; color: var(--secondary-text-color); max-width: 100%; }
 input[type=file]::file-selector-button {
@@ -429,7 +496,7 @@ tr.link-row:hover td { background: var(--hover); }
 tr.link-row a.row-link { color: var(--primary-text-color); font-weight: 500; }
 tr.link-row a.row-link::after { content: ""; position: absolute; inset: 0; }
 tr.link-row a.row-link:focus-visible { outline: none; }
-tr.link-row:has(a.row-link:focus-visible) td { background: var(--hover); box-shadow: inset 0 1px var(--primary-color), inset 0 -1px var(--primary-color); }
+tr.link-row:has(a.row-link:focus-visible) td { background: var(--hover); box-shadow: inset 0 1px var(--focus-color), inset 0 -1px var(--focus-color); }
 td .sub { display: block; color: var(--secondary-text-color); font-size: 13px; line-height: 18px; margin-top: 2px;
   overflow-wrap: anywhere; }
 td.actions { text-align: right; width: 1%; white-space: nowrap; }
@@ -463,10 +530,14 @@ dl.rows dt { color: var(--secondary-text-color); }
 .kv + .kv { border-top: 1px solid var(--divider-color); }
 .kv dt { color: var(--secondary-text-color); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
+.kv dd.kv-value { grid-column: 2 / -1; display: grid;
+  grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.kv-content { min-width: 0; }
 .kv .icon-btn { margin: -8px 0; }
 @container (max-width: 520px) {
   .kv { grid-template-columns: minmax(0, 1fr) auto; }
   .kv dt { grid-column: 1 / -1; margin-bottom: -2px; font-size: 12px; }
+  .kv dd.kv-value { grid-column: 1 / -1; }
 }
 
 /* Expansion panels, after ha-expansion-panel */
@@ -568,7 +639,7 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
 .toast.show { transform: translate(-50%, 0); opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   dialog[open] { animation: none; }
-  .toast, details.expand > summary .chev { transition: none; }
+  .toast, details.expand > summary .chev, .form-section .chev { transition: none; }
 }
 
 @media (max-width: 860px) {
@@ -604,6 +675,35 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
   .toast { bottom: 76px; max-width: calc(100vw - 32px); }
   .copy-field.secret .mono { font-size: 18px; }
   .public { padding-top: 20px; }
+  .kv dd.kv-value { grid-column: 1 / -1; }
+  .row:has(.row-actions > :nth-child(3)) { flex-wrap: wrap; }
+  .row:has(.row-actions > :nth-child(3)) > .row-actions { flex-basis: 100%; justify-content: flex-end; }
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea { font-size: 16px; }
+  .btn, .icon-btn, .filter { min-height: 44px; }
+  .icon-btn { min-width: 44px; }
+}
+/* Inline links remain recognizable without color; controls keep their own shape. */
+:where(p, .hint, small, dd) a:not(.btn):not(.icon-btn) { text-decoration: underline; text-underline-offset: .15em; }
+.btn, .icon-btn, .filter { min-height: 44px; }
+.icon-btn { min-width: 44px; }
+
+/* Resident progress, validation and bounded inventory navigation. */
+.onboarding-progress { margin-block:0 24px; }
+.onboarding-progress ol { display:flex; flex-wrap:wrap; gap:8px 16px; list-style:none; padding:0; margin:0; counter-reset:connection-step; }
+.onboarding-progress li { counter-increment:connection-step; color:var(--secondary-text-color); }
+.onboarding-progress li::before { content:counter(connection-step) ". "; font-variant-numeric:tabular-nums; }
+.onboarding-progress li[aria-current=step] { color:var(--primary-text-color); font-weight:600; text-decoration:underline; text-underline-offset:5px; }
+.field-error { color:var(--bad-ink); margin-block:8px 16px; }
+[aria-invalid=true] { border-color:var(--bad-ink); }
+.pagination { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:16px; }
+.pagination span { color:var(--secondary-text-color); }
+.resident-help { margin-block-start:24px; border-block-start:1px solid var(--divider-color); }
+.setup-state { margin-block:8px 16px; }
+.mobile-tool-navigation { display:none; }
+@media (max-width:640px) {
+  .desktop-tool-navigation { display:none; }
+  .mobile-tool-navigation { display:block; margin-block-end:16px; }
+  .mobile-tool-navigation summary { min-height:44px; padding:12px; cursor:pointer; }
 }
 """
 
@@ -708,7 +808,7 @@ SCRIPT = r"""
     if (yes) yes.addEventListener("click", function () {
       var form = dialog.pendingForm;
       dialog.close();
-      if (form) form.submit();
+      if (form) { markSubmitting(form); form.submit(); }
     });
     if (no) no.addEventListener("click", function () { dialog.close(); });
   });
@@ -794,11 +894,162 @@ SCRIPT = r"""
     if (!select) return;
     function apply() {
       var value = select.type === "checkbox" ? (select.checked ? select.value : "") : select.value;
-      block.hidden = value !== rule[1];
+      block.hidden = rule[1].split("|").indexOf(value) === -1;
+      if (block.hasAttribute("data-control-when-visible")) {
+        block.querySelectorAll("input, select, textarea").forEach(function (control) {
+          control.disabled = block.hidden;
+          if (control.hasAttribute("data-required-when-visible")) control.required = !block.hidden;
+        });
+      }
     }
     apply();
     select.addEventListener("change", apply);
   });
+
+  // Search only the already permitted resident choices; no directory requests.
+  document.querySelectorAll("[data-choice-filter]").forEach(function (group) {
+    var input = group.querySelector("[data-filter-input]");
+    var select = group.querySelector("select");
+    var status = group.querySelector("[data-filter-status]");
+    var controls = group.querySelector("[data-filter-controls]");
+    if (!input || !select) return;
+    if (controls) controls.hidden = false;
+    var options = Array.from(select.options);
+    input.addEventListener("input", function () {
+      var term = input.value.trim().toLocaleLowerCase();
+      var selected = select.value;
+      var matches = options.filter(function (option) {
+        return !option.value || option.textContent.toLocaleLowerCase().indexOf(term) !== -1;
+      });
+      select.replaceChildren.apply(select, matches);
+      select.value = matches.some(function (option) { return option.value === selected; }) ? selected : "";
+      if (status) status.textContent = matches.length > 1
+        ? (matches.length - 1) + (matches.length === 2 ? " matching account" : " matching accounts") : "No matching accounts. Clear or change the search.";
+    });
+  });
+
+  var pageError = document.querySelector(".alert.error");
+  if (pageError) { pageError.setAttribute("tabindex", "-1"); pageError.focus(); }
+
+  // All forms share help associations, validation visibility, and secret controls.
+  document.querySelectorAll(".field").forEach(function (field, index) {
+    var hint = field.querySelector(":scope > .hint");
+    if (!hint) return;
+    hint.id = hint.id || "field-help-" + index;
+    field.querySelectorAll("input:not([type=hidden]), select, textarea").forEach(function (control) {
+      var ids = (control.getAttribute("aria-describedby") || "").split(" ").filter(Boolean);
+      if (ids.indexOf(hint.id) === -1) ids.push(hint.id);
+      control.setAttribute("aria-describedby", ids.join(" "));
+    });
+  });
+  document.addEventListener("invalid", function (event) {
+    var control = event.target;
+    if (control.matches("input, select, textarea") && control.validationMessage) {
+      control.id = control.id || "invalid-field-" + Array.from(control.form ? control.form.elements : document.querySelectorAll("input, select, textarea")).indexOf(control);
+      var errorId = control.id + "-error";
+      var message = document.getElementById(errorId);
+      if (!message) {
+        message = document.createElement("p"); message.id = errorId; message.className = "field-error";
+        control.insertAdjacentElement("afterend", message);
+      }
+      message.hidden = false; message.textContent = control.validationMessage;
+      control.setAttribute("aria-invalid", "true");
+      var described = (control.getAttribute("aria-describedby") || "").split(" ").filter(Boolean);
+      if (described.indexOf(errorId) === -1) described.push(errorId);
+      control.setAttribute("aria-describedby", described.join(" "));
+    }
+    var parent = event.target.parentElement;
+    while (parent) {
+      if (parent.tagName === "DETAILS") parent.open = true;
+      parent = parent.parentElement;
+    }
+  }, true);
+  document.querySelectorAll("input, select, textarea").forEach(function (control) {
+    function clearOldError() {
+      control.removeAttribute("aria-invalid");
+      var message = document.getElementById(control.id + "-error");
+      if (message) message.hidden = true;
+    }
+    control.addEventListener("input", clearOldError);
+    control.addEventListener("change", clearOldError);
+  });
+  document.querySelectorAll('input[type="password"]').forEach(function (input, index) {
+    input.id = input.id || "secret-field-" + index;
+    var label = Array.from(input.labels || [])[0];
+    var labelCopy = label ? label.cloneNode(true) : null;
+    if (labelCopy) labelCopy.querySelectorAll("input, button, select, textarea, .hint, small").forEach(function (node) { node.remove(); });
+    var name = labelCopy ? labelCopy.textContent.trim() : (input.getAttribute("aria-label") || "password");
+    // Keep the wrapping label's name stable when the Show/Hide button is added.
+    if (label && label.contains(input)) input.setAttribute("aria-label", name);
+    var wrap = document.createElement("div");
+    wrap.className = "secret-input";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "btn text";
+    toggle.textContent = "Show";
+    toggle.setAttribute("aria-controls", input.id);
+    toggle.setAttribute("aria-pressed", "false");
+    toggle.setAttribute("aria-label", "Show " + name);
+    toggle.addEventListener("click", function () {
+      var show = input.type === "password";
+      input.type = show ? "text" : "password";
+      toggle.textContent = show ? "Hide" : "Show";
+      toggle.setAttribute("aria-pressed", String(show));
+      toggle.setAttribute("aria-label", (show ? "Hide " : "Show ") + name);
+    });
+    wrap.appendChild(toggle);
+  });
+  document.querySelectorAll(".table-wrap").forEach(function (region) {
+    region.tabIndex = 0;
+    region.setAttribute("role", "region");
+    var card = region.closest(".card");
+    var heading = card ? card.querySelector("h2") : null;
+    region.setAttribute("aria-label", heading ? heading.textContent.trim() : "Table");
+  });
+  function markSubmitting(form, submitter) {
+    if (form.method.toLowerCase() !== "post" && !form.hasAttribute("data-readiness-check")) return;
+    if (submitter && submitter.name) {
+      var submitted = document.createElement("input");
+      submitted.type = "hidden";
+      submitted.name = submitter.name;
+      submitted.value = submitter.value;
+      form.appendChild(submitted);
+    }
+    form.setAttribute("aria-busy", "true");
+    form.querySelectorAll('button:not([type="button"])').forEach(function (button) {
+      button.disabled = true;
+      button.textContent = form.hasAttribute("data-readiness-check") ? "Checking…" : "Working…";
+    });
+  }
+  document.addEventListener("submit", function (event) {
+    if (!event.defaultPrevented) markSubmitting(event.target, event.submitter);
+  });
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll('form[aria-busy="true"]').forEach(function (form) {
+      form.removeAttribute("aria-busy");
+      // Restoring the back/forward cache must restore the original button text.
+      window.location.reload();
+    });
+  });
+  var summary = document.querySelector("[data-network-summary]");
+  if (summary) {
+    var networkForm = summary.closest("form");
+    function updateSummary() {
+      var auth = networkForm.elements.authentication;
+      var security = networkForm.elements.security;
+      var inclusion = networkForm.elements.include_by_default.checked ? "Every enrollment profile" : "Separate MDM profile";
+      summary.replaceChildren();
+      var method = document.createElement("b");
+      method.textContent = auth.options[auth.selectedIndex].textContent.split(" — ")[0];
+      [method, document.createTextNode(security.value), document.createTextNode(inclusion)].forEach(function (part) {
+        var span = document.createElement("span"); span.appendChild(part); summary.appendChild(span);
+      });
+    }
+    updateSummary();
+    networkForm.addEventListener("change", updateSummary);
+  }
 
   // Groups that require an email address make the email field required.
   document.querySelectorAll("select[name=group]").forEach(function (select) {

@@ -222,9 +222,9 @@ Motion is small and functional: 150ms state transitions on hover and border, a 2
 A neutral HA canvas with one theme accent (HA light blue by default) and four status colors. Every themed color drawn as text or behind white text passes through a contrast mix.
 
 ### Primary
-- **HA Light Blue** (primary): the theme accent. Used raw only where it carries no text: focus outlines, the active-tab underline, input focus borders, the validity bar fill, radio and checkbox accents, caret, and the 6–16% tints behind selected choices, selected filters, step counters, and tile icons. A user's HA theme replaces it.
+- **HA Light Blue** (primary): the theme accent. Used raw only where it carries no text: the active-tab underline, the validity bar fill, radio and checkbox accents, caret, and the 6–16% tints behind selected choices, selected filters, step counters, and tile icons. A user's HA theme replaces it.
 - **Deep Accent Fill** (accent-fill): the background of filled buttons, 68% primary mixed toward black so white label text holds 4.5:1 for any theme accent.
-- **Accent Ink** (accent-ink, accent-ink-dark): links, text buttons, the active tab label, choice icons. Primary mixed 66% toward black in light mode and 82% toward white in dark mode.
+- **Accent Ink** (accent-ink, accent-ink-dark): links, text buttons, the active tab label, choice icons. Primary mixed 66% toward black in light mode and 82% toward white in dark mode. The shared focus alias (`--focus-color`) follows accent ink for visible outlines, field borders and rings, and linked-table-row indicators.
 
 ### Status
 - **Success Green** (success), **Warning Orange** (warning), **Error Red** (error), **Info Blue** (info): HA's status colors. Used as the dot inside a status chip, as 12–16% tints behind chips, alerts, and tiles, and never as a text color directly.
@@ -281,7 +281,7 @@ Two-column pages use a 3fr/2fr grid with a 16px gap, the primary task on the lef
 Spacing steps through 4, 8, 12, 16, 24, 32, and 48px. 16px is the default inset for card content, rows, and summaries; 12px is the gap inside rows and alerts; 8px separates related controls.
 
 ### Named Rules
-**The Progressive Reference Rule.** The common job is open; reference values and secondary tools sit in collapsed expansion panels inside a card. A URL hash naming a panel's id opens it, so links and redirects can point straight at a tool.
+**The Progressive Reference Rule.** The common job is open; reference values sit in collapsed expansion panels inside a card. A URL hash naming a panel's id opens it. The six tool pages use persistent navigation so admins can switch tasks directly.
 
 ## Elevation & Depth
 
@@ -297,22 +297,22 @@ Flat by default. Cards lie on the page with a 1px divider outline (or the theme'
 
 ## Shapes
 
-Corners follow HA's radius family. Cards, choice cards, and the QR backing use the theme's card radius (`--ha-card-border-radius`, 12px by default), and expansion-panel summaries and table wraps clip to it at the card's edges. Inputs, filter chips, alerts, copy fields, and the toast use 8px. Buttons are full pills (20px on a 40px height; the file-picker button 18px on 36px), the search field is a pill, status chips are pills with a leading 8px dot, and icon buttons, tile icons, step counters, and the brand mark are circles. The confirm dialog uses 28px. The validity bar is a 6px track with 3px ends. Borders are always 1px; selected choices double theirs with a 1px inset ring rather than a heavier stroke.
+Corners follow HA's radius family. Cards, choice cards, and the QR backing use the theme's card radius (`--ha-card-border-radius`, 12px by default), and expansion-panel summaries and table wraps clip to it at the card's edges. Inputs, filter chips, alerts, copy fields, and the toast use 8px. Buttons are full pills (20px on a 44px minimum height; the file-picker button 18px on 36px), the search field is a pill, status chips are pills with a leading 8px dot, and icon buttons, tile icons, step counters, and the brand mark are circles. The confirm dialog uses 28px. The validity bar is a 6px track with 3px ends. Borders are always 1px; selected choices double theirs with a 1px inset ring rather than a heavier stroke.
 
 ## Components
 
 ### Buttons
 Quiet pills that follow ha-button.
-- **Shape:** full pill (20px radius, 40px tall), label weight 14px with 0.02em tracking, optional 18px leading icon with an 8px gap.
+- **Shape:** full pill (20px radius, 44px minimum height), label weight 14px with 0.02em tracking, optional 18px leading icon with an 8px gap.
 - **Filled:** deep accent fill with white text, 0 20px padding. The default action of a form or card.
-- **Hover / Focus:** fill darkens 12% and gains the button-lift shadow over 150ms. Focus is a 2px primary outline at a 2px offset (global).
+- **Hover / Focus:** fill darkens 12% and gains the button-lift shadow over 150ms. Focus is a 2px focus-color outline at a 2px offset (global), using accent ink in the active theme.
 - **Text:** transparent with accent ink, 0 12px padding; hover is a 10% primary tint. Used for secondary actions in card action bars.
 - **Danger:** danger fill (filled) or bad ink (text). Destructive submits go through the confirm dialog.
 - **Disabled:** hover wash background, secondary ink, no shadow.
-- **Icon button:** 36px circle, 20px icon in secondary ink, hover wash plus full-strength text color. Every copy, download, and remove action in a row uses it, with an aria-label and title.
+- **Icon button:** 44px circle, 20px icon in secondary ink, hover wash plus full-strength text color. Every copy, download, and remove action in a row uses it, with an aria-label and title.
 
 ### Chips
-- **Filter chips:** 32px tall, 8px radius, 1px outline, label weight, optional 18px icon and a secondary-ink count. Selected (`aria-current`) is a 16% primary tint with no border.
+- **Filter chips:** 44px minimum height, 8px radius, 1px outline, label weight, optional 18px icon and a secondary-ink count. Selected (`aria-current`) is a 16% primary tint with no border.
 - **Status chips:** 24px pills, 12px medium text, 14% status tint with a solid 8px status dot and ink-mixed label. Kinds: ok, warn, bad, info, neutral.
 
 ### Cards / Containers
@@ -325,26 +325,31 @@ Quiet pills that follow ha-button.
 
 ### Inputs / Fields
 - **Style:** card background, 1px outline, 8px radius, 44px minimum height, 10px 12px padding. Labels sit above at medium weight with 6px below; hints sit under at 12px in secondary ink. Text areas are monospace, 96px minimum, vertically resizable.
-- **Hover / Focus:** border goes to text color on hover; on focus the border and a 1px ring turn primary (no outline).
+- **Hover / Focus:** border goes to text color on hover; on focus the border and a 1px ring use focus-color (no outline).
 - **Search:** a pill with a 20px magnifier inset 12px, filtering the table as you type.
 - **File picker:** the native control with its button restyled as a 36px outlined pill in accent ink.
 - **Radios and checkboxes:** native, 18px, `accent-color` primary.
+- **Field help:** direct hint text is associated with the field controls through `aria-describedby` by the shared script.
+- **Secrets:** password fields receive a Show/Hide text button with `aria-controls`, `aria-pressed`, and an accessible name that includes the field label.
+- **Invalid and submitting states:** native validation opens enclosing expansion sections so invalid controls are reachable; server errors receive focus. Submitted POST forms expose `aria-busy`, disable submit buttons, and show “Working…”. Returning through the browser cache reloads the page to restore the controls.
 
 ### Navigation
 - **Toolbar:** sticky, 56px, page-gray background with a bottom divider, 20px title, then tabs at full height.
-- **Tabs:** icon (20px) plus label, secondary ink, 0 20px padding. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners.
+- **Tabs:** Certificates, Enroll, Authority, and Tools; icon (20px) plus label, secondary ink, 0 20px padding. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners.
 - **Mobile:** tabs become a fixed bottom bar; each tab is an equal column with the icon above a 12px label, and the indicator moves to the top edge, inset 25%.
+- **Tools navigation:** Groups, Wi-Fi networks, MDM profiles, Sign a request, Other trusted CAs, and Add-on options. A wrapping navigation row sits above each tool page, with 44px minimum targets, 8px corners, secondary ink at rest, and accent ink plus a 10% primary tint for `aria-current=page`. The Tools tab also exposes these routes in a native disclosure menu.
 - **Detail pages:** a back icon button replaces the tabs.
+- **Skip link:** admin and public pages expose “Skip to content” on keyboard focus and link to the main content landmark.
 
 ### Data Table
-After ha-data-table: 48px medium secondary-ink headers, 12px 16px cells, divider rules, tabular numerals. Whole rows are links (a stretched row link), with the hover wash and, on keyboard focus, a primary inset rule above and below. Secondary lines sit under the name at 13px. Columns marked hide-mobile drop at 640px and their values move into the name's subline.
+After ha-data-table: 48px medium secondary-ink headers, 12px 16px cells, divider rules, tabular numerals. Whole rows are links (a stretched row link), with the hover wash and, on keyboard focus, a focus-color inset rule above and below. Secondary lines sit under the name at 13px. Columns marked hide-mobile drop at 640px and their values move into the name's subline.
 
 ### Settings Rows and Key-Value Rows
 - **Settings row:** 64px minimum, 12px 16px, a 24px secondary-ink icon, title and subtitle, trailing icon-button actions; rows are separated by a divider.
 - **Key-value row:** a 120–180px key column in secondary ink, the value, and an optional trailing copy button; 48px minimum. Stacks under 520px of card width.
 
 ### Expansion Panels
-After ha-expansion-panel. A 56px summary row with a leading icon, a 16px title and secondary subtitle, an optional status chip, and a trailing chevron that rotates 180° on open (200ms ease-out). Panels are separated by dividers and clip to the card's corners. The body is 4px 16px 16px, or flush when it holds rows. A card header may head a card of panels, as on the Tools page (Sign a request, Other trusted CAs, Using an MDM; the URL hash such as #sign opens the matching panel).
+After ha-expansion-panel. A 56px summary row with a leading icon, a 16px title and secondary subtitle, an optional status chip, and a trailing chevron that rotates 180° on open (200ms ease-out). Panels are separated by dividers and clip to the card's corners. The body is 4px 16px 16px, or flush when it holds rows. A card header may head a card of panels; URL hashes open named reference sections. Task forms use related 56px disclosure summaries, divider-separated sections, and 20px body insets (16px on mobile), with the same hover wash and rotating chevron.
 
 ### Choice Cards
 Large radio choices for a decision the user must read. Each is a 12px-radius outlined card with a radio, a 24px accent-ink icon, a 16px medium title, and a secondary description. The checked choice gets a primary border, a 1px inset primary ring, and a 6% primary tint. A key-value detail block inside a choice appears only while that choice is checked, so the consequences of the selected option are visible and the other option's are not.
@@ -375,7 +380,9 @@ For device owners: a list where each step has a 28px circular counter in a 16% p
 - **Do** show status as a 12–16% tint with an ink-mixed foreground and, on chips, an 8px dot.
 - **Do** put a copy icon button next to every serial, fingerprint, URL, and password, and confirm it with the toast.
 - **Do** inline MDI icons as SVG paths from the shared icon set at 24, 20, or 18px.
-- **Do** keep reference values and secondary tools in collapsed expansion panels and give each panel an id the URL hash can open.
+- **Do** keep reference values in collapsed expansion panels with hash-addressable ids, and keep the six tool routes available in shared navigation.
+- **Do** use the accent-ink focus alias consistently for keyboard outlines, field rings, and linked-row indicators.
+- **Do** associate field hints with controls, expose secret visibility through accessible toggles, and show invalid and submitting states through the shared form behavior.
 - **Do** route every irreversible action through the confirm dialog.
 - **Do** turn off the dialog animation, toast transition, and chevron rotation under `prefers-reduced-motion`.
 
@@ -386,3 +393,50 @@ For device owners: a list where each step has a 28px circular counter in a 16% p
 - **Don't** use monospace for prose, labels, or add-on option names.
 - **Don't** fill a status chip, alert, or tile solid with its status color.
 - **Don't** load external fonts, icons, scripts, or images; the CSP allows inline CSS and nonce'd inline JS only.
+
+## Resident Wi-Fi captive onboarding
+
+The resident portal shares the public enrollment brand, card header, card content inset, alerts and field styling. It starts with the default-PSK captive redirect and a device-address check. Recovery precedes personal-data collection. Mobile resident inputs use 16px text and actions have a 44px minimum height. Successful registration displays the QR and password before a separate captive completion action; it does not navigate away automatically. The admin resident table adds the hardware MAC as data, with a dash when unavailable.
+
+Residents opens on task links, inventory counts and searchable Wi-Fi keys and
+registered devices. Key creation and captive setup use native disclosures;
+Share join codes jumps to the guest/setup QR pair. Search matches resident,
+device and network; a separate key-status selector has an explicit clear action.
+Dates follow the existing readable UTC format.
+
+Public resident pages reuse the shared nonce-protected script for copy feedback,
+submission progress and conditional fields. The captured current-device address
+stays read-only. Another-device selection reveals and requires its hardware MAC;
+hidden fields are disabled. The no-script form remains usable with server-side
+validation. Validation recovery preserves non-secret details. One-time success
+starts with a save-password warning and a copy action. Current-device completion
+explains finishing setup then joining the named network; another-device success
+prioritizes scanning/downloading. Add another device and Finish session remain
+secondary actions.
+
+## Full audit refinements (2026-10-02)
+
+Interactive action buttons, icon buttons and status filters have a 44px minimum
+height; icon buttons also have a 44px minimum width. Narrow forms use 16px
+input text. Settings definition rows keep values and their copy/download
+actions inside the same definition. Inline text links are underlined and
+scrollable tables expose a named keyboard focus target. Rows with three or
+more actions place those actions below the text on narrow screens.
+
+Password controls receive stable IDs, field-specific names and Show/Hide
+state. POST progress preserves the clicked submit button's name and value.
+Enrollment and Wi-Fi QRs use four quiet modules and an explicit white backing.
+The [full audit report](.impeccable/audits/2026-10-02-full-audit.md) records
+verification and the remaining deployment checks.
+
+## Pre-install setup and help (2026-10-02)
+
+Setup and checks follows native HA outlined cards and settings rows. Ordered
+installation steps precede explicit read-only readiness checks. States are
+written out; configured settings never imply successful device onboarding.
+Help uses a search form and native disclosures. Public residents see a compact
+ordered progress list and collapsed recovery guidance. Field errors name and
+associate the affected control without retaining invitation/password drafts.
+Inventories have independent page controls; sorting stays disclosed. On phones,
+secondary tools are behind Other tools so the current task leads the viewport.
+No change to the pinned HA font, tokens, CA ownership or MariaDB requirement.

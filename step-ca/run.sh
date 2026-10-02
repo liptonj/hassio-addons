@@ -8,6 +8,7 @@ readonly ca_password_file="${step_path}/secrets/password"
 readonly provisioner_password_file="${step_path}/secrets/provisioner_password"
 readonly db_password_file="${step_path}/secrets/db_password"
 readonly db_ro_password_file="${step_path}/secrets/db_readonly_password"
+readonly db_portal_password_file="${step_path}/secrets/db_portal_password"
 readonly templates_dir="${step_path}/templates"
 readonly leaf_template="${templates_dir}/scep_leaf.tpl"
 readonly leaf_template_data="${templates_dir}/scep_leaf.json"
@@ -24,6 +25,7 @@ readonly ssl_dir="/ssl"
 readonly ssl_signer_dir="/run/step-ca-signer"
 readonly enroll_port=8100
 readonly webhook_port=8101
+readonly portal_port=8102
 readonly ra_cert="${step_path}/scep/ra.crt"
 readonly ra_key="${step_path}/scep/ra.key"
 readonly https_address=":9000"
@@ -71,9 +73,12 @@ include_root="$(option '.include_root')"
 force_cn="$(option '.force_cn')"
 default_duration="$(option '.default_cert_duration')"
 max_duration="$(option '.max_cert_duration')"
-install_integration="$(option '.install_integration // true')"
+install_integration="$(option 'if .install_integration == false then false else true end')"
 database="$(option '.database // "mariadb"')"
 mariadb_database="$(option '.mariadb_database // "stepca"')"
+resident_enabled="$(option '.resident_onboarding.enabled // false')"
+resident_invite_required="$(option 'if .resident_onboarding.invite_required == false then false else true end')"
+resident_settings_json="$(option '.resident_onboarding // {}' | jq --compact-output .)"
 mapfile -t dns_names < <(option '.dns_names[]')
 public_url="$(option '.enrollment.public_url // ""')"
 # Accept "ha.example.com" and "https://ha.example.com/" as well.
@@ -95,6 +100,15 @@ subject_display="$(jq --raw-output '[["C", .country], ["ST", .province], ["L", .
   | map(select(.[1] != null) | "\(.[0])=\(.[1][0])") | join(", ")' <<<"${subject_policy}")"
 
 (( ${#dns_names[@]} > 0 )) || fatal "Configure at least one entry in dns_names."
+if [[ "${resident_enabled}" == "true" && "${database}" != "mariadb" ]]; then
+  fatal "Resident iPSK onboarding stores residents in Step CA's MariaDB schema. Set database to 'mariadb' to enable this feature."
+fi
+if [[ "${resident_enabled}" == "true" ]]; then
+  [[ -n "$(jq --raw-output '.network_id // ""' <<<"${resident_settings_json}")" ]] \
+    || fatal "Set resident_onboarding.network_id before enabling resident onboarding."
+  [[ -n "$(jq --raw-output '.group_policy_id // ""' <<<"${resident_settings_json}")" ]] \
+    || fatal "Set resident_onboarding.group_policy_id to the registered-resident Meraki policy before enabling resident onboarding."
+fi
 
 # Certificate groups (e.g. adults, kids, guests): each gets its own SCEP
 # provisioner and URL, and its certificates always carry the group's OU.
@@ -300,6 +314,7 @@ fi
 # With MariaDB the management page can read them; the embedded database is
 # locked by step-ca and only usable by step-ca itself.
 db_host="" db_port="" db_ro_user="" db_ro_password=""
+db_portal_user="" db_portal_password=""
 if [[ "${database}" == "mariadb" ]]; then
   [[ -n "${SUPERVISOR_TOKEN:-}" ]] || fatal "database is 'mariadb' but the Supervisor API is not available."
   mysql_service=""
@@ -333,11 +348,14 @@ if [[ "${database}" == "mariadb" ]]; then
   umask 077
   [[ -s "${db_password_file}" ]] || head -c 32 /dev/urandom | base64 | tr -d '\n/+=' > "${db_password_file}"
   [[ -s "${db_ro_password_file}" ]] || head -c 32 /dev/urandom | base64 | tr -d '\n/+=' > "${db_ro_password_file}"
+  [[ -s "${db_portal_password_file}" ]] || head -c 32 /dev/urandom | base64 | tr -d '\n/+=' > "${db_portal_password_file}"
   umask 022
   db_user="stepca_rw"
   db_password="$(cat "${db_password_file}")"
   db_ro_user="stepca_ro"
   db_ro_password="$(cat "${db_ro_password_file}")"
+  db_portal_user="stepca_portal"
+  db_portal_password="$(cat "${db_portal_password_file}")"
   (
     ADMIN_HOST="${db_host}" ADMIN_PORT="${db_port}" \
     ADMIN_USER="$(jq --raw-output '.username' <<<"${mysql_service}")" \
@@ -345,6 +363,7 @@ if [[ "${database}" == "mariadb" ]]; then
     DB_NAME="${mariadb_database}" \
     RW_USER="${db_user}" RW_PASSWORD="${db_password}" \
     RO_USER="${db_ro_user}" RO_PASSWORD="${db_ro_password}" \
+    PORTAL_USER="${db_portal_user}" PORTAL_PASSWORD="${db_portal_password}" \
     python3 "${db_setup}"
   ) || fatal "Could not create the MariaDB database '${mariadb_database}' and its users."
 
@@ -535,7 +554,8 @@ if [[ -n "${SUPERVISOR_TOKEN:-}" ]]; then
     --arg host "${addon_host}" \
     --arg root "$(cat "${step_path}/certs/root_ca.crt")" \
     --argjson enroll_port "${enroll_port}" \
-    '{service: "step_ca_scep", config: {host: $host, port: 9080, enroll_port: $enroll_port, root_pem: $root}}')"
+    --argjson portal_port "${portal_port}" \
+    '{service: "step_ca_scep", config: {host: $host, port: 9080, enroll_port: $enroll_port, portal_port: $portal_port, root_pem: $root}}')"
   if curl --silent --fail --output /dev/null \
     --header "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
     --header "Content-Type: application/json" \
@@ -562,6 +582,9 @@ while IFS= read -r group_name; do
 done < <(jq --raw-output '.[].name' <<<"${groups_json}")
 info "Root CA download: ${ha_url}/api/step_ca_scep/roots.pem"
 info "CRL download:     ${ha_url}/api/step_ca_scep/crl"
+if [[ "${resident_enabled}" == "true" ]]; then
+  info "Resident Wi-Fi:    ${ha_url}/api/step_ca_scep/portal"
+fi
 info "Starting step-ca and the management page."
 
 # step-ca logs its own URLs from the first dns_names entry and its internal
@@ -592,7 +615,12 @@ ca_pid=$!
   export PROFILE_SSL_CERT="${ssl_signer_dir}/signer.crt" PROFILE_SSL_KEY="${ssl_signer_dir}/signer.key"
   export PROFILE_SSL_LABEL="${signer_label}"
   export PROFILE_CA_CERT="${signer_cert}" PROFILE_CA_KEY="${signer_key}"
-  exec su-exec step:step python3 "${admin_app}"
+  export RESIDENT_PORTAL_ENABLED="${resident_enabled}" RESIDENT_INVITE_REQUIRED="${resident_invite_required}"
+  export RESIDENT_SETTINGS_JSON="${resident_settings_json}" RESIDENT_PUBLIC_BASE="/api/step_ca_scep/portal"
+  export PORTAL_DB_HOST="${db_host}" PORTAL_DB_PORT="${db_port}"
+  export PORTAL_DB_USER="${db_portal_user}" PORTAL_DB_PASSWORD="${db_portal_password}"
+  export RESIDENT_PORTAL_PORT="${portal_port}"
+  exec su-exec step:step /opt/step-ca-runtime/bin/python "${admin_app}"
 ) &
 admin_pid=$!
 

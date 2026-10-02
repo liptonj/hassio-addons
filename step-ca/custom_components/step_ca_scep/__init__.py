@@ -23,6 +23,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_ENROLL_PORT,
+    CONF_PORTAL_PORT,
     CONF_ROOT_PEM,
     DOMAIN,
     ENROLL_RESPONSE_HEADERS,
@@ -35,6 +36,7 @@ from .const import (
     UPSTREAM_TIMEOUT,
     URL_BASE,
 )
+from .ipsk_websocket import async_register as async_register_ipsk
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ _VIEWS_REGISTERED = f"{DOMAIN}_views_registered"
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Point the SCEP views at the add-on described by this entry."""
     hass.data[DOMAIN] = entry.data
+    async_register_ipsk(hass)
 
     # Views cannot be unregistered from aiohttp, so register them once and let
     # them read the current target from hass.data on each request.
@@ -52,6 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.http.register_view(RootCertificateView())
         hass.http.register_view(CrlView())
         hass.http.register_view(EnrollView())
+        hass.http.register_view(ResidentPortalView())
         hass.data[_VIEWS_REGISTERED] = True
 
     _LOGGER.info(
@@ -282,4 +286,67 @@ class EnrollView(HomeAssistantView):
                 )
         except (aiohttp.ClientError, TimeoutError) as err:
             _LOGGER.warning("Enrollment request to the add-on failed: %s", err)
+            return web.Response(status=HTTPStatus.BAD_GATEWAY)
+
+
+class ResidentPortalView(HomeAssistantView):
+    """Forward the public WPN resident onboarding flow to the add-on."""
+
+    url = URL_BASE + "/portal"
+    name = f"api:{DOMAIN}:resident-portal"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        return await self._forward(request, None)
+
+    async def post(self, request: web.Request) -> web.Response:
+        if (request.content_length or 0) > MAX_FORM_BYTES:
+            return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+        body = await request.content.read(MAX_FORM_BYTES + 1)
+        if len(body) > MAX_FORM_BYTES:
+            return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+        return await self._forward(request, body)
+
+    async def _forward(self, request: web.Request, body: bytes | None) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        target = hass.data.get(DOMAIN)
+        if target is None or not target.get(CONF_PORTAL_PORT):
+            return web.Response(status=HTTPStatus.SERVICE_UNAVAILABLE)
+        upstream = URL.build(
+            scheme="http", host=target[CONF_HOST], port=target[CONF_PORTAL_PORT], path="/portal"
+        )
+        if len(request.query_string) > 8192:
+            return web.Response(status=HTTPStatus.REQUEST_URI_TOO_LONG)
+        # Preserve the EXCAP redirect, including repeated fields so the add-on
+        # can reject ambiguity. Never trust a browser-supplied forwarding header.
+        upstream = upstream.with_query(request.query)
+        headers = {}
+        if body is not None:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        if cookie := request.headers.get("Cookie"):
+            headers["Cookie"] = cookie
+        if request.remote:
+            headers["X-Forwarded-For"] = request.remote
+        session = async_get_clientsession(hass)
+        try:
+            async with session.request(
+                request.method,
+                upstream,
+                data=body,
+                headers=headers,
+                allow_redirects=False,
+                # Group membership, Duo token exchange and Wi-Fi provisioning
+                # can require several individually bounded upstream calls.
+                timeout=aiohttp.ClientTimeout(total=180),
+            ) as resp:
+                response_headers = {
+                    key: value
+                    for key in (*ENROLL_RESPONSE_HEADERS, "Set-Cookie")
+                    if (value := resp.headers.get(key))
+                }
+                return web.Response(
+                    body=await resp.read(), status=resp.status, headers=response_headers
+                )
+        except (aiohttp.ClientError, TimeoutError) as err:
+            _LOGGER.warning("Resident portal request to the add-on failed: %s", err)
             return web.Response(status=HTTPStatus.BAD_GATEWAY)

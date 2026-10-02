@@ -104,6 +104,61 @@ KEEP_SECONDS = 30 * 86400
 P12_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
 
 
+# Apple's managed Wi-Fi payload supports these EAP types. Keep the panel,
+# validation, manual instructions, and profile writer on the same vocabulary.
+WIFI_AUTH = {
+    "eap_tls": ("EAP-TLS", 13, "Device certificate"),
+    "peap": ("PEAP", 25, "User name and password"),
+    "eap_ttls": ("EAP-TTLS", 21, "User name and password"),
+    "eap_fast": ("EAP-FAST", 43, "User name and password / PAC"),
+    "eap_sim": ("EAP-SIM", 18, "Carrier SIM"),
+    "eap_aka": ("EAP-AKA", 23, "Carrier SIM"),
+    "leap": ("LEAP (legacy)", 17, "Legacy user name and password"),
+    "psk": ("Pre-shared key", None, "Shared network password"),
+}
+TUNNELED_EAP = ("peap", "eap_ttls", "eap_fast")
+PASSWORD_EAP = (*TUNNELED_EAP, "leap")
+TLS_EAP = ("eap_tls", *TUNNELED_EAP)
+TTLS_INNER = ("MSCHAPv2", "PAP", "CHAP", "MSCHAP", "EAP")
+
+
+class UnsupportedWifiPlatform(ValueError):
+    """The selected platform cannot use a network's authentication method."""
+
+
+def eap_configuration(network, cn):
+    """Method-specific EAP settings, without server trust or identity references."""
+    method = network.get("authentication") or "eap_tls"
+    if method not in WIFI_AUTH or method == "psk":
+        raise ValueError("Choose a supported 802.1X authentication method.")
+    eap = {"AcceptEAPTypes": [WIFI_AUTH[method][1]]}
+    if method == "eap_tls":
+        eap["UserName"] = network.get("eap_username") or cn
+    elif method in PASSWORD_EAP:
+        if network.get("eap_username"):
+            eap["UserName"] = network["eap_username"]
+        if network.get("eap_password") and not (method in TUNNELED_EAP and network.get("eap_password_per_connection")):
+            eap["UserPassword"] = network["eap_password"]
+        if method in TUNNELED_EAP:
+            eap["OneTimeUserPassword"] = bool(network.get("eap_password_per_connection"))
+            if network.get("eap_outer_identity"):
+                eap["OuterIdentity"] = network["eap_outer_identity"]
+    if method in TLS_EAP:
+        eap["TLSMinimumVersion"] = network.get("tls_minimum") or "1.2"
+        if network.get("tls_maximum"):
+            eap["TLSMaximumVersion"] = network["tls_maximum"]
+        eap["TLSCertificateIsRequired"] = method == "eap_tls" or bool(network.get("eap_client_certificate"))
+    if method == "eap_ttls":
+        eap["TTLSInnerAuthentication"] = network.get("ttls_inner_authentication") or "MSCHAPv2"
+    if method == "eap_fast":
+        eap["EAPFASTUsePAC"] = bool(network.get("eap_fast_use_pac"))
+        eap["EAPFASTProvisionPAC"] = bool(network.get("eap_fast_provision_pac"))
+        eap["EAPFASTProvisionPACAnonymously"] = False
+    if method == "eap_sim":
+        eap["EAPSIMNumberOfRANDs"] = int(network.get("eap_sim_rands") or 3)
+    return eap
+
+
 def _hash(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -879,7 +934,7 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
         wifi = [wifi]
     networks = [w for w in wifi or [] if wifi_name(w)]
     has_wifi = bool(networks)
-    known = {fingerprint(c) for c in extra_cas}
+    known = {fingerprint(c): anchor for c, anchor in zip(extra_cas, anchors[2:])}
     identifiers = set()
     for network in networks:
         payload = wifi_payload(network, prefix, identifiers, platform)
@@ -887,16 +942,26 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             payload["Password"] = network.get("password") or ""
             payloads.append(payload)
             continue
-        eap = {"AcceptEAPTypes": [13], "UserName": cn, "TLSMinimumVersion": "1.2"}
+        method = network.get("authentication") or "eap_tls"
+        if platform == "macos" and method in ("eap_sim", "eap_aka"):
+            raise UnsupportedWifiPlatform(f"{WIFI_AUTH[method][0]} requires a compatible carrier SIM on iPhone or iPad. "
+                             "Download this network as an iOS profile instead.")
+        eap = eap_configuration(network, cn)
+        if method not in TLS_EAP:
+            payload["EAPClientConfiguration"] = eap
+            payloads.append(payload)
+            continue
+        network_anchors = list(anchors)
         server_names = [n for n in network.get("radius_server_names") or [] if n]
         service = radius_service(network)
         if service:
             for cert in service["roots"]:
                 if fingerprint(cert) in known:
+                    network_anchors.append(known[fingerprint(cert)])
                     continue
-                known.add(fingerprint(cert))
                 service_uuid = str(uuid.uuid4()).upper()
-                anchors.append(service_uuid)
+                known[fingerprint(cert)] = service_uuid
+                network_anchors.append(service_uuid)
                 payloads.append({
                     "PayloadType": "com.apple.security.root",
                     "PayloadVersion": 1,
@@ -909,14 +974,10 @@ def build_profile(*, cn, challenge, scep_url, ca_name, organization, root, inter
             server_names += [n for n in service["server_names"] if n not in server_names]
         if server_names:
             eap["TLSTrustedServerNames"] = server_names
-        payload.update({
-            "EAPClientConfiguration": eap,
-            # The identity comes from the SCEP payload; the RADIUS server's
-            # certificate must chain to this CA, an uploaded extra CA, or a
-            # selected RADIUS service's root.
-            "PayloadCertificateUUID": scep_uuid,
-            "PayloadCertificateAnchorUUID": anchors,
-        })
+        eap["PayloadCertificateAnchorUUID"] = list(dict.fromkeys(network_anchors))
+        payload["EAPClientConfiguration"] = eap
+        if method == "eap_tls" or network.get("eap_client_certificate"):
+            payload["PayloadCertificateUUID"] = scep_uuid
         payloads.append(payload)
     if update_url:
         payloads.append({

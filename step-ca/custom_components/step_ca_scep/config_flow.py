@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
-from .const import CONF_ENROLL_PORT, CONF_ROOT_PEM, DOMAIN
+from .const import CONF_ENROLL_PORT, CONF_PORTAL_PORT, CONF_ROOT_PEM, DOMAIN
 
 
 class StepCaScepConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -30,6 +30,7 @@ class StepCaScepConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_PORT: int(config[CONF_PORT]),
             CONF_ROOT_PEM: config.get(CONF_ROOT_PEM, ""),
             CONF_ENROLL_PORT: int(config.get(CONF_ENROLL_PORT) or 0),
+            CONF_PORTAL_PORT: int(config.get(CONF_PORTAL_PORT) or 8102),
         }
         # There is only one CA; keep its entry pointed at the add-on's current
         # hostname and root even if the add-on is reinstalled.

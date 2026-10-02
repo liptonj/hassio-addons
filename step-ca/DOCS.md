@@ -57,6 +57,8 @@ It lets you:
 - enroll devices with one-time links or QR codes, enroll the computer you are
   using, or issue a certificate directly (see
   [Enrolling devices](#enrolling-devices));
+- onboard residents and manage Meraki iPSKs from the **Residents** tab (see
+  [Resident Wi-Fi](#resident-wi-fi));
 - sign certificate requests (CSRs) from other systems, such as a RADIUS or
   web server, or another CA (see
   [Signing certificate requests](#signing-certificate-requests));
@@ -80,6 +82,8 @@ the Supervisor, only to set up its own database and accounts:
 - a database named by `mariadb_database` (default `stepca`);
 - `stepca_rw`, used by step-ca, with access to that database only;
 - `stepca_ro`, used by the management page, with read-only access.
+- `stepca_portal`, restricted to the resident and invitation tables in the
+  same database.
 
 Their passwords are generated on first start and kept in
 `/data/step/secrets`.
@@ -98,6 +102,277 @@ switch are no longer enforced.
 
 The MariaDB database is included in the MariaDB add-on's backups, not this
 add-on's, so back up both.
+
+## Resident Wi-Fi
+
+The **Residents** tab brings the WPN portal's resident iPSK onboarding and
+key management into Step CA. Set up the `meraki_ha` integration in Home
+Assistant with access to the target Meraki organization. Step CA's companion
+integration **1.5.0 or later** supplies the `step_ca_scep/ipsk/` bridge for
+options, listing, creation, retrieval, password reveal, revocation and deletion.
+It reuses Meraki HA's authenticated SDK session, including OAuth refresh;
+no additional API credential is stored in the portal. Only Home Assistant
+administrators and its authenticated Supervisor service user can call the bridge.
+The Meraki integration pins **SDK 4.5.0b4**, the latest beta checked on October 2,
+2026. Its existing Push API operations require the beta; stable 4.5.0 omits them.
+Store the Cisco client secret in Home Assistant's **Application credentials**;
+access and refresh tokens are kept in the Meraki integration's config entry.
+These Home Assistant files are not an encrypted vault: restrict configuration
+directory access and protect its backups. Step CA keeps no Meraki credentials
+in its options or MariaDB. Meraki diagnostic exports and routine dashboard
+responses redact Wi-Fi/RADIUS secrets; explicit password reveal remains an
+administrator operation.
+Resident and invitation records are stored as
+`stepca_residents` and `stepca_invites` in the Step CA database; no second
+portal database is created. Resident accounts and devices use
+`stepca_resident_accounts` and `stepca_resident_devices`. Key attribution,
+network/SSID scope and administrator revocation history use `stepca_ipsks`
+in the same database. Wi-Fi passwords are retrieved from Meraki when needed,
+and are never persisted in these tables.
+
+Use an enabled **Identity PSK without RADIUS** SSID and set its actual
+`group_policy_id` in the resident onboarding options. Meraki requires a group
+policy when creating these keys. The administrator form loads SSID and policy
+choices for the selected network; choices from another network are rejected.
+Revocation expires the Meraki key immediately and records the revoked state
+in MariaDB. Deletion removes it from Meraki and retains a deleted history row.
+If a provisioning request times out, check Meraki Dashboard before retrying:
+Dashboard's create operation has no verified idempotency contract.
+
+Enable `resident_onboarding.enabled`, choose the Meraki `network_id` and
+`ssid_number`, and set an optional key lifetime in hours (`0` means no
+expiration). `invite_required` defaults to true. Restart the add-on, then use
+**Residents → Create invitation code** to issue single-use codes. The public
+registration page is served through Home Assistant at
+`/api/step_ca_scep/portal`.
+
+### Default PSK captive portal
+
+Serve the public portal over HTTPS. Its browser sessions use Secure cookies;
+plain HTTP on a network hostname cannot retain those sessions.
+
+Resident onboarding now starts from the Meraki captive portal. A direct visit
+to the portal shows connection instructions; it cannot create a registration.
+The default setup PSK leads new residents to the captive portal, where they
+receive their individual key after the device-address check.
+
+Configure the Meraki SSID before enabling resident onboarding:
+
+1. Use the default setup PSK/iPSK with a restricted onboarding group policy
+   that uses the network's splash settings. Keep the setup key available to
+   residents through your building's existing instructions.
+2. Enable **Click-through splash page**, set the custom splash URL to
+   `https://YOUR_PUBLIC_HA_HOST/api/step_ca_scep/portal`, and allow the portal
+   host through the walled garden. Block all access before sign-on.
+3. Apply a separate registered-resident group policy with splash bypass to
+   individual resident keys using `resident_onboarding.group_policy_id`.
+   Keep the default setup key on the restricted onboarding policy.
+4. Confirm both the setup-key captive redirect and individual-key connection
+   from a physical Wi-Fi device. This add-on does not change SSID settings.
+
+The portal reads Meraki's `client_mac` and `base_grant_url` redirect fields,
+stores them in a browser-bound session for 15 minutes, and checks the address
+before displaying the form and again before any database or key operation.
+Missing, invalid, multicast and locally administered MACs are rejected. The
+blocked page explains how to turn off **Private Wi-Fi Address**, **Randomized
+MAC** or **Random hardware addresses** and reconnect. Registration saves the
+normalized hardware MAC beside the resident's key in Step CA's database.
+Imported residents keep an empty MAC until they are reconciled separately.
+
+The locally administered bit is a conservative check: it also rejects
+manually assigned local MACs and is not proof that an address is randomized.
+EXCAP query parameters are unsigned; preserving them in the session prevents
+editing the MAC in the registration POST, but does not authenticate the
+original redirect or prevent MAC spoofing. Network access policy must still
+be enforced by Meraki. No manually entered MAC fallback is provided.
+
+After successful registration, the resident saves the new password and
+reconnects with it, keeping private addressing off on that network. **Finish
+captive portal** follows only a validated HTTPS `*.network-auth.com`
+click-through grant URL and requests a five-minute setup access window.
+No grant link is offered on a rejected or failed registration.
+
+### Guest, registration and device QR codes
+
+The **Residents** page opens with device/key counts, search and a key-status
+filter. **Manage keys**, **Create a key** and **Share join codes** jump to their
+tasks; key creation and setup instructions are collapsed until needed.
+
+Under **Share join codes**, the page offers two shareable Wi-Fi QRs:
+
+- **Guest access:** joins the network with the existing guest PSK or guest
+  iPSK. Configure that key's Meraki policy with splash bypass so guests get
+  access without creating a resident account. The resident MAC check does
+  not apply to guest access.
+- **Join and create a key:** joins with the default setup PSK or iPSK.
+  Meraki then opens its captive portal on the scanning device, where the
+  resident turns off private addressing if prompted, registers and receives
+  an individual key. Scanning the QR connects to Wi-Fi; account creation
+  still happens in the captive portal and requires an invitation when enabled.
+
+Open **QR network settings** to set each existing network's name and password,
+then save. These map to `resident_onboarding.guest_ssid`, `guest_psk`,
+`setup_ssid` and `setup_psk` in the add-on options. Blank password fields
+preserve saved passwords; clear a network name to remove its QR. The settings
+apply to QR generation immediately and do not reconfigure Meraki. The two
+flows may use the same SSID with different iPSKs and group policies, or
+different SSIDs. They must not use the same name/password combination.
+Download either QR as an SVG to share or print it.
+
+An administrator can also use **Create a key for another device** to issue an
+individual iPSK from their own computer or phone. Give the key the target
+device's name, choose its network and SSID, and select **Create key and QR**.
+The panel retrieves the actual SSID and password from Home Assistant and
+displays a downloadable join QR for the target device. **Show QR** retrieves
+the current credentials for an existing active key; expired or revoked keys
+cannot generate a join QR. Devices without a camera can use the displayed
+network name and password. This administrator flow remains protected by Home
+Assistant; optional resident self-service is configured separately below.
+The QR carries Wi-Fi credentials and does not bind the key to a hardware MAC.
+
+### Resident self-service and Duo
+
+Enable the public resident portal and select MariaDB, then open **Residents →
+Resident self-service and Duo**. The same controls appear under
+`resident_onboarding` in the add-on options:
+
+| Setting | Behavior |
+| --- | --- |
+| Allow residents to add other devices | Residents can create a new iPSK and downloadable Wi-Fi QR for another device. |
+| Require Duo verification | A resident enters their Duo username, verifies through the Universal Prompt, and must belong to the configured group. |
+| Show a resident list when sign-in is off | Only usernames from the configured Duo group appear in the selector. Selected names attribute new keys; they are not authenticated identities. |
+| Both verification and the resident list off | Residents enter their name and email. They must arrive through the setup captive portal. |
+| Device limit per resident | Limits recorded device keys. Revoke or delete a self-service key in this admin panel to release its slot. |
+
+The list setting is used only when Duo verification is off. Guest QR access
+is separate and never requires resident verification. Existing Wi-Fi passwords
+are never exposed through resident self-service, including without sign-in.
+The unverified modes are an explicit administrator choice: someone who selects
+another name can create a new key attributed to that name, and consume its
+device allowance. Keep invitation requirements enabled when appropriate.
+
+For Duo verification or the group selector, create a **Duo Admin API**
+application with **Grant resource – Read** permission only. Enter its integration
+key, secret, API hostname and the permitted group's `DG…` ID. The portal calls
+`GET /admin/v2/groups/{group_id}/users` through the official `duo-client` SDK's
+paged group iterator. It fetches individual details only for the selected user;
+it never falls back to the tenant-wide user list. The group and selected user
+must be active, and membership is checked again before key creation. Empty,
+missing or inaccessible groups stop the flow. Use a resident group with at most
+500 members. See [Duo Admin API](https://duo.com/docs/adminapi).
+
+For verification, also create a **Duo Web SDK** application and enter its
+client ID, secret and API hostname. Set the callback URL in this portal and Duo
+to your public HTTPS Home Assistant URL followed by
+`/api/step_ca_scep/portal?action=duo_callback`. Grant the resident group access
+to the Duo application. The official `duo-universal` SDK validates the returned
+token against the pending username and nonce; the portal also checks browser
+state, rejects bypass responses without authentication-method evidence, and
+rechecks membership. Duo outages block verification. The setup network must
+allow Home Assistant, Duo Universal Prompt and its required resources through
+its walled garden. Full primary/password authentication is provided by **Duo
+SSO**, not the Universal SDK; this implementation supplies factor verification.
+See [Duo Universal SDK](https://duo.com/docs/duoweb) and
+[Duo OIDC authentication](https://duo.com/docs/oauthapi).
+
+Residents can open `/api/step_ca_scep/portal?action=account` on the public
+Home Assistant URL. Duo verification permits direct entry. Without verification,
+a resident must first enter through the captive setup flow; the directory is
+not exposed on a direct unauthenticated visit. Choose the current device or
+**Another device**, enter its name and hardware Wi-Fi MAC, then create its key.
+The current-device MAC comes from the server's captured captive context; an
+other-device MAC is manually entered and conservatively checked for the local
+bit. Neither the manual address nor the Wi-Fi QR binds the key to that hardware.
+Turn private addressing off on the target device before connecting. When
+invitations are required, each device key consumes one invitation.
+
+Attribution and device records are stored in `stepca_resident_accounts` and
+`stepca_resident_devices` in Step CA's existing MariaDB schema. Passwords remain
+in the existing Meraki iPSK service. Administrator resident records include
+self-service devices. Browser sessions last 30 minutes, stay server-side and
+end on restart, logout or access-policy changes. The session cookie is HttpOnly,
+Secure and SameSite=Lax to support the Duo return. Forms require session CSRF
+tokens; successful key creation rotates the token to prevent resubmission.
+Saved secret fields stay blank in the administrator form and retain their
+previous value when saved empty.
+
+The resident page creates a unique Meraki iPSK for the resident and stores
+their name, email, unit, hardware MAC, and key association in Step CA's database. The
+passphrase is shown once on successful registration; an administrator can
+reveal it later through the iPSK manager. Revoke or delete keys from the same
+page. Certificate issuance remains in the Step CA enrollment flow, so the
+portal does not create a second CA or issue duplicate certificates.
+
+This is a new portal installation. Accounts, devices, invitations and key
+metadata are created directly in Step CA's MariaDB database. No old WPN
+database is imported or opened.
+
+Resident onboarding requires `database: mariadb`. Step CA's embedded Badger
+database is managed exclusively by the Step CA process and cannot be shared
+with the resident portal. Selecting the embedded database while onboarding is
+enabled stops startup with a configuration error.
+
+### Key lifecycle and registration limits
+
+Revoking or deleting a key in Step CA frees its resident device slot and
+hardware MAC address while retaining the recorded history. Before issuing a
+key, Step CA reconciles explicit `expired` and `revoked` statuses from Meraki.
+A missing key or an unknown status never silently releases a device slot.
+Removing a key outside Step CA requires reconciliation by an administrator if
+the integration no longer returns its status. Registration for the same MAC
+is serialized across both resident tables; account locks protect quotas.
+
+Legacy registration allows five submissions per client IP per ten minutes.
+Self-service device creation and no-sign-in selection each allow sixty;
+Duo verification starts allow five. The resident's configured device quota
+still applies. The limiter expires old entries and caps its memory usage.
+
+### Access Manager account API research
+
+Cisco documents Access Manager APIs under the Dashboard API's `nac` product,
+with Early API Access requirements. Its [client endpoint](https://developer.cisco.com/meraki/api-v1/get-organization-nac-clients/)
+returns client records with owner/user details and iPSK information;
+[client groups](https://developer.cisco.com/meraki/api-v1/get-organization-nac-clients-groups/)
+provide group membership. These are client APIs. A resident account-directory
+endpoint has not been verified for this deployment. Duo's permitted group
+remains the implemented source of resident choices. See Cisco's
+[Access Manager API documentation](https://documentation.meraki.com/Platform_Management/Access_Manager#APIs).
+
+## Setup guidance and connection checks
+
+Open **Tools → Setup and checks** for installation steps and a readiness view
+of MariaDB, the existing Meraki connection, the selected resident network/SSID/
+policy, public HTTPS, resident identity policy, and guest/setup QR settings.
+Before configuration, the page explains what is missing. **Check connections**
+performs read-only checks only when requested: it reads the five resident tables,
+requests Meraki choices through the existing companion, and reads Home
+Assistant’s external URL where needed. It does not issue certificates, create
+keys, change policies or validate a physical Wi-Fi connection.
+
+“Configured; not verified” means required settings are present, not that the
+service or device flow has passed. The Duo check validates local settings;
+actual credentials, group permissions and callbacks need deployment checks.
+After editing add-on options, restart Step CA; the readiness view checks the
+running configuration. Service timeouts produce recovery guidance without
+showing credentials or provider response bodies.
+
+**Tools → Help and troubleshooting** includes searchable guides for initial
+setup, resident Wi-Fi, the three QR use cases, private MAC recovery, expired
+sessions/lost credentials and certificate installation. Public resident pages
+also include a collapsed **Need help connecting?** guide and numbered progress.
+
+Resident management shows 25 keys and 25 device records per page. Device
+search runs against the complete active MariaDB inventory; it is no longer
+restricted to the latest 250 records. The two tables page independently, retain
+search/status/network/sort choices in their links, and clamp invalid page
+numbers. Sorting is disclosed under **Sorting options**. The optional Duo-group
+selector can filter its already-permitted accounts locally by name or username;
+it never queries the full tenant user list.
+
+Server validation associates supported errors with the affected input and
+preserves bounded, escaped non-secret drafts. Invitation codes and passwords
+are not retained in those drafts. A timeout after creation requires an admin
+check for an existing key before another creation request.
 
 ## First start
 
@@ -349,6 +624,24 @@ enrollment links, **Enroll this device**, and the MDM profile with every
 network set up only the networks that have it on (a profile can set up an SSID
 only once), and each network can be downloaded on its own under **Tools → MDM
 profiles**.
+
+The Wi-Fi editor separates network details, authentication, server trust,
+connection behavior, proxy, joining, QoS, and Passpoint. Its live summary
+shows the method, security, and which downloads include the network. Saving
+updates future profiles, not installed profiles or the access point / RADIUS
+configuration. Test a new profile on one device before distributing it.
+
+For PEAP, TTLS, and FAST, leaving credentials empty lets each person enter
+an account on their device. The generated profile still includes SCEP
+certificate enrollment; only EAP-TLS and methods with **Also require the
+device certificate** use that certificate for Wi-Fi authentication.
+
+Payload keys and method IDs follow
+[Apple's managed Wi-Fi schema](https://github.com/apple/device-management/blob/release/mdm/profiles/com.apple.wifi.managed.yaml).
+CA anchor UUIDs belong inside `EAPClientConfiguration`. Each network gets
+its own anchor list, so a hosted service's root does not become trusted by
+an unrelated custom network. .p12 pages show instructions for the selected
+method; a .p12 does not configure Wi-Fi automatically.
 
 ### Subject alternative names
 
@@ -707,12 +1000,42 @@ Each network:
   Networks with it on must have different SSIDs; download the others on their
   own under **Tools → MDM profiles**.
 - `ssid`: network name. Optional for a Passpoint network.
-- `authentication`: `eap_tls` (default), where each device signs in with the
-  certificate from this CA through a RADIUS server (WPA Enterprise); or
-  `psk`, one shared password (WPA Personal).
+- `authentication`: `eap_tls` (default), `peap`, `eap_ttls`, `eap_fast`,
+  `eap_sim`, `eap_aka`, `leap` (legacy), or `psk`. Match your RADIUS server.
+  EAP-TLS uses this CA's certificate; PEAP/TTLS/FAST use RADIUS account
+  credentials; SIM/AKA need a compatible carrier SIM on iPhone or iPad.
+  LEAP has no TLS tunnel and is offered only for existing legacy networks.
+  Apple does not list TEAP, EAP-PWD, or EAP-AKA′ in its managed Wi-Fi payload.
+- `eap_username`: optional RADIUS account name; empty asks on the device
+  for password methods. EAP-TLS defaults to the certificate name.
+- `eap_password`: optional RADIUS account password, included in downloaded
+  profiles. Leave empty for individual accounts. The panel keeps a saved
+  password when the edit field is blank; **Remove the saved 802.1X password**
+  clears it. Switching away from password authentication also clears it.
+- `eap_password_per_connection`: PEAP/TTLS/FAST ask each time and clear the
+  saved password. A new profile must be installed to change existing devices.
+- `eap_outer_identity`: optional anonymous identity for PEAP/TTLS/FAST,
+  such as `anonymous@example.com`. Match the RADIUS realm.
+- `eap_client_certificate`: require the SCEP certificate as well as account
+  credentials for PEAP/TTLS/FAST, only if your RADIUS policy requires it.
+- `ttls_inner_authentication`: `MSCHAPv2` (default), `PAP`, `CHAP`, `MSCHAP`,
+  or `EAP`. This setting applies only to TTLS. Meraki Access Manager's
+  account-based flow uses **EAP-TTLS/PAP**, as described in
+  [Meraki's client configuration guide](https://documentation.meraki.com/Platform_Management/Access_Manager/Design_and_Configure/EAP-TTLS_Client_Configuration).
+- `tls_minimum`: `1.2` (default) or `1.3` for TLS/PEAP/TTLS/FAST.
+  `tls_maximum`: optional `1.2` or `1.3`; empty leaves Apple's device default.
+  A minimum of 1.3 requires an explicit maximum of 1.3 and, for tunneled
+  methods, an outer identity. Device and RADIUS compatibility must be checked.
+- `eap_fast_use_pac` and `eap_fast_provision_pac`: enable both for authenticated
+  PAC provisioning, or leave both off to use the server certificate.
+  Anonymous PAC provisioning is disabled.
+- `eap_sim_rands`: `3` (default) or `2` for carrier compatibility, SIM only.
+  macOS MDM downloads reject SIM/AKA networks with a platform-specific error.
+  ZIP bundles include supported profiles and a README listing omitted Mac profiles.
 - `password`: the network password for `psk`, 8 to 63 characters (or 64
   hex digits). Profiles with the network include it.
-- `security`: `WPA2` (default), `WPA3`, or `Any`.
+- `security`: `WPA2` (default), `WPA3`, or `Any`. On current Apple devices,
+  WPA2 permits WPA2/WPA3; WPA3 requires WPA3. Any also permits legacy WPA/WEP.
 - `hidden`: the network does not broadcast its name.
 - `auto_join`: join automatically (default on).
 - `disable_mac_randomization`: turns off Private Wi-Fi Address for this
@@ -725,9 +1048,8 @@ Each network:
   [Cisco Meraki Access Manager](#cisco-meraki-access-manager).
 - `radius_server_names`: optional. Pins the names in the RADIUS server's
   certificate that devices accept. Without it, devices accept any server
-  certificate issued by the CAs the profile trusts, which is fine when that
-  is this CA. It matters only when the CA also issues certificates to other
-  servers, such as a public CA; Meraki's name is added for you.
+  certificate issued by the CAs the profile trusts. Set server names to
+  restrict trust, especially for a public CA. Meraki's name is added for you.
 - `proxy`: `none` (default), `manual`, or `auto`. A web proxy used on this
   network only. Apple applies it on iPhone and iPad; Macs also take the
   manual server and the PAC URL.
@@ -740,14 +1062,15 @@ Each network:
   page) on this network. iPhone and iPad.
 - `mac_login_window`: a Mac joins the network at the login window, before
   anyone signs in, using the certificate in the System keychain (for network
-  accounts and FileVault). The profile then installs for the whole Mac, which
-  an administrator approves.
+  accounts). Requires EAP-TLS. The profile then installs for the whole Mac,
+  which an administrator approves. It does not enable Wi-Fi in FileVault preboot.
 - `qos_marking`: Cisco Fast Lane QoS marking. `default` lets every app mark
   its traffic; `allowlist` lets only FaceTime and Wi-Fi Calling
   (`qos_apple_calls`) and the apps in `qos_apps` (bundle IDs) do it; `off`
   makes the device ignore Fast Lane on this network.
 - `passpoint`: a Passpoint (Hotspot 2.0) network, found by its operator
-  rather than only its SSID. Needs `eap_tls` and `passpoint_domain`.
+  rather than only its SSID. Needs an enterprise EAP method and `passpoint_domain`;
+  shared passwords and LEAP are rejected.
   Optional: `passpoint_operator_name` (shown when connected),
   `passpoint_roaming_consortium_ois` (6 or 10 hex digits each),
   `passpoint_nai_realms`, `passpoint_mcc_mncs` (six digits each; iPhone and

@@ -1,0 +1,185 @@
+{
+  "generated_at": "2026-10-02T20:08:42.529458+00:00",
+  "status": "local checks passed; deployment and independent critique pending",
+  "addon_version": "0.30.2.46",
+  "companion_version": "1.5.0",
+  "new_installation": true,
+  "old_wpn_database_import": false,
+  "database": "Step CA MariaDB schema",
+  "unit_contract_tests": {
+    "count": 112,
+    "status": "passed",
+    "meraki_sdk": "4.5.0b2",
+    "network": "loopback fixtures only",
+    "upstream_fixture_warning": "Duo standard 40-byte HMAC secret below PyJWT SHA512 recommendation; not suppressed"
+  },
+  "images": [
+    {
+      "id": "sha256:91cede6b84669a2edc4de836aa3b87af7480dca5dd93434895f443868b8a1838",
+      "architecture": "arm64",
+      "os": "linux",
+      "addon_arch": "aarch64",
+      "build": "passed",
+      "runtime": {
+        "status": "passed",
+        "machine": "aarch64",
+        "portal_imports": true,
+        "companion_compile": true
+      }
+    },
+    {
+      "id": "sha256:36734ec4dbbf8f7e9a2397cf6fabbbe608a8a23872c6ffeefc459b1631809932",
+      "architecture": "amd64",
+      "os": "linux",
+      "addon_arch": "amd64",
+      "build": "passed",
+      "runtime": {
+        "status": "passed",
+        "machine": "x86_64",
+        "portal_imports": true,
+        "companion_compile": true
+      }
+    },
+    {
+      "id": "sha256:967e5635c5638c8688779ecea00747b4338ff941e0089d1e706074b313f4c932",
+      "architecture": "arm",
+      "os": "linux",
+      "addon_arch": "armv7",
+      "build": "passed",
+      "runtime": {
+        "status": "passed",
+        "machine": "armv7l",
+        "portal_imports": true,
+        "companion_compile": true
+      }
+    }
+  ],
+  "mariadb": {
+    "mariadb": "10.11.19-MariaDB-ubu2204",
+    "checks": [
+      "stepca_audit_fresh: repeated setup preserves consumed invitations",
+      "stepca_audit_fresh: limited portal and read-only certificate privileges",
+      "stepca_audit_fresh: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_fresh: revoked device history and replacement MAC",
+      "stepca_audit_fresh: revoked legacy email/MAC can be replaced",
+      "stepca_audit_fresh: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_fresh: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_fresh: concurrent owner quota cannot be exceeded",
+      "stepca_audit_fresh: invitation expiry checked inside real transaction",
+      "stepca_audit_fresh: concurrent invitation consumption provisions one key",
+      "stepca_audit_fresh: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_fresh: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_fresh: repeated schema upgrade retains historical duplicates safely",
+      "stepca_audit_legacy: repeated setup preserves consumed invitations",
+      "stepca_audit_legacy: limited portal and read-only certificate privileges",
+      "stepca_audit_legacy: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_legacy: revoked device history and replacement MAC",
+      "stepca_audit_legacy: revoked legacy email/MAC can be replaced",
+      "stepca_audit_legacy: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_legacy: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_legacy: concurrent owner quota cannot be exceeded",
+      "stepca_audit_legacy: invitation expiry checked inside real transaction",
+      "stepca_audit_legacy: concurrent invitation consumption provisions one key",
+      "stepca_audit_legacy: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_legacy: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_legacy: repeated schema upgrade retains historical duplicates safely"
+    ],
+    "count": 26,
+    "status": "passed"
+  },
+  "ca": {
+    "status": "passed",
+    "checks": [
+      "full startup with one MariaDB-backed CA",
+      "real CSR signing and decryptable PKCS#12 chain",
+      "actual certificate renewal with existing device key",
+      "actual certificate revocation",
+      "published CRL contains revoked certificate",
+      "running SCEP provisioner advertises supported capabilities",
+      "companion integration 1.5.0 installed with iPSK bridge",
+      "certificate issued before container replacement renews after restart"
+    ],
+    "count": 8,
+    "certificate_material": "disposable fixture only"
+  },
+  "network_picker_confirmation": [
+    {
+      "width": 1280,
+      "mode": "light",
+      "violations": [],
+      "overflow": false,
+      "network": "N_other"
+    },
+    {
+      "width": 1280,
+      "mode": "dark",
+      "violations": [],
+      "overflow": false,
+      "network": "N_other"
+    },
+    {
+      "width": 320,
+      "mode": "light",
+      "violations": [],
+      "overflow": false,
+      "network": "N_other"
+    },
+    {
+      "width": 320,
+      "mode": "dark",
+      "violations": [],
+      "overflow": false,
+      "network": "N_other"
+    }
+  ],
+  "source_sha256": {
+    ".dockerignore": "e51091ec920bb4e8c95ebaedef64bda6b14c16268cad05bfb1232191f7658b3c",
+    "Dockerfile": "30b46543b111591b9028f3c936a865952092abda17814fbb4be5a443f26ea1e4",
+    "admin/app.py": "90b3e9c61fe94d3457c659ebee37f16c32fe893548be834ee3fbc4b1cb3599fc",
+    "admin/captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+    "admin/db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+    "admin/enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+    "admin/ipsk.py": "b027e63938cd401e6503ae4d26634166dcd3a2b4828a8a175df81eaf45c422ce",
+    "admin/requirements.txt": "19e7475354e1c38f98f48f0c9e8c02e1dd7f9820d8b9826cf8439dc04f351f33",
+    "admin/resident_access.py": "be97bf3655ec6d3963d98deeb3204db3f8f16011db8a11f7d83d07f63b9d7bda",
+    "admin/ui.py": "221ad0705baf17685f1014775074985b2f89a4e64c6e4394923afb77edd90e8b",
+    "config.yaml": "7aab820d78c65123816e973329d594da1029295b70dedf18daa564b843c85697",
+    "custom_components/step_ca_scep/__init__.py": "ec7ec8596455b519374f2d44659982f5a3ed74389ce954610baf1a0aa33462dd",
+    "custom_components/step_ca_scep/config_flow.py": "cb91258c3b56771dcfd02979eb538bbf8b9cc56057603238c1d2d2608ac217eb",
+    "custom_components/step_ca_scep/const.py": "82362be8bb6b2f2b76a9ed4eece622eb3fb866c1dd077893a6a957ebf92592c1",
+    "custom_components/step_ca_scep/ipsk_websocket.py": "c6d7bcac90b9bd132e3cf9774d36bdc2df883e9b9a43e1c0c3d0a42e39228c03",
+    "custom_components/step_ca_scep/manifest.json": "d4b1e295d2009e9ee05269f6677f786dbe6971b0048ecca6ae5e66ff9e995544",
+    "custom_components/step_ca_scep/meraki_ipsk.py": "ada3b01950e9ce3e3345b5fd26740ad8533e7b2f06beb48d3bface662ba04f9b",
+    "run.sh": "eb307ef3a56f53d24f3dbe02c0477dfba2de630f2d0d6f185755e26c6ed8a0e5",
+    "translations/en.yaml": "5ae2e7aaefcaf11e6117eb9e54853f53e6ba3aee3280c93883c0e47a7c9c27b2"
+  },
+  "remaining": [
+    "deployed Home Assistant/Meraki/Duo access",
+    "physical Wi-Fi QR and SCEP/MDM installs",
+    "Impeccable independent-review permission already requested"
+  ],
+  "isolation": {
+    "colima_profile": "stepca-audit",
+    "host_ports_published": false,
+    "production_certificates_changed": false,
+    "production_wifi_changed": false,
+    "audit_profile_removed": true,
+    "fixture_database_and_ca_removed": true,
+    "cleanup_correction": "The original delete retained the container data disk. A follow-up discovered retention; final --data deletion verified in 2026-10-02-portal-final-evidence.json."
+  },
+  "sdk_security_followup": {
+    "file": "2026-10-02-meraki-sdk-secrets-evidence.json",
+    "sdk": "4.5.0b4",
+    "portal_contract_tests": 112,
+    "meraki_full_tests": 1141,
+    "status": "passed",
+    "note": "Subsequent verification; original image/database/CA evidence and source hashes retained"
+  },
+  "portal_final_followup": {
+    "file": "2026-10-02-portal-final-evidence.json",
+    "portal_tests": 119,
+    "status": "passed",
+    "note": "Current source rebuilt and rechecked. Original historical source hashes retained."
+  },
+  "historical_revision_note": "Source/image/test records preserved for their historical revision. Current critique changes and runtime proof are in 2026-10-02-critique-final-evidence.json."
+}

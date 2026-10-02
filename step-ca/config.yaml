@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2.44"
+version: "0.30.2.46"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -72,6 +72,29 @@ options:
     radius_server: "custom"
     radius_server_names: []
   wifi_networks: []
+  resident_onboarding:
+    enabled: false
+    invite_required: true
+    network_id: ""
+    ssid_number: 0
+    group_policy_id: ""
+    duration_hours: 0
+    guest_ssid: ""
+    guest_psk: ""
+    setup_ssid: ""
+    setup_psk: ""
+    self_service_enabled: false
+    sign_in_required: false
+    no_sign_in_user_list: false
+    max_devices_per_resident: 5
+    duo_client_id: ""
+    duo_client_secret: ""
+    duo_api_hostname: ""
+    duo_redirect_uri: ""
+    duo_admin_integration_key: ""
+    duo_admin_secret: ""
+    duo_admin_hostname: ""
+    duo_group_id: ""
 
 schema:
   ca_name: str(2,64)
@@ -108,8 +131,19 @@ schema:
     ssl_key: match(^([A-Za-z0-9._-]+)?$)?
   wifi:
     ssid: str(0,32)?
-    authentication: list(eap_tls|psk)?
+    authentication: list(eap_tls|peap|eap_ttls|eap_fast|eap_sim|eap_aka|leap|psk)?
     password: password?
+    eap_username: str(0,255)?
+    eap_password: password?
+    eap_outer_identity: str(0,255)?
+    eap_password_per_connection: bool?
+    eap_client_certificate: bool?
+    ttls_inner_authentication: list(MSCHAPv2|PAP|CHAP|MSCHAP|EAP)?
+    tls_minimum: list(1.2|1.3)?
+    tls_maximum: list(1.2|1.3)?
+    eap_fast_use_pac: bool?
+    eap_fast_provision_pac: bool?
+    eap_sim_rands: int(2,3)?
     security: list(WPA2|WPA3|Any)
     hidden: bool
     auto_join: bool
@@ -121,8 +155,19 @@ schema:
     - name: str(0,64)?
       include_by_default: bool?
       ssid: str(0,32)?
-      authentication: list(eap_tls|psk)?
+      authentication: list(eap_tls|peap|eap_ttls|eap_fast|eap_sim|eap_aka|leap|psk)?
       password: password?
+      eap_username: str(0,255)?
+      eap_password: password?
+      eap_outer_identity: str(0,255)?
+      eap_password_per_connection: bool?
+      eap_client_certificate: bool?
+      ttls_inner_authentication: list(MSCHAPv2|PAP|CHAP|MSCHAP|EAP)?
+      tls_minimum: list(1.2|1.3)?
+      tls_maximum: list(1.2|1.3)?
+      eap_fast_use_pac: bool?
+      eap_fast_provision_pac: bool?
+      eap_sim_rands: int(2,3)?
       security: list(WPA2|WPA3|Any)?
       hidden: bool?
       auto_join: bool?
@@ -154,3 +199,26 @@ schema:
         - str?
       passpoint_hessid: str?
       passpoint_roaming: bool?
+  resident_onboarding:
+    enabled: bool
+    invite_required: bool
+    network_id: str(0,128)?
+    ssid_number: int(0,14)
+    group_policy_id: str(0,128)?
+    duration_hours: int(0,87600)
+    guest_ssid: str(0,32)?
+    guest_psk: password?
+    setup_ssid: str(0,32)?
+    setup_psk: password?
+    self_service_enabled: bool?
+    sign_in_required: bool?
+    no_sign_in_user_list: bool?
+    max_devices_per_resident: int(1,50)?
+    duo_client_id: str(0,20)?
+    duo_client_secret: password?
+    duo_api_hostname: str(0,128)?
+    duo_redirect_uri: str(0,2048)?
+    duo_admin_integration_key: str(0,20)?
+    duo_admin_secret: password?
+    duo_admin_hostname: str(0,128)?
+    duo_group_id: str(0,20)?

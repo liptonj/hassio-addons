@@ -2,6 +2,11 @@
 !run.sh
 !custom_components/
 !admin/app.py
+!admin/captive.py
 !admin/db_setup.py
 !admin/enroll.py
+!admin/ipsk.py
+!admin/requirements.txt
+!admin/resident_access.py
 !admin/ui.py
+!admin/guidance.py

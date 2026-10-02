@@ -1,13 +1,12 @@
-"""Small certificate management page for the Step CA SCEP add-on.
+"""Certificate and resident network management for the Step CA add-on.
 
 Served through Home Assistant ingress, so Home Assistant handles login, and
 limited to Home Assistant administrators (ingress itself admits any user). The
 certificate inventory is read from step-ca's MariaDB database; revocation goes
 through step-ca's API so the CRL is regenerated.
 
-Two more listeners serve device enrollment (see enroll.py): a public one that
-Home Assistant forwards /api/step_ca_scep/enroll/<token> to, limited to the Home
-Assistant container, and a loopback-only SCEPCHALLENGE webhook for step-ca.
+Additional listeners serve one-time device enrollment and resident Wi-Fi
+onboarding through Home Assistant, plus a loopback-only SCEP challenge webhook.
 """
 
 import asyncio
@@ -42,6 +41,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509.oid import ExtensionOID, NameOID
 
 import enroll
+import ipsk
+import guidance
 import ui
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
@@ -67,6 +68,7 @@ SUBJECT_POLICY = os.environ.get("SUBJECT_POLICY", "")
 CA_NAME = os.environ.get("CA_NAME", "Home Assistant CA")
 SCEP_CHALLENGE = os.environ.get("SCEP_CHALLENGE", "")
 ENROLL_PORT = int(os.environ.get("ENROLL_PORT", "8100"))
+RESIDENT_PORTAL_PORT = int(os.environ.get("RESIDENT_PORTAL_PORT", "8102"))
 WEBHOOK_PORT = int(os.environ.get("WEBHOOK_PORT", "8101"))
 WEBHOOK_CERT = os.environ.get("WEBHOOK_CERT", f"{STEP_PATH}/enroll/webhook.crt")
 WEBHOOK_KEY = os.environ.get("WEBHOOK_KEY", f"{STEP_PATH}/enroll/webhook.key")
@@ -147,6 +149,11 @@ async def _fetch_admin_ids():
 
 async def _core_call(*messages):
     """Send commands over Core's websocket; returns each result, or None when one fails."""
+    async with asyncio.timeout(10):
+        return await _core_exchange(*messages)
+
+
+async def _core_exchange(*messages):
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.ws_connect(CORE_WEBSOCKET) as ws:
@@ -327,7 +334,7 @@ def esc(value):
 
 
 def qr_svg(text):
-    image = qrcode.make(text, image_factory=qrcode.image.svg.SvgPathImage, border=2)
+    image = qrcode.make(text, image_factory=qrcode.image.svg.SvgPathFillImage, border=4)
     svg = image.to_string(encoding="unicode")
     return svg[svg.index("<svg"):]
 
@@ -553,6 +560,14 @@ def wifi_settings(option):
         "name": text("name"), "include_by_default": flag("include_by_default", True),
         "ssid": str(option.get("ssid") or ""), "authentication": text("authentication") or "eap_tls",
         "password": str(option.get("password") or ""), "security": text("security") or "WPA2",
+        "eap_username": text("eap_username"), "eap_password": str(option.get("eap_password") or ""),
+        "eap_outer_identity": text("eap_outer_identity"),
+        "eap_password_per_connection": flag("eap_password_per_connection"),
+        "eap_client_certificate": flag("eap_client_certificate"),
+        "ttls_inner_authentication": text("ttls_inner_authentication") or "MSCHAPv2",
+        "tls_minimum": text("tls_minimum") or "1.2", "tls_maximum": text("tls_maximum"),
+        "eap_fast_use_pac": flag("eap_fast_use_pac"), "eap_fast_provision_pac": flag("eap_fast_provision_pac"),
+        "eap_sim_rands": int(option.get("eap_sim_rands") or 3),
         "hidden": flag("hidden"), "auto_join": flag("auto_join", True),
         "disable_mac_randomization": flag("disable_mac_randomization"),
         "radius_server": text("radius_server") or "custom",
@@ -592,7 +607,7 @@ def check_wifi_option(wifi, others=()):
         raise ValueError("Enter the network name (SSID), or a Passpoint domain for a Passpoint network.")
     if name.lower() in {enroll.wifi_name(o).lower() for o in others}:
         raise ValueError(f"There is already a network named {name}. Give this one its own name.")
-    if len(wifi["name"]) > 64 or not wifi["name"].isprintable():
+    if len(wifi["name"]) > 64 or (wifi["name"] and not wifi["name"].isprintable()):
         raise ValueError("The name can be at most 64 characters.")
     ssid = enroll.wifi_ssid(wifi)
     clash = next((enroll.wifi_name(o) for o in others if o["include_by_default"] and enroll.wifi_ssid(o) == ssid),
@@ -601,21 +616,49 @@ def check_wifi_option(wifi, others=()):
         raise ValueError(f"The network {clash} has the same SSID and is also in every profile. A profile can set "
                          "up an SSID only once: turn off In every profile for one of them and download it on "
                          "its own from Tools > MDM profiles.")
+    if not wifi["ssid"] and not wifi["passpoint"]:
+        raise ValueError("Enter the network name (SSID), or enable Passpoint and enter its domain.")
     if len(wifi["ssid"].encode()) > 32:
         raise ValueError("The network name (SSID) can be at most 32 bytes.")
-    if wifi["authentication"] not in ("eap_tls", "psk"):
-        raise ValueError("Choose EAP-TLS or a pre-shared key for authentication.")
+    method = wifi["authentication"]
+    if method not in enroll.WIFI_AUTH:
+        raise ValueError("Choose an authentication method from the list.")
+    identity_fields = [("eap_username", "802.1X identity")] if method in (*enroll.TLS_EAP, "leap") else []
+    if method in enroll.TUNNELED_EAP:
+        identity_fields.append(("eap_outer_identity", "Outer identity"))
+    for field, label in identity_fields:
+        if len(wifi[field]) > 255 or (wifi[field] and not wifi[field].isprintable()):
+            raise ValueError(f"{label} must be at most 255 printable characters.")
+    if method in enroll.PASSWORD_EAP and len(wifi["eap_password"]) > 255:
+        raise ValueError("The 802.1X password must be at most 255 characters.")
+    if method == "eap_ttls" and wifi["ttls_inner_authentication"] not in enroll.TTLS_INNER:
+        raise ValueError("Choose a supported EAP-TTLS inner authentication method.")
+    if method in enroll.TLS_EAP:
+        if wifi["tls_minimum"] not in ("1.2", "1.3") or wifi["tls_maximum"] not in ("", "1.2", "1.3"):
+            raise ValueError("Choose TLS 1.2 or TLS 1.3.")
+        if wifi["tls_minimum"] == "1.3" and wifi["tls_maximum"] != "1.3":
+            raise ValueError("Choose a TLS maximum of 1.3 when the minimum is 1.3.")
+        if method in enroll.TUNNELED_EAP and wifi["tls_minimum"] == "1.3" and not wifi["eap_outer_identity"]:
+            raise ValueError("Enter an outer identity when using TLS 1.3 with a tunneled EAP method.")
+    if method == "eap_fast" and wifi["eap_fast_use_pac"] != wifi["eap_fast_provision_pac"]:
+        raise ValueError("Turn on both Use PAC and Provision PAC, or leave both off to use server certificates.")
+    if method == "eap_sim" and wifi["eap_sim_rands"] not in (2, 3):
+        raise ValueError("Choose two or three EAP-SIM challenges.")
+    if wifi["mac_login_window"] and method != "eap_tls":
+        raise ValueError("Mac login-window connections in this add-on need EAP-TLS. Turn off that setting "
+                         "for password or SIM authentication.")
     if wifi["authentication"] == "psk" and not (
             8 <= len(wifi["password"]) <= 63 and wifi["password"].isascii() and wifi["password"].isprintable()
             or re.fullmatch(r"[0-9A-Fa-f]{64}", wifi["password"])):
         raise ValueError("The Wi-Fi password must be 8 to 63 characters (or 64 hex digits).")
     if wifi["security"] not in WIFI_SECURITY:
         raise ValueError("Choose WPA2, WPA3, or Any for security.")
-    if wifi["radius_server"] != "custom" and wifi["radius_server"] not in enroll.RADIUS_SERVICES:
-        raise ValueError("Choose a RADIUS server from the list.")
-    for server in wifi["radius_server_names"]:
-        if not SERVER_NAME_RE.fullmatch(server):
-            raise ValueError(f"{server!r} is not a server name, such as radius.example.com.")
+    if method in enroll.TLS_EAP:
+        if wifi["radius_server"] != "custom" and wifi["radius_server"] not in enroll.RADIUS_SERVICES:
+            raise ValueError("Choose a RADIUS server from the list.")
+        for server in wifi["radius_server_names"]:
+            if not SERVER_NAME_RE.fullmatch(server):
+                raise ValueError(f"{server!r} is not a server name, such as radius.example.com.")
     if wifi["proxy"] not in WIFI_PROXY:
         raise ValueError("Choose None, Manual, or Automatic for the proxy.")
     if wifi["proxy"] == "manual":
@@ -634,8 +677,9 @@ def check_wifi_option(wifi, others=()):
         if not BUNDLE_ID_RE.fullmatch(app):
             raise ValueError(f"{app!r} is not an app bundle ID, such as com.microsoft.teams.")
     if wifi["passpoint"]:
-        if wifi["authentication"] != "eap_tls":
-            raise ValueError("Passpoint networks need EAP-TLS; a pre-shared key does not work with Passpoint.")
+        if method in ("psk", "leap"):
+            raise ValueError("Passpoint needs a supported enterprise EAP method; shared passwords and LEAP "
+                             "are not available for Passpoint.")
         if not SERVER_NAME_RE.fullmatch(wifi["passpoint_domain"]) or "*" in wifi["passpoint_domain"]:
             raise ValueError("Enter the Passpoint domain, such as example.com.")
         if len(wifi["passpoint_operator_name"]) > 64:
@@ -851,7 +895,7 @@ def update_link(token, link_id, link, cn):
     return f"{link['base_url']}{enroll.PUBLIC_BASE}/enroll/{token}"
 
 
-def profile_for(cn, challenge, base_url, wifi, sans=(), group="", update_url=None):
+def profile_for(cn, challenge, base_url, wifi, sans=(), group="", update_url=None, platform=None):
     root, inter = cert_chain()
     organization = ""
     match = re.search(r"(?:^|, )O=([^,]+)", SUBJECT_POLICY)
@@ -862,7 +906,7 @@ def profile_for(cn, challenge, base_url, wifi, sans=(), group="", update_url=Non
         scep_url=f"{base_url}{enroll.PUBLIC_BASE}/scep/{group_provisioner(group)}",
         ca_name=CA_NAME, organization=organization, root=root, intermediate=inter,
         wifi=default_networks() if wifi else None, extra_cas=enroll.load_extra_cas(), sans=sans,
-        update_url=update_url,
+        update_url=update_url, platform=platform,
     )
     return SIGNER.sign(xml)
 
@@ -956,10 +1000,19 @@ def mdm_bundle(cn, base_url, email="", group=""):
         contents = ["trust"]
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        skipped = []
         for platform, label in MDM_PLATFORMS.items():
             for value in contents:
-                xml, filename = mdm_profile(platform, value, cn, base_url, email, group)
+                try:
+                    xml, filename = mdm_profile(platform, value, cn, base_url, email, group)
+                except enroll.UnsupportedWifiPlatform as err:
+                    skipped.append(f"{label} / {value}: {err}")
+                    continue
                 archive.writestr(f"{label}/{filename}", xml)
+        if skipped:
+            archive.writestr("README.txt", "Some Wi-Fi profiles were omitted because their authentication "
+                             "method is not available on that platform. iOS versions and supported Mac "
+                             "profiles are included.\n\n" + "\n".join(skipped) + "\n")
     return buffer.getvalue(), f"{safe_filename(CA_NAME)}-{group + '-' if group else ''}mdm-profiles.zip"
 
 
@@ -1009,6 +1062,48 @@ def wifi_help():
     return "".join(network_help(w) for w in default_networks())
 
 
+def mdm_wifi_settings(wifi):
+    """Plain-text reference settings, with no saved passwords exposed."""
+    method = wifi.get("authentication") or "eap_tls"
+    label = enroll.WIFI_AUTH.get(method, ("Unknown method",))[0]
+    security = wifi.get("security") or "WPA2"
+    if method == "psk":
+        return f"{security} Personal, {label}, use the saved network password"
+    parts = [f"{security} Enterprise", label]
+    if method == "eap_tls":
+        parts += ["client certificate = the SCEP payload",
+                  "802.1X identity = " + (wifi.get("eap_username") or "the certificate name")]
+    elif method in enroll.PASSWORD_EAP:
+        parts += ["802.1X identity = " + (wifi.get("eap_username") or "ask for the RADIUS account on the device"),
+                  "password = " + ("ask on every connection" if method in enroll.TUNNELED_EAP
+                                    and wifi.get("eap_password_per_connection") else
+                                    "the saved RADIUS account password" if wifi.get("eap_password") else
+                                    "ask on the device")]
+        if method in enroll.TUNNELED_EAP:
+            if wifi.get("eap_outer_identity"):
+                parts.append("outer identity = " + wifi["eap_outer_identity"])
+            parts.append("also require client certificate = the SCEP payload" if wifi.get("eap_client_certificate")
+                         else "client certificate not required for Wi-Fi")
+        if method == "eap_ttls":
+            parts.append("inner authentication = " + (wifi.get("ttls_inner_authentication") or "MSCHAPv2"))
+        if method == "eap_fast":
+            parts.append("authenticated PAC provisioning" if wifi.get("eap_fast_use_pac")
+                         else "PAC disabled; use the server certificate")
+        if method == "leap":
+            parts.append("legacy method; no TLS tunnel or server-certificate trust")
+    elif method in ("eap_sim", "eap_aka"):
+        parts.append("identity = a compatible carrier SIM on iPhone or iPad; no SCEP identity for Wi-Fi")
+    if method in enroll.TLS_EAP:
+        names = list(wifi.get("radius_server_names") or [])
+        service = enroll.radius_service(wifi)
+        if service:
+            names += [name for name in service["server_names"] if name not in names]
+        parts.append("trusted certificates = the CA certificate payloads" +
+                     (" and " + enroll.common_name(service["roots"][0]) if service else ""))
+        parts.append("trusted server names = " + (", ".join(names) or "any name under those trusted CAs"))
+    return "; ".join(parts)
+
+
 def network_help(wifi):
     title = f'<div class="card"><div class="card-header"><h2>Connect to Wi-Fi {esc(enroll.wifi_ssid(wifi))}</h2></div>'
     if wifi.get("authentication") == "psk":
@@ -1019,10 +1114,12 @@ def network_help(wifi):
             title + '<dl class="card-content flush rows">'
             + "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd></div>' for k, v in rows) + "</dl></div>"
         )
-    names = wifi.get("radius_server_names") or []
+    method = wifi.get("authentication") or "eap_tls"
+    method_name = enroll.WIFI_AUTH.get(method, ("Unknown method",))[0]
+    names = list(wifi.get("radius_server_names") or [])
     service = enroll.radius_service(wifi)
     if service:
-        names = names + [n for n in service["server_names"] if n not in names]
+        names += [n for n in service["server_names"] if n not in names]
         ca = (f'{esc(enroll.common_name(service["roots"][0]))}, a public root '
               "(Android: Use system certificates)")
     elif enroll.load_extra_cas():
@@ -1031,12 +1128,29 @@ def network_help(wifi):
         ca = "the root CA above (Android: install it as a CA certificate)"
     rows = [
         ("Network (SSID)", esc(wifi["ssid"]) if wifi["ssid"] else f'Passpoint, domain {esc(wifi["passpoint_domain"])}'),
-        ("Security", f'{esc(wifi.get("security", "WPA2"))} Enterprise, EAP method <b>TLS</b>'),
-        ("CA certificate", ca),
-        ("Identity", "your certificate name"),
+        ("Security", f'{esc(wifi.get("security", "WPA2"))} Enterprise'),
+        ("EAP method", esc(method_name)),
     ]
-    if names:
-        rows.append(("Domain / server name", esc(names[0])))
+    if method in enroll.TLS_EAP:
+        rows.append(("CA certificate", ca))
+        if names:
+            rows.append(("Domain / server name", esc(", ".join(names))))
+    if method == "eap_tls":
+        rows.append(("Identity", esc(wifi.get("eap_username") or "your certificate name")))
+        rows.append(("Client certificate", "the certificate you just installed"))
+    elif method in enroll.PASSWORD_EAP:
+        rows.append(("Identity", esc(wifi.get("eap_username") or "your RADIUS account user name")))
+        rows.append(("Password", "your RADIUS account password"))
+        if wifi.get("eap_outer_identity") and method in enroll.TUNNELED_EAP:
+            rows.append(("Anonymous / outer identity", esc(wifi["eap_outer_identity"])))
+        if method == "eap_ttls":
+            rows.append(("Inner authentication", esc(wifi.get("ttls_inner_authentication") or "MSCHAPv2")))
+        if method == "peap":
+            rows.append(("Phase 2 authentication", "Match your RADIUS server (usually MSCHAPv2)."))
+        if method in enroll.TUNNELED_EAP and wifi.get("eap_client_certificate"):
+            rows.append(("Client certificate", "the certificate you just installed, also required by RADIUS"))
+    else:
+        rows.append(("Identity", "provided by a compatible carrier SIM; device and carrier support required"))
     if wifi.get("proxy") == "manual":
         rows.append(("Proxy", f'{esc(wifi["proxy_server"])}:{wifi["proxy_port"]}'))
     elif wifi.get("proxy") == "auto":
@@ -1155,12 +1269,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     TABS = (("/", "Certificates", "certificate"), ("/enroll", "Enroll", "qrcode"),
+            ("/residents", "Residents", "wifi"),
             ("/ca", "Authority", "shield-check"), ("/tools", "Tools", "wrench"))
 
     def current_tab(self):
         path = urllib.parse.urlsplit(self.path).path
         if path.startswith(("/enroll", "/issue")):
             return "/enroll"
+        if path.startswith("/residents"):
+            return "/residents"
         if path.startswith("/ca"):
             return "/ca"
         if path.startswith("/tools"):
@@ -1174,7 +1291,8 @@ class Handler(BaseHTTPRequestHandler):
             f"<!doctype html><html lang=en><head><meta charset=utf-8>"
             f'<meta name=viewport content="width=device-width, initial-scale=1">{head}'
             f"<title>{esc(title)}</title><style>{ui.STYLE}</style></head>"
-            f'<body class="{body_class}">{body}<script nonce="{nonce}">{ui.SCRIPT}</script></body></html>',
+            f'<body class="{body_class}">{ui.DIRECTION}<a class="skip-link" href="#main-content">Skip to content</a>'
+            f'{body}<script nonce="{nonce}">{ui.SCRIPT}</script></body></html>',
             nonce=nonce,
         )
 
@@ -1195,7 +1313,9 @@ class Handler(BaseHTTPRequestHandler):
         self.document(
             title,
             f'<header class="toolbar">{bar}</header>'
-            f'<main class="content{" narrow" if narrow else ""}">{body}</main>',
+            f'<main id="main-content" tabindex="-1" class="content{" narrow" if narrow else ""}">'
+            + (self.tool_navigation(title) if self.current_tab() == "/tools" and not back else "")
+            + body + '</main>',
             status, head=head, body_class="" if back else "has-tabs",
         )
 
@@ -1247,8 +1367,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.wifi_page(query)
             elif path == "/tools/options":
                 self.options_page()
+            elif path == "/tools/setup":
+                self.setup_page(query)
+            elif path == "/tools/help":
+                self.help_page(query)
             elif path == "/enroll":
                 self.enroll_page(query=query)
+            elif path == "/residents":
+                self.residents_page(query)
             elif path == "/enroll/self":
                 self.self_enroll_page()
             elif m := ENROLL_SELF_FILE_RE.fullmatch(path):
@@ -1304,7 +1430,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_post(self):
         path = urllib.parse.urlsplit(self.path).path
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self.send(400, "Invalid request size", "text/plain")
+            return
+        if length < 0:
+            self.send(400, "Invalid request size", "text/plain")
+            return
         if length > (UPLOAD_LIMIT if path in ("/ca/extra", "/ca/sign") else 16384 if path == "/tools/wifi/save"
                      else 4096):
             self.send(413, "Request too large", "text/plain")
@@ -1315,6 +1448,9 @@ class Handler(BaseHTTPRequestHandler):
             form = parse_multipart(content_type, body)
         else:
             form = urllib.parse.parse_qs(body.decode(errors="replace"))
+        if any(len(values) != 1 for values in form.values()):
+            self.send(400, "Submit each form field once.", "text/plain")
+            return
         if not secrets.compare_digest(str(form.get("csrf", [""])[0]), CSRF_TOKEN):
             self.send(403, "Invalid form token; reload the page and try again.", "text/plain")
             return
@@ -1334,6 +1470,121 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/tools/wifi/delete":
             self.wifi_delete(form)
+            return
+        if path == "/residents/invite":
+            if not os.environ.get("PORTAL_DB_HOST"):
+                self.residents_page({}, error="Resident onboarding requires the MariaDB database used by Step CA.")
+            else:
+                code = ipsk.create_invite(self.headers.get("X-Remote-User-Id", "Home Assistant administrator"))
+                self.residents_page({}, invite_code=code)
+            return
+        if path == "/residents/qr/settings":
+            try:
+                options = saved_options()
+                settings = dict(options.get("resident_onboarding") or {})
+                for kind in ("guest", "setup"):
+                    ssid = str(form.get(kind + "_ssid", [""])[0])
+                    password = str(form.get(kind + "_psk", [""])[0])
+                    if not ssid:
+                        settings[kind + "_ssid"] = settings[kind + "_psk"] = ""
+                    else:
+                        password = password or str(settings.get(kind + "_psk") or "")
+                        ipsk.validate_wifi_credentials(ssid, password)
+                        settings[kind + "_ssid"], settings[kind + "_psk"] = ssid, password
+                if (settings.get("guest_ssid") and settings.get("setup_ssid")
+                        and (settings["guest_ssid"], settings["guest_psk"])
+                        == (settings["setup_ssid"], settings["setup_psk"])):
+                    raise ValueError("Use different guest and setup credentials so guests can bypass registration.")
+                options["resident_onboarding"] = settings
+                supervisor("POST", "/addons/self/options", {"options": options})
+                self.residents_page({"qr_saved": ["1"]})
+            except Exception as err:  # noqa: BLE001 - the authenticated panel explains the failure
+                self.residents_page({}, error=str(err))
+            return
+        if path == "/residents/access/settings":
+            try:
+                options = saved_options()
+                settings = dict(options.get("resident_onboarding") or {})
+                access = ipsk.resident_access
+                for key in access.BOOL_FIELDS:
+                    settings[key] = form.get(key, [""])[0] == "1"
+                for key in access.TEXT_FIELDS:
+                    settings[key] = str(form.get(key, [""])[0]).strip()
+                for key in access.SECRET_FIELDS:
+                    settings[key] = str(form.get(key, [""])[0]) or settings.get(key, "")
+                settings["max_devices_per_resident"] = int(form.get("max_devices_per_resident", ["5"])[0])
+                access.validate_settings(settings)
+                options["resident_onboarding"] = settings
+                supervisor("POST", "/addons/self/options", {"options": options})
+                access.SETTINGS_OVERRIDE = settings
+                self.residents_page({"access_saved": ["1"]})
+            except Exception as err:
+                self.residents_page({}, error=str(err))
+            return
+        if path == "/residents/ipsk/create":
+            values = {key: str(items[0]).strip() for key, items in form.items() if items}
+            try:
+                name = values.get("name", "")
+                network_id = values.get("network_id", "")
+                ssid_number = int(values.get("ssid_number", "-1"))
+                duration = int(values.get("duration_hours", "0"))
+                # Spaces can be part of a Wi-Fi password.
+                passphrase = str(form.get("passphrase", [""])[0])
+                if not name or len(name) > 100 or not name.isprintable():
+                    raise ValueError("Enter a key name of 1 to 100 printable characters.")
+                if duration < 0 or duration > 87600:
+                    raise ValueError("Choose a duration between 0 and 87,600 hours.")
+                if passphrase and not (8 <= len(passphrase) <= 63 and passphrase.isascii()
+                                       and passphrase.isprintable() or re.fullmatch(r"[0-9A-Fa-f]{64}", passphrase)):
+                    raise ValueError("Passphrases must be 8–63 printable ASCII characters or 64 hexadecimal digits.")
+                options = ipsk.get_options(network_id)
+                networks = options.get("networks") or []
+                ssids = options.get("ssids") or []
+                if not any(str(item.get("id")) == network_id for item in networks):
+                    raise ValueError("Choose a network available in Home Assistant.")
+                if not any(int(item.get("number", -1)) == ssid_number for item in ssids):
+                    raise ValueError("Choose an SSID available in Home Assistant.")
+                created = ipsk.create_admin_ipsk(
+                    name, network_id, ssid_number, passphrase, duration,
+                    values.get("group_policy_id", ""), values.get("unit", ""), values.get("user", ""),
+                )
+                ident = str(created.get("id") or created.get("psk_group_id") or "")
+                if not ident:
+                    raise RuntimeError("Home Assistant did not return the new key ID.")
+                try:
+                    join_key = ipsk.ipsk_join_details(ident)
+                except Exception as err:
+                    self.residents_page({}, error=f"The key was created, but its QR is unavailable: {err}", created_key=ident)
+                else:
+                    self.residents_page({}, created_key=ident, join_key=join_key)
+            except Exception as err:  # noqa: BLE001 - shown in the admin panel
+                self.residents_page({}, error=str(err))
+            return
+        if path == "/residents/invite/revoke":
+            ipsk.revoke_invite(form.get("invite_id", [""])[0])
+            self.redirect("/residents?invite_revoked=1")
+            return
+        if path == "/residents/ipsk/action":
+            ident = str(form.get("ipsk_id", [""])[0])
+            action = str(form.get("action", [""])[0])
+            if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,191}", ident) or action not in ("reveal", "qr", "revoke", "delete"):
+                self.residents_page({}, error="Choose a valid iPSK action.")
+                return
+            if action == "qr":
+                try:
+                    self.residents_page({}, join_key=ipsk.ipsk_join_details(ident))
+                except Exception as err:
+                    self.residents_page({}, error=str(err))
+            elif action == "reveal":
+                self.residents_page({}, revealed=(ident, ipsk.reveal_ipsk(ident)))
+            else:
+                ipsk.set_ipsk_status(ident, action)
+                if os.environ.get("PORTAL_DB_HOST"):
+                    with ipsk.db_connect() as conn, conn.cursor() as cursor:
+                        cursor.execute("UPDATE stepca_resident_devices SET active = FALSE WHERE ipsk_id = %s", (ident,))
+                        cursor.execute("UPDATE stepca_residents SET active = FALSE WHERE ipsk_id = %s", (ident,))
+                        conn.commit()
+                self.redirect("/residents?ipsk_" + action + "d=1")
             return
         if path == "/tools/groups/save":
             self.group_save(form)
@@ -1626,7 +1877,7 @@ class Handler(BaseHTTPRequestHandler):
             details += [("Revoked at", esc(r.get("RevokedAt", "")), ""), ("Reason", esc(reason), "")]
             revoked_note = ui.alert("error", f"Reason: {esc(reason)}. Relying systems reject it once they load the CRL.",
                                     "This certificate is revoked")
-        dl = "".join(f'<div class="kv"><dt>{k}</dt><dd>{v}</dd>{b or "<span></span>"}</div>' for k, v, b in details)
+        dl = "".join(ui.kv_row(k, v, b) for k, v, b in details)
 
         span = (c["not_after"] - c["not_before"]).total_seconds() or 1
         done = min(max((now - c["not_before"]).total_seconds() / span, 0), 1)
@@ -1770,12 +2021,12 @@ class Handler(BaseHTTPRequestHandler):
             + '<fieldset class="field"><legend class="label">Device</legend><div class="choices">'
             f'<label class="choice"><input type="radio" name="kind" value="apple"{" checked" if apple else ""}>'
             f'<span class="choice-icon">{ui.icon("apple")}</span><span>'
-            '<span class="choice-title">iPhone, iPad, or Mac</span><span class="muted">Installs a profile. '
-            f"The device creates its own private key and requests the certificate itself.{wifi}</span></span></label>"
+            '<span class="choice-title">iPhone, iPad, or Mac</span><span class="muted">Installs a profile '
+            f"that sets up the certificate on your device.{wifi}</span></span></label>"
             f'<label class="choice"><input type="radio" name="kind" value="p12"{"" if apple else " checked"}>'
             f'<span class="choice-icon">{ui.icon("cellphone")}</span><span>'
             '<span class="choice-title">Other device</span><span class="muted">Android, Windows, Linux, and others. '
-            "Downloads a password-protected .p12 file with the certificate, its key, and the CA chain."
+            "Downloads a password-protected certificate file (.p12). Installation steps follow."
             "</span></span></label></div></fieldset></div>"
             '<div class="card-actions"><button class="btn">Continue</button></div></form>'
         )
@@ -1828,7 +2079,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = profile_for(cn, challenge, link["base_url"], link["wifi"] and wifi_enabled(),
                                link.get("sans") or (), link.get("group", ""),
-                               update_url if ios else None)
+                               update_url if ios else None, platform="ios" if ios else "macos")
+        except enroll.UnsupportedWifiPlatform as err:
+            self.page("Wi-Fi is not available on this device", ui.alert(
+                "error", esc(err) + " Ask your administrator for a profile without the carrier network.",
+                "This network requires an iPhone or iPad"), 400)
+            return
         except (RuntimeError, OSError, ValueError) as err:
             print(f"Could not build profile: {err}", flush=True)
             self.page("Error", ui.alert("error", "Ask your administrator to check the add-on log.",
@@ -2258,7 +2514,7 @@ class Handler(BaseHTTPRequestHandler):
 
         def kv(label, value, copy=None):
             button = ui.copy_button(copy, label) if copy else "<span></span>"
-            return f'<div class="kv"><dt>{label}</dt><dd>{value}</dd>{button}</div>'
+            return ui.kv_row(label, value, button if copy else "")
 
         def details(cert):
             fp = enroll.fingerprint(cert)
@@ -2289,9 +2545,10 @@ class Handler(BaseHTTPRequestHandler):
                 f'<span class="summary-sub">{esc(enroll.common_name(cert))}</span></span>{chip}'
                 f'{ui.icon("chevron-down", "chev")}</summary>'
                 f'<dl class="expand-body flush rows">{details(cert)}'
-                f'<div class="kv"><dt>File</dt><dd><a href="{esc(self.url(link))}" download>{esc(filename)}</a></dd>'
+                '<div class="kv"><dt>File</dt><dd class="kv-value"><span class="kv-content">'
+                f'<a href="{esc(self.url(link))}" download>{esc(filename)}</a></span>'
                 f'<a class="icon-btn" href="{esc(self.url(link))}" aria-label="Download {esc(filename)}" '
-                f'title="Download {esc(filename)}">{ui.icon("download")}</a></div></dl></details>'
+                f'title="Download {esc(filename)}">{ui.icon("download")}</a></dd></div></dl></details>'
             )
 
         base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
@@ -2335,6 +2592,8 @@ class Handler(BaseHTTPRequestHandler):
         self.page("Authority", body)
 
     TOOLS_MENU = (
+        ("/tools/setup", "Setup and checks", "cog", "Installation steps and connection readiness"),
+        ("/tools/help", "Help and troubleshooting", "certificate", "Connection guides and recovery steps"),
         ("/tools/groups", "Groups", "account-group", "OUs, SCEP URLs, and challenges"),
         ("/tools/wifi", "Wi-Fi networks", "wifi", "SSIDs, security, proxy, and Passpoint"),
         ("/tools/mdm", "MDM profiles", "cellphone", "SCEP values and ready-made profiles"),
@@ -2342,6 +2601,15 @@ class Handler(BaseHTTPRequestHandler):
         ("/tools/cas", "Other trusted CAs", "server-security", "CAs enrolled devices also trust"),
         ("/tools/options", "Add-on options", "cog", "The running configuration"),
     )
+
+    def tool_navigation(self, title):
+        here = urllib.parse.urlsplit(self.path).path.rstrip("/")
+        links = "".join(
+            f'<a href="{esc(self.url(path))}"{" aria-current=page" if here == path else ""}>'
+            f'{esc(label)}</a>' for path, label, _, _ in self.TOOLS_MENU)
+        return (f'<nav class="tool-nav desktop-tool-navigation" aria-label="Certificate tools">{links}</nav>'
+                + f'<details class="mobile-tool-navigation"><summary>Other tools</summary><nav class="tool-nav" aria-label="Certificate tools">{links}</nav></details>'
+                + (f'<div class="page-head"><h2>{esc(title)}</h2></div>' if here != "/tools" else ""))
 
     def tools_menu(self, current):
         """The Tools tab: a menu of the tool pages (a <details>, so it works without the script)."""
@@ -2366,6 +2634,491 @@ class Handler(BaseHTTPRequestHandler):
         )
         self.page("Tools", f'<div class="card"><div class="card-header"><h2>Tools</h2></div>'
                   f'<div class="rows">{rows}</div></div>', narrow=True)
+
+    def setup_page(self, query=None):
+        query = query or {}
+        check = (query.get("check") or [""])[0] == "1"
+        config = ipsk.resident_access.settings()
+        options_available = False
+        if SUPERVISOR_TOKEN:
+            try:
+                saved_options()
+                options_available = True
+            except RuntimeError:
+                pass
+        database_state = "Not configured"
+        database_detail = "Install/start MariaDB and select MariaDB in the add-on options, then restart Step CA."
+        if os.environ.get("PORTAL_DB_HOST"):
+            database_state = "Not checked"
+            database_detail = "MariaDB connection details are present. Check connections to confirm portal-table access."
+            if check:
+                try:
+                    with ipsk.db_connect() as conn, conn.cursor() as cursor:
+                        for table in ("stepca_residents", "stepca_resident_accounts", "stepca_resident_devices", "stepca_invites", "stepca_ipsks"):
+                            cursor.execute("SELECT 1 FROM " + table + " LIMIT 1")
+                    database_state = "Reachable"
+                    database_detail = "The portal account can read all five resident tables in Step CA’s MariaDB. Backup and deployed CA behavior still need verification."
+                except Exception:
+                    database_state = "Needs attention"
+                    database_detail = "Could not read the resident tables. Start MariaDB, restart Step CA to initialize its schema, then check again. Review add-on logs if this persists."
+        provider_state = "Not connected" if not SUPERVISOR_TOKEN else "Not checked"
+        provider_detail = "Install the Step CA companion and Meraki HA integration, then restart Home Assistant."
+        network_state = "Not configured"
+        network_detail = "Set resident_onboarding.network_id, ssid_number and group_policy_id in the add-on Configuration tab."
+        selected = config.get("network_id") and config.get("group_policy_id")
+        if selected:
+            network_state = "Configured; not checked"
+            network_detail = "Network, SSID and resident policy are selected. Check connections to validate their availability."
+        if check and SUPERVISOR_TOKEN:
+            try:
+                choices = ipsk.get_options(str(config.get("network_id") or ""))
+                if not isinstance(choices.get("networks"), list):
+                    raise RuntimeError("Invalid options response")
+                provider_state = "Reachable" if choices["networks"] else "No Meraki networks"
+                provider_detail = "The Step CA companion answered through Home Assistant’s existing Meraki connection. Key creation and captive behavior remain unverified."
+                if selected:
+                    found_network = any(str(row.get("id")) == str(config["network_id"]) for row in choices.get("networks", []))
+                    found_ssid = any(str(row.get("number")) == str(config.get("ssid_number", 0)) for row in choices.get("ssids", []))
+                    found_policy = any(str(row.get("id")) == str(config["group_policy_id"]) for row in choices.get("group_policies", []))
+                    network_state = "Available" if found_network and found_ssid and found_policy else "Needs attention"
+                    network_detail = ("Selected network, enabled iPSK-without-RADIUS SSID and resident policy are available. Check captive settings on a physical device after installation."
+                                      if network_state == "Available" else "The selected network, enabled iPSK SSID or policy is unavailable. Check Meraki permissions and the configured IDs, then restart Step CA after saving options.")
+            except Exception:
+                provider_state = "Needs attention"
+                provider_detail = "The companion or Meraki options could not be reached. Install/restart the integrations and check Meraki permissions. These checks do not create keys."
+        public_url = str(ENROLL_PUBLIC_URL or "")
+        if check and not public_url and SUPERVISOR_TOKEN:
+            try:
+                external, cloud, _ = _fetch_core_urls()
+                public_url = external or cloud or ""
+            except Exception:
+                pass
+        try:
+            parsed = urllib.parse.urlsplit(public_url.strip())
+            if parsed.port is not None and not 1 <= parsed.port <= 65535:
+                raise ValueError("Invalid port")
+        except ValueError:
+            parsed = urllib.parse.urlsplit("")
+        https_configured = parsed.scheme == "https" and bool(parsed.hostname) and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment and not any(c.isspace() for c in public_url)
+        https_state = "Configured; not verified" if https_configured else "Needs HTTPS URL"
+        https_detail = ("A public HTTPS URL is configured. Confirm certificate trust, reachability and the Meraki walled garden from a device."
+                        if https_configured else "Set enrollment.public_url or Home Assistant’s external HTTPS URL. Check connections to read Home Assistant’s URL; local request addresses are not treated as public HTTPS evidence.")
+        identity_state = "No identity verification"
+        identity_detail = "Residents enter their details. This attributes a key but does not prove identity."
+        if config.get("sign_in_required") or config.get("no_sign_in_user_list"):
+            try:
+                ipsk.resident_access.validate_settings(config)
+                identity_state = "Configured; not verified"
+                identity_detail = ("Duo factor verification and permitted-group checks are configured. Verify the callback and an allowed/denied resident after installation."
+                                   if config.get("sign_in_required") else "Only the configured Duo group supplies account choices. Selection does not verify identity; check actual group permissions after installation.")
+            except (ValueError, TypeError):
+                identity_state = "Needs attention"
+                identity_detail = "Complete the permitted Duo group and required Admin API settings; verification also needs Universal SDK credentials and the exact public callback URL."
+        qr_state = "Configured; not verified" if all(config.get(key) for key in ("guest_ssid", "guest_psk", "setup_ssid", "setup_psk")) else "Not fully configured"
+        qr_detail = "Save guest/setup network credentials under Residents. Guest policy must bypass splash; setup policy must open the captive portal. Physical QR scans remain a deployment check."
+        rows = (("MariaDB", database_state, database_detail), ("Meraki connection", provider_state, provider_detail),
+                ("Resident network and policy", network_state, network_detail), ("Public HTTPS", https_state, https_detail),
+                ("Resident identity", identity_state, identity_detail), ("Guest and setup QR codes", qr_state, qr_detail))
+        states = ''.join('<section class="row"><div class="row-text"><h3 class="row-title">' + esc(label)
+                         + '</h3><p class="setup-state"><b>' + esc(state) + '</b></p><p>' + esc(detail) + '</p></div></section>'
+                         for label, state, detail in rows)
+        body = ('<div class="card"><div class="card-header"><h2>Prepare your installation</h2></div><div class="card-content">'
+                '<p>Follow the steps below, then check the running connections. Checks read configuration and service metadata; they do not issue certificates, create keys or change network settings.</p>'
+                '<ol><li>Install MariaDB and Step CA; select MariaDB and restart the add-on.</li>'
+                '<li>Install/restart the Step CA companion and Meraki integration in Home Assistant.</li>'
+                '<li>Configure the resident network, default setup key and registered-resident policy.</li>'
+                '<li>Choose resident identity/invitation settings and save guest/setup QR credentials.</li>'
+                '<li>After installation, verify real devices, Duo callbacks, HTTPS and certificate enrollment.</li></ol>'
+                + ('<p class="hint">Saved settings were read from Supervisor. Checks use the running settings; restart Step CA after changing add-on options.</p>'
+                   if options_available else '<p class="hint">Saved Supervisor options are unavailable. This page shows running settings and the steps needed before connections can be checked.</p>')
+                + f'<form method="get" data-readiness-check action="{esc(self.url("/tools/setup"))}"><input type="hidden" name="check" value="1">'
+                '<button class="btn" type="submit">Check connections</button></form>'
+                '<p class="hint">Checks run only when requested and may take a few minutes if services time out. Results describe this request, not continuous monitoring.</p>'
+                + f'<p><a href="{esc(self.url("/residents"))}">Resident settings and QR codes</a> · '
+                + f'<a href="{esc(self.url("/tools/options"))}">View running options</a> · '
+                + f'<a href="{esc(self.url("/tools/help"))}">Setup help</a></p></div></div>'
+                + '<div class="card" id="setup-readiness"><div class="card-header"><h2>Connection readiness</h2></div><div class="rows">' + states + '</div></div>')
+        if not ipsk.PORTAL_ENABLED:
+            body = ui.alert("info", "Resident onboarding is currently off. Turn it on only after its network and policy are configured.", "Portal disabled") + body
+        self.page("Setup and checks", body, narrow=True)
+
+    def help_page(self, query=None):
+        query = query or {}
+        search = str((query.get("q") or [""])[0])[:254].strip()
+        topics = guidance.help_topics(search)
+        controls = ('<div class="card"><div class="card-header"><h2>Find a connection guide</h2></div><div class="card-content">'
+                    + f'<form method="get" action="{esc(self.url("/tools/help"))}"><label for="help-search">Search help</label>'
+                    + f'<input id="help-search" type="search" name="q" maxlength="254" value="{esc(search)}">'
+                    + '<button class="btn text" type="submit">Search help</button></form>'
+                    + (f'<a class="btn text" href="{esc(self.url("/tools/help"))}">Clear search</a>' if search else '')
+                    + f'<p class="hint">{len(topics)} guides. Read connection status under <a href="{esc(self.url("/tools/setup"))}">Setup and checks</a>.</p></div></div>')
+        articles = ''.join('<section class="card" id="' + esc(slug) + '"><details class="expand"'
+                           + (' open' if search else '') + '><summary>' + esc(title) + '</summary><div class="card-content">'
+                           + body + '</div></details></section>' for slug, title, _, body in topics)
+        if not articles:
+            articles = '<div class="card"><div class="empty"><h2>No matching guides</h2><p>Try Wi-Fi, invitation, private MAC, password or certificate; or clear the search.</p></div></div>'
+        self.page("Help and troubleshooting", controls + articles, narrow=True)
+
+    def residents_page(self, query=None, error="", invite_code="", revealed=None, created_key="", join_key=None):
+        """Resident onboarding, invitations, and live Meraki iPSK management."""
+        query = query or {}
+        search = str((query.get("q") or [""])[0])[:254].strip()
+        record_sort = str((query.get("record_sort") or ["newest"])[0])
+        if record_sort not in ("newest", "oldest", "name", "unit"):
+            record_sort = "newest"
+        key_sort = str((query.get("key_sort") or ["name"])[0])
+        if key_sort not in ("name", "network", "resident", "status"):
+            key_sort = "name"
+        record_page = guidance.page_number((query.get("record_page") or ["1"])[0])
+        key_page = guidance.page_number((query.get("key_page") or ["1"])[0])
+        inventory = {"rows": [], "total": 0, "matched": 0, "page": 1, "pages": 1, "size": 25}
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        notice = ""
+        if error:
+            notice = ui.alert("error", esc(error), "Could not complete the action")
+        elif created_key:
+            notice = ui.alert("success", f"Created iPSK {esc(created_key)}.", "Key created")
+        elif query.get("invite_revoked"):
+            notice = ui.alert("success", "The unused invitation was revoked.", "Invitation updated")
+        elif query.get("ipsk_revoked"):
+            notice = ui.alert("success", "The key was revoked in Home Assistant.", "iPSK updated")
+        elif query.get("ipsk_deleted"):
+            notice = ui.alert("success", "The key was deleted in Home Assistant.", "iPSK updated")
+        elif query.get("qr_saved"):
+            notice = ui.alert("success", "The guest and registration QR settings were saved.", "QR settings saved")
+        elif query.get("access_saved"):
+            notice = ui.alert("success", "Resident self-service and Duo settings were saved.", "Resident access settings saved")
+        elif invite_code:
+            notice = ui.alert(
+                "success",
+                f"<p>Copy this invitation code and give it to one resident. It is shown only once.</p>"
+                f'<div class="copy-field"><span class="mono">{esc(invite_code)}</span>'
+                f'{ui.copy_button(invite_code, "invitation code")}</div>',
+                "Invitation created",
+            )
+        if revealed:
+            notice += ui.alert(
+                "info",
+                f'<p>Passphrase for key <code>{esc(revealed[0])}</code>:</p>'
+                f'<div class="copy-field"><span class="mono">{esc(revealed[1])}</span>'
+                f'{ui.copy_button(revealed[1], "Wi-Fi passphrase")}</div>',
+                "Passphrase revealed",
+            )
+        if join_key:
+            notice += ipsk.wifi_join_card(
+                "Join with " + join_key["name"], join_key["ssid"], join_key["passphrase"],
+                "Scan this QR on the other device to join with its individual Wi-Fi key. "
+                "Keep private or randomized addressing off for the resident network.",
+                filename="device-wifi.svg", show_password=True,
+            )
+        if not ipsk.PORTAL_ENABLED:
+            notice += ui.alert(
+                "info",
+                "Resident onboarding is turned off. Enable it in the add-on's Resident onboarding options.",
+                "Resident portal disabled",
+            )
+        if not os.environ.get("PORTAL_DB_HOST"):
+            notice += ui.alert(
+                "warning",
+                "Resident and invitation records share Step CA's MariaDB database. Select MariaDB in the add-on options to use this page.",
+                "MariaDB required",
+            )
+        if not SUPERVISOR_TOKEN:
+            notice += ui.alert(
+                "warning",
+                "Home Assistant has not provided its service connection. iPSK actions are unavailable until the add-on is connected to Home Assistant.",
+                "Home Assistant connection unavailable",
+            )
+
+        try:
+            if os.environ.get("PORTAL_DB_HOST"):
+                inventory = ipsk.resident_inventory(search, record_sort, record_page)
+            residents = inventory["rows"]
+            invites = ipsk.list_invites() if os.environ.get("PORTAL_DB_HOST") else []
+        except Exception as err:  # noqa: BLE001 - surfaced in the admin panel
+            residents, invites = [], []
+            inventory = {"rows": [], "total": 0, "matched": 0, "page": 1, "pages": 1, "size": 25}
+            notice += ui.alert("error", "Could not read resident records. Check MariaDB under Setup and checks, then reload this page.", "Resident database unavailable")
+
+        try:
+            keys = ipsk.list_ipsks() if SUPERVISOR_TOKEN else []
+            inactive = ipsk.inactive_ipsk_ids(keys)
+            if inactive and os.environ.get("PORTAL_DB_HOST"):
+                with ipsk.db_connect() as conn, conn.cursor() as cursor:
+                    ipsk.sync_inactive_keys(cursor, inactive)
+                    conn.commit()
+                inventory = ipsk.resident_inventory(search, record_sort, record_page)
+                residents = inventory["rows"]
+        except Exception as err:  # noqa: BLE001 - surfaced in the admin panel
+            keys = []
+            notice += ui.alert("warning", f"{esc(err)}", "Could not load live iPSKs")
+
+        selected_network = str((query.get("network") or [""])[0] or
+                               ipsk.resident_access.settings().get("network_id") or "")
+        try:
+            options = ipsk.get_options(selected_network) if SUPERVISOR_TOKEN else {}
+            networks = options.get("networks") or []
+            ssids = options.get("ssids") or []
+            policies = options.get("group_policies") or []
+        except Exception as err:  # noqa: BLE001 - admin can still inspect existing resident data
+            networks, ssids, policies = [], [], []
+            notice += ui.alert("warning", f"{esc(err)}", "Could not load iPSK options")
+
+        try:
+            qr_settings = dict(saved_options().get("resident_onboarding") or {})
+        except RuntimeError as err:
+            qr_settings = {}
+            notice += ui.alert("warning", esc(err), "QR settings unavailable")
+        resident_count, key_count = inventory["total"], len(keys)
+        status = str((query.get("key_status") or ["all"])[0])
+        if status not in ("all", "active", "revoked", "expired", "unknown"):
+            status = "all"
+        def matches(row, fields):
+            return not search or search.casefold() in " ".join(str(row.get(field) or "") for field in fields).casefold()
+        keys = [row for row in keys if matches(row, ("id", "psk_group_id", "name", "ssid_name", "associated_user", "associated_unit"))
+                and (status == "all" or str(row.get("status") or "unknown") == status)]
+        key_sort_field = {"name": "name", "network": "ssid_name", "resident": "associated_user", "status": "status"}[key_sort]
+        keys.sort(key=lambda row: (str(row.get(key_sort_field) or "").casefold(), str(row.get("id") or row.get("psk_group_id") or "")))
+        matched_keys = len(keys)
+        key_pages = max(1, (matched_keys + 24) // 25)
+        key_page = min(key_page, key_pages)
+        keys = keys[(key_page - 1) * 25:key_page * 25]
+        def inventory_link(number, field, anchor):
+            values = {"network": selected_network, "q": search, "key_status": status,
+                      "record_sort": record_sort, "key_sort": key_sort,
+                      "record_page": inventory["page"], "key_page": key_page}
+            values[field] = number
+            return self.url("/residents") + "?" + urllib.parse.urlencode(values) + anchor
+        key_pager = guidance.pagination(key_page, key_pages, (key_page - 1) * 25 + 1,
+                                       min(key_page * 25, matched_keys), matched_keys,
+                                       lambda number: inventory_link(number, "key_page", "#device-keys"), "Wi-Fi key pages")
+        record_pager = guidance.pagination(inventory["page"], inventory["pages"], (inventory["page"] - 1) * inventory["size"] + 1,
+                                          min(inventory["page"] * inventory["size"], inventory["matched"]), inventory["matched"],
+                                          lambda number: inventory_link(number, "record_page", "#registered-devices"), "Registered device pages")
+        management = (
+            '<div class="card" id="resident-management"><div class="card-header"><h2>Manage resident access</h2>'
+            f'<p class="muted">{resident_count} registered device {"record" if resident_count == 1 else "records"} · {key_count} Wi-Fi {"key" if key_count == 1 else "keys"}</p></div>'
+            '<div class="card-content"><nav class="tool-nav" aria-label="Resident tasks">'
+            '<a class="btn text" href="#device-keys">Manage keys</a>'
+            '<a class="btn text" href="#create-device-key">Create a key</a>'
+            '<a class="btn text" href="#join-codes">Share join codes</a></nav>'
+            + f'<p class="hint"><a href="{esc(self.url("/tools/setup"))}">Setup and checks</a> · <a href="{esc(self.url("/tools/help"))}">Connection help</a></p>'
+            f'<form method="get" action="{esc(self.url("/residents"))}">'
+            f'<input type="hidden" name="network" value="{esc(selected_network)}">'
+            '<div class="field-row"><label>Search resident, device or network'
+            f'<input type="search" name="q" maxlength="254" value="{esc(search)}"></label>'
+            '<label>Key status<select name="key_status">'
+            + "".join(f'<option value="{value}"' + (' selected' if status == value else '') + f'>{label}</option>'
+                      for value, label in (("all", "All keys"), ("active", "Active"), ("revoked", "Revoked"),
+                                           ("expired", "Expired"), ("unknown", "Unknown")))
+            + '</select></label></div><details class="expand sorting-options"><summary>Sorting options</summary><div class="field-row"><label>Sort registered devices<select name="record_sort">'
+            + "".join(f'<option value="{value}"' + (' selected' if record_sort == value else '') + f'>{label}</option>'
+                      for value, label in (("newest", "Newest first"), ("oldest", "Oldest first"), ("name", "Resident name"), ("unit", "Unit or room")))
+            + '</select></label><label>Sort Wi-Fi keys<select name="key_sort">'
+            + "".join(f'<option value="{value}"' + (' selected' if key_sort == value else '') + f'>{label}</option>'
+                      for value, label in (("name", "Key name"), ("network", "Network name"), ("resident", "Resident"), ("status", "Status")))
+            + '</select></label></div></details><button class="btn text" type="submit">Apply filters</button>'
+            + (f'<a class="btn text" href="{esc(self.url("/residents") + "?" + urllib.parse.urlencode({"network": selected_network}))}">Clear filters</a>'
+               if search or status != "all" or record_sort != "newest" or key_sort != "name" else '') + '</form></div></div>'
+        )
+        qr_cards = []
+        access_settings_card = ipsk.resident_access.admin_settings_card(
+            ipsk, qr_settings, csrf, self.url("/residents/access/settings"))
+        for kind, title, description in (
+            ("guest", "Guest access", "Scan to join with the guest password. No resident registration is required."),
+            ("setup", "Join and create a key", "Scan to join the setup network, then open Wi-Fi sign-in to register and receive your individual key."),
+        ):
+            ssid, password = str(qr_settings.get(kind + "_ssid") or ""), str(qr_settings.get(kind + "_psk") or "")
+            try:
+                if not ssid or not password:
+                    raise ValueError("Set this network’s name and password in QR network settings to generate its join code.")
+                qr_cards.append(ipsk.wifi_join_card(title, ssid, password, description,
+                                                  filename=kind + "-wifi.svg"))
+            except ValueError as err:
+                qr_cards.append(
+                    '<section class="card"><div class="card-header"><h2>' + esc(title)
+                    + '</h2></div><div class="card-content"><p>' + esc(description) + '</p><p>'
+                    + esc(err) + '</p><a href="#qr-settings">QR network settings</a></div></section>'
+                )
+        qr_network_fields = ""
+        for kind, title in (("guest", "Guest access"), ("setup", "Registration setup")):
+            qr_network_fields += (
+                f'<fieldset><legend>{title}</legend><div class="field-row">'
+                f'<label>Network name<input name="{kind}_ssid" value="{esc(qr_settings.get(kind + "_ssid"))}" maxlength="32" autocomplete="off">'
+                '<small class="muted">Leave empty to remove this QR.</small></label>'
+                f'<label>Wi-Fi password<input type="password" name="{kind}_psk" autocomplete="new-password" maxlength="64" '
+                'placeholder="Keep the saved password">'
+                '<small class="muted">Blank keeps the saved password. Enter one for a new network.</small></label>'
+                '</div></fieldset>'
+            )
+        qr_settings_card = (
+            '<div class="card"><details class="expand" id="qr-settings"><summary>QR network settings</summary>'
+            '<div class="card-content"><p>Enter the credentials already configured in Meraki. '
+            'The guest key needs a policy that bypasses splash; the setup key needs the captive portal.</p>'
+            f'<form method="post" action="{esc(self.url("/residents/qr/settings"))}">{csrf}'
+            + qr_network_fields + '<button class="btn" type="submit">Save QR settings</button></form>'
+            '</div></details></div>'
+        )
+        portal_url = ipsk.PUBLIC_BASE
+        intro = (
+            '<div class="card"><details class="expand" id="resident-setup"><summary>Captive portal setup and invitations</summary>'
+            '<div class="card-content">'
+            '<p>Residents register once and receive an individual Meraki iPSK. Their Wi-Fi details are stored here; '
+            'certificate issuance and renewal stay in Step CA.</p>'
+            f'<p><b>Custom splash URL:</b> <a href="{esc(portal_url)}">{esc(portal_url)}</a></p>'
+            '<p>Use this path on your public Home Assistant URL as the Meraki click-through splash page '
+            'for the default setup PSK. New residents must arrive through the captive portal. '
+            'Private or randomized MAC addresses are blocked before registration.</p>'
+            f'<form method="post" action="{esc(self.url("/residents/invite"))}">{csrf}'
+            '<button class="btn" type="submit">Create invitation code</button></form></div></details></div>'
+        )
+        network_options = "".join(
+            f'<option value="{esc(item.get("id"))}"' + (' selected' if str(item.get("id")) == selected_network else '')
+            + f'>{esc(item.get("name") or item.get("id"))}</option>'
+            for item in networks
+        )
+        ssid_options = "".join(
+            f'<option value="{int(item.get("number", 0))}">{esc(item.get("name") or "SSID " + str(item.get("number")))}</option>'
+            for item in ssids
+        )
+        policy_options = "".join(
+            f'<option value="{esc(item.get("id"))}">{esc(item.get("name") or item.get("id"))}</option>'
+            for item in policies
+        )
+        create_form = (
+            '<div class="card"><details class="expand" id="create-device-key"><summary>Create a key for another device</summary>'
+            '<div class="card-content"><p>Create an individual Wi-Fi key, then scan its join QR on the other device.</p>'
+            f'<form method="get" action="{esc(self.url("/residents"))}"><label>Network<select name="network" required>'
+            + '<option value="">Choose a network</option>' + network_options
+            + '</select></label><button class="btn text" type="submit">Load network choices</button></form>'
+            '<p class="hint">SSID and policy choices belong to the loaded network.</p>'
+            f'<form method="post" action="{esc(self.url("/residents/ipsk/create"))}">{csrf}'
+            f'<input type="hidden" name="network_id" value="{esc(selected_network)}">'
+            '<div class="field-row">'
+            '<label>Device or key name<input name="name" maxlength="100" required autocomplete="off" placeholder="Living room TV"></label>'
+            '<label>Resident name or email<input name="user" maxlength="254" autocomplete="off"></label>'
+            '</div><div class="field-row">'
+            '<label>SSID<select name="ssid_number" required>'
+            + ('<option value="">Choose an SSID</option>' + ssid_options if ssid_options else '<option value="">No SSIDs available</option>')
+            + '</select></label></div><div class="field-row">'
+            '<label>Unit<input name="unit" maxlength="80" autocomplete="off"></label>'
+            '<label>Group policy<select name="group_policy_id" required><option value="">Choose a group policy</option>'
+            + policy_options + '</select></label>'
+            '</div><div class="field-row">'
+            '<label>Passphrase<input type="password" name="passphrase" autocomplete="new-password" placeholder="Generate one automatically"></label>'
+            '<label>Duration in hours<input type="number" name="duration_hours" min="0" max="87600" value="0">'
+            '<small class="muted">0 means no expiry</small></label></div>'
+            '<button class="btn" type="submit"' + (" disabled" if not os.environ.get("PORTAL_DB_HOST") or not selected_network or not ssid_options or not policy_options else "") + '>Create key and QR</button></form></div></details></div>'
+        )
+        invite_rows = []
+        invite_dialogs = []
+        for invite in invites:
+            status = "Used" if invite.get("used_at") else "Ready"
+            revoke = "" if invite.get("used_at") else (
+                f'<form method="post" action="{esc(self.url("/residents/invite/revoke"))}" data-confirm="invite-{int(invite["id"])}">{csrf}'
+                f'<input type="hidden" name="invite_id" value="{int(invite["id"])}">'
+                '<button class="btn text danger" type="submit">Revoke</button></form>'
+            )
+            if not invite.get("used_at"):
+                dialog_id = f"invite-{int(invite['id'])}"
+                invite_dialogs.append(
+                    f'<dialog id="{dialog_id}" aria-labelledby="{dialog_id}-title">'
+                    f'<h2 id="{dialog_id}-title">Revoke this invitation?</h2>'
+                    '<p>The unused code will stop working. You can create a new code at any time.</p>'
+                    '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                    '<button type="button" class="btn danger" data-confirm-yes>Revoke</button></div></dialog>'
+                )
+            invite_rows.append(
+                f'<tr><td>{esc(fmt_time(invite["created_at"]))}</td><td>{esc(invite["created_by"])}</td>'
+                f'<td>{status}</td><td class="actions">{revoke}</td></tr>'
+            )
+        invites_card = (
+            '<div class="card"><div class="card-header"><h2>Invitation codes</h2></div>'
+            + (f'<div class="table-wrap"><table><thead><tr><th>Created</th><th>By</th><th>Status</th><th>Actions</th></tr></thead>'
+               f'<tbody>{"".join(invite_rows)}</tbody></table></div>' if invite_rows else
+               '<div class="empty"><p class="empty-title">No active invitations</p><p class="muted">Create a code for a resident who needs access.</p></div>')
+            + '</div>'
+        )
+        resident_rows = "".join(
+            f'<tr><td>{esc(row["name"])}</td><td>{esc(row["email"])}</td><td>{esc(row["unit"]) or "—"}</td>'
+            f'<td>{esc(row["ipsk_name"])}</td><td><code>{esc(row.get("mac_address")) or "—"}</code></td>'
+            f'<td>{esc(fmt_time(row["created_at"]))}</td></tr>' for row in residents
+        )
+        residents_card = (
+            '<div class="card" id="registered-devices"><div class="card-header"><h2>Registered devices</h2></div>'
+            + (f'<div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Unit</th><th>Wi-Fi key</th><th>Device MAC</th><th>Registered</th></tr></thead>'
+               f'<tbody>{resident_rows}</tbody></table></div>' if resident_rows else
+               '<div class="empty"><p class="empty-title">' + ('No matching device records' if search and resident_count else 'No residents registered')
+               + '</p><p class="muted">' + ('Change or clear the search above.' if search and resident_count else 'New registrations will appear here.') + '</p></div>')
+            + record_pager + '</div>'
+        )
+        key_rows = []
+        key_dialogs = []
+        for index, key in enumerate(keys):
+            ident = str(key.get("id") or key.get("psk_group_id") or "")
+            name = key.get("name") or "Unnamed key"
+            state = str(key.get("status") or "unknown")
+            chip_kind = "ok" if state == "active" else "bad" if state == "revoked" else "neutral"
+            action_forms = ""
+            if ident:
+                actions = [("reveal", "Reveal")]
+                if state == "active":
+                    actions.append(("qr", "Show QR"))
+                    actions.append(("revoke", "Revoke"))
+                actions.append(("delete", "Delete"))
+                for action, label in actions:
+                    klass = ' class="btn text danger"' if action in ("revoke", "delete") else ' class="btn text"'
+                    confirm_id = f"ipsk-{index}-{action}"
+                    action_forms += (
+                        f'<form method="post" action="{esc(self.url("/residents/ipsk/action"))}"'
+                        + (f' data-confirm="{confirm_id}"' if action in ("revoke", "delete") else "")
+                        + f'>{csrf}'
+                        f'<input type="hidden" name="ipsk_id" value="{esc(ident)}">'
+                        f'<input type="hidden" name="action" value="{action}">'
+                        f'<button{klass} type="submit">{label}</button></form>'
+                    )
+                    if action in ("revoke", "delete"):
+                        operation = "Revoke" if action == "revoke" else "Delete"
+                        consequence = "This will immediately remove the key's Wi-Fi access." if action == "revoke" else "This permanently removes the key from Meraki."
+                        key_dialogs.append(
+                            f'<dialog id="{confirm_id}" aria-labelledby="{confirm_id}-title">'
+                            f'<h2 id="{confirm_id}-title">{operation} {esc(name)}?</h2>'
+                            f'<p>{consequence}</p><div class="dialog-actions">'
+                            '<button type="button" class="btn text" data-confirm-no>Cancel</button>'
+                            f'<button type="button" class="btn danger" data-confirm-yes>{operation}</button>'
+                            '</div></dialog>'
+                        )
+            assoc = key.get("associated_user") or key.get("associated_unit") or "—"
+            key_rows.append(
+                f'<tr><td>{esc(name)}<small class="muted">{esc(ident)}</small></td>'
+                f'<td>{esc(key.get("ssid_name") or "—")}</td><td>{esc(assoc)}</td>'
+                f'<td>{ui.chip(chip_kind, state)}</td><td class="actions"><div class="row-actions">{action_forms}</div></td></tr>'
+            )
+        keys_card = (
+            '<div class="card" id="device-keys"><div class="card-header"><h2>Wi-Fi keys</h2></div>'
+            + (f'<div class="table-wrap"><table><thead><tr><th>Name / ID</th><th>SSID</th><th>Resident</th><th>Status</th><th>Actions</th></tr></thead>'
+               f'<tbody>{"".join(key_rows)}</tbody></table></div>' if key_rows else
+               '<div class="empty"><p class="empty-title">' + ('No matching keys' if key_count and (search or status != "all") else 'No iPSKs found')
+               + '</p><p class="muted">' + ('Change or clear the filters above.' if key_count and (search or status != "all") else 'Keys created through resident registration will appear here.') + '</p></div>')
+            + key_pager + '</div>'
+        )
+        self.page("Residents", notice + management + keys_card + residents_card + create_form
+                  + '<div class="wifi-join-grid" id="join-codes">' + "".join(qr_cards) + '</div>'
+                  + qr_settings_card + access_settings_card + intro + invites_card
+                  + "".join(invite_dialogs) + "".join(key_dialogs), head="""<style>
+                  .wifi-join-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+                  .wifi-join-card code { overflow-wrap:anywhere; }
+                  .wifi-join-card img { max-width:100%; height:auto; display:block; }
+                  .wifi-join-card .btn { min-height:44px; }
+                  #resident-access-settings .check { min-height:44px; }
+                  #resident-access-settings fieldset { margin-top:24px; }
+                  #resident-access-settings legend { font-weight:500; margin-bottom:12px; }
+                  @media (max-width:640px) {
+                    .wifi-join-grid { grid-template-columns:minmax(0,1fr); gap:0; }
+                    main input, main select { font-size:16px; }
+                    main .btn { min-height:44px; }
+                  }
+                  </style>""")
 
     def tools_notice(self, query, added=""):
         if query.get("error"):
@@ -2497,7 +3250,7 @@ class Handler(BaseHTTPRequestHandler):
             f'<form class="card" id="group-form" method="post" action="{esc(self.url("/tools/groups/save"))}">'
             f'{csrf}<input type="hidden" name="original" value="{v("original")}">'
             f'<div class="card-header"><h2>{"Edit " + esc(original) if original else "Add a group"}</h2>'
-            '<p class="muted">Saved to the add-on options. Restart the add-on to apply.</p></div>'
+            '<p class="muted">Saved to the add-on options and applied to step-ca immediately.</p></div>'
             '<div class="card-content">'
             '<div class="field-row">'
             '<div class="field"><label for="g-name">Name</label>'
@@ -2642,7 +3395,7 @@ class Handler(BaseHTTPRequestHandler):
         for index, w in enumerate(networks):
             name = enroll.wifi_name(w)
             service = enroll.radius_service(w)
-            details = [("Pre-shared key" if w["authentication"] == "psk" else "EAP-TLS") + f" · {esc(w['security'])}"]
+            details = [esc(enroll.WIFI_AUTH.get(w["authentication"], ("Unknown method",))[0]) + f" · {esc(w['security'])}"]
             if service and w["authentication"] != "psk":
                 details.append(esc(service["label"]))
             details += [label for flag, label in (
@@ -2688,14 +3441,38 @@ class Handler(BaseHTTPRequestHandler):
         form = self.wifi_form(csrf, values) if readable else ""
         body = (
             notice
-            + '<div class="grid"><div>'
-            '<div class="card"><div class="card-header"><h2>Wi-Fi networks</h2>'
-            '<p class="muted">The networks that Apple profiles set up, and that the setup help on the certificate '
-            "pages describes. Saved to the add-on options and used right away; no restart.</p></div>"
-            f'<div class="rows">{rows}</div></div>'
-            "</div><div>" + form + "</div></div>" + dialogs
+            + '<nav class="page-jumps" aria-label="Wi-Fi setup"><a href="#wifi-form">Network editor</a>'
+            '<a href="#saved-networks">Saved networks &amp; guide</a></nav>'
+            '<div class="network-layout"><div>' + form + '</div>'
+            '<aside id="saved-networks" aria-label="Saved networks and setup guide">'
+            '<div class="card"><div class="card-header"><h2>Saved networks</h2>'
+            '<p class="muted">Apple profiles configure these networks. Other devices receive setup instructions.</p>'
+            f'<a class="btn text" href="{esc(self.url("/tools/wifi"))}#wifi-form">'
+            f'{ui.icon("plus")}Add network</a></div><div class="rows">{rows}</div></div>'
+            + self.wifi_guide() + '</aside></div>' + dialogs
         )
         self.page("Wi-Fi networks", body)
+
+    def wifi_guide(self):
+        methods = "".join(
+            f'<div class="method-row"><b>{esc(label)}</b><span class="muted">{esc(credential)}</span></div>'
+            for label, _, credential in enroll.WIFI_AUTH.values())
+        return (
+            '<div class="card"><div class="card-header"><h2>Before you enroll</h2></div>'
+            '<div class="card-content"><ol class="steps">'
+            '<li>Match the SSID, security, and EAP method to your wireless network.</li>'
+            '<li>For TLS methods, trust the RADIUS server CA and check its certificate names.</li>'
+            '<li>Save, download a new profile, then test it on one device before sharing it.</li></ol>'
+            f'<p class="step-action"><a href="{esc(self.url("/tools/mdm"))}">Download an MDM profile</a></p>'
+            '<p class="hint">Saving changes future profiles. Installed profiles need to be replaced. '
+            'These settings configure clients; they do not configure your access point or RADIUS server.</p>'
+            '</div><details class="expand"><summary><span class="summary-text">'
+            '<span class="summary-title">Choose an authentication method</span></span>'
+            f'{ui.icon("chevron-down", "chev")}</summary><div class="expand-body">{methods}'
+            '<p class="hint">SIM/AKA need a compatible carrier SIM on iPhone or iPad. LEAP is for legacy networks. '
+            'TEAP, EAP-PWD, and EAP-AKA′ are not offered by Apple’s managed Wi-Fi payload.</p>'
+            '</div></details></div>'
+        )
 
     def wifi_form(self, csrf, values):
         values = dict(wifi_settings(values), original=values.get("original", ""))
@@ -2716,7 +3493,7 @@ class Handler(BaseHTTPRequestHandler):
             extra = "".join(f' {k.replace("_", "-")}="{esc(val)}"' for k, val in attrs.items())
             return (f'<div class="field"><label for="{field_id or "w-" + name}">{label}</label>'
                     f'<input id="{field_id or "w-" + name}" name="{name}" value="{v(name)}" '
-                    f'placeholder="{esc(placeholder)}" autocapitalize="off" spellcheck="false"{extra}>'
+                    f'placeholder="{esc(placeholder)}" spellcheck="false"{extra}>'
                     + (f'<p class="hint">{hint}</p>' if hint else "") + "</div>")
 
         def textarea(name, label, hint, placeholder):
@@ -2726,11 +3503,13 @@ class Handler(BaseHTTPRequestHandler):
                     f'<p class="hint">{hint}</p></div>')
 
         def section(title, content, open_=False):
-            return f'<details class="field"{" open" if open_ else ""}><summary>{title}</summary>{content}</details>'
+            return (f'<details class="form-section"{" open" if open_ else ""}>'
+                    f'<summary><span class="summary-title">{title}</span>{ui.icon("chevron-down", "chev")}</summary>'
+                    f'<div class="section-body">{content}</div></details>')
 
-        auth = select("authentication", (("eap_tls", "EAP-TLS (certificate, WPA Enterprise)"),
-                                         ("psk", "Pre-shared key (password, WPA Personal)")))
-        security = select("security", (("WPA2", "WPA2"), ("WPA3", "WPA3"), ("Any", "Any (WPA2 or WPA3)")))
+        auth = select("authentication", [(key, f"{label} — {credential}")
+                                         for key, (label, _, credential) in enroll.WIFI_AUTH.items()])
+        security = select("security", (("WPA2", "WPA2"), ("WPA3", "WPA3"), ("Any", "Any (includes legacy WPA / WEP)")))
         radius = select("radius_server", [("custom", "My own RADIUS server")]
                         + [(key, service["label"]) for key, service in enroll.RADIUS_SERVICES.items()])
         proxy = select("proxy", (("none", "None"), ("manual", "Manual"), ("auto", "Automatic")))
@@ -2738,12 +3517,62 @@ class Handler(BaseHTTPRequestHandler):
                                      ("off", "Off")))
         saved_password = bool(original and values["password"])
         saved_proxy_password = bool(original and values["proxy_password"])
+        saved_eap_password = bool(original and values["eap_password"])
+        credentials = (
+            '<div data-show-when="w-auth=eap_tls|peap|eap_ttls|eap_fast|leap">'
+            + text("eap_username", "802.1X identity (optional)",
+                   "For EAP-TLS, empty uses the certificate name. For password methods, empty asks for a "
+                   "RADIUS account on the device.",
+                   "e.g. alex@example.com", maxlength="255", autocomplete="off")
+            + '<div data-show-when="w-auth=peap|eap_ttls|eap_fast|leap">'
+            '<div class="field"><label for="w-eap_password">802.1X password (optional)</label>'
+            '<input id="w-eap_password" name="eap_password" type="password" maxlength="255" '
+            'autocomplete="new-password" placeholder="'
+            + ("Leave empty to keep the saved password" if saved_eap_password else "Ask on the device") + '">'
+            '<p class="hint">A saved password is included in every downloaded profile using this network. '
+            'Leave it empty for individual accounts.</p></div>'
+            + (checkbox("clear_eap_password", "Remove the saved 802.1X password",
+                        "The next profile asks for a password on the device.") if saved_eap_password else "")
+            + '<div data-show-when="w-auth=peap|eap_ttls|eap_fast">'
+            + checkbox("eap_password_per_connection", "Ask for a password on every connection",
+                       "For per-connection credentials. This removes any saved 802.1X password.")
+            + text("eap_outer_identity", "Outer identity (optional)",
+                   "Hides the account name outside the encrypted tunnel. Match your RADIUS realm; required "
+                   "when the minimum TLS version is 1.3.", "anonymous@example.com", maxlength="255")
+            + checkbox("eap_client_certificate", "Also require the device certificate",
+                       "Use only when RADIUS requires both a certificate and account credentials.")
+            + '</div></div></div><div data-show-when="w-auth=eap_ttls" class="field">'
+            '<label for="w-inner">Inner authentication</label>'
+            f'<select id="w-inner" name="ttls_inner_authentication">'
+            f'{select("ttls_inner_authentication", [(x, x) for x in enroll.TTLS_INNER])}</select>'
+            '<p class="hint">Match the method inside the TTLS tunnel on your RADIUS server.</p></div>'
+            '<div data-show-when="w-auth=eap_fast">'
+            + checkbox("eap_fast_use_pac", "Use a Protected Access Credential (PAC)",
+                       "Leave off to authenticate the server with its certificate.")
+            + checkbox("eap_fast_provision_pac", "Provision PAC from the server",
+                       "Enable together with Use PAC. Anonymous provisioning is disabled.")
+            + '</div><div data-show-when="w-auth=eap_sim|eap_aka">'
+            + ui.alert("info", "Requires an iPhone or iPad with a compatible carrier SIM and a RADIUS service "
+                       "that supports this method. The SIM supplies the identity; the issued certificate "
+                       "does not sign the device into Wi-Fi.", "Carrier authentication")
+            + '</div><div class="field" data-show-when="w-auth=eap_sim">'
+            '<label for="w-rands">Minimum SIM challenges (RANDs)</label>'
+            f'<select id="w-rands" name="eap_sim_rands">'
+            f'{select("eap_sim_rands", [(3, "3 (default)"), (2, "2 (carrier compatibility)")])}</select></div>'
+            '<div data-show-when="w-auth=leap">'
+            + ui.alert("warning", "Use only for an existing network that requires LEAP. It has no TLS tunnel "
+                       "and does not use the server-certificate trust settings below.", "Legacy authentication")
+            + '</div>'
+        )
         return (
             f'<form class="card" id="wifi-form" method="post" action="{esc(self.url("/tools/wifi/save"))}">{csrf}'
             f'<input type="hidden" name="original" value="{v("original")}">'
-            f'<div class="card-header"><h2>{"Edit " + esc(original) if original else "Add a network"}</h2></div>'
-            '<div class="card-content">'
-            + text("name", "Profile name (optional)",
+            f'<div class="card-header"><h2>{"Edit " + esc(original) if original else "Add a network"}</h2>'
+            '<p class="muted">Configure the device profile to match your access point and RADIUS server. '
+            'Saving applies to new downloads immediately.</p></div>'
+            '<div class="network-summary" aria-live="polite" data-network-summary></div>'
+            '<div class="card-content network-fields">'
+            + section("Network details", text("name", "Profile name (optional)",
                    "Tells networks apart here and in the MDM downloads, so one SSID can have several profiles "
                    "(for example Office iPhone and Office Mac). Empty uses the SSID.", "e.g. Office Mac",
                    maxlength="64", autocapitalize="sentences")
@@ -2751,37 +3580,47 @@ class Handler(BaseHTTPRequestHandler):
                    "e.g. Home", maxlength="32")
             + checkbox("include_by_default", "Include in every profile",
                        "Enrollment links, Enroll this device, and the MDM profile with every network set it up. "
-                       "Turn off for a network you download on its own from Tools > MDM profiles.")
-            + '<div class="field"><label for="w-auth">Authentication</label>'
+                       "Turn off for a network you download on its own from Tools > MDM profiles."), True)
+            + section("Authentication", '<div class="field"><label for="w-auth">802.1X / network authentication</label>'
             f'<select id="w-auth" name="authentication">{auth}</select>'
-            '<p class="hint">EAP-TLS signs each device in with the certificate this CA issues, through a RADIUS '
-            "server. A pre-shared key is one password for everyone.</p></div>"
+            '<p class="hint">Match the method enabled on RADIUS. EAP-TLS uses the certificate from this CA; '
+            'password methods use a RADIUS account; a pre-shared key uses one network password.</p></div>'
             '<div class="field"><label for="w-security">Security</label>'
             f'<select id="w-security" name="security">{security}</select>'
-            '<p class="hint">Match the SSID\'s setting. Any lets the device use either.</p></div>'
+            '<p class="hint">WPA2 permits WPA2/WPA3 on current Apple devices. WPA3 requires WPA3. '
+            'Any also permits legacy WPA/WEP; use only when needed.</p></div>'
             '<div class="field" data-show-when="w-auth=psk"><label for="w-password">Password</label>'
             '<input id="w-password" name="password" type="password" maxlength="64" autocomplete="new-password" '
             f'placeholder="{"Leave empty to keep the saved password" if saved_password else "8 to 63 characters"}">'
-            '<p class="hint">The network password. Profiles with this network include it.</p></div>'
-            + checkbox("auto_join", "Join automatically")
+            '<p class="hint">The shared password is included in profiles using this network.</p></div>'
+            + credentials, True)
+            + section("Connection behavior", checkbox("auto_join", "Join automatically")
             + checkbox("hidden", "Hidden network", "Turn on when the SSID is not broadcast.")
             + checkbox("disable_mac_randomization", "Fixed Wi-Fi address",
                        "Turns off Private Wi-Fi Address for this network, so the device always uses its real MAC "
                        "address here (for DHCP reservations or MAC-based rules). iOS 14 and macOS 15 or later; "
-                       "devices show a privacy warning for the network.")
-            + '<div data-show-when="w-auth=eap_tls">'
+                       "devices show a privacy warning for the network."), bool(values["hidden"] or values["disable_mac_randomization"]))
+            + '<div data-show-when="w-auth=eap_tls|peap|eap_ttls|eap_fast">'
+            + section("Server trust & TLS", '<div>'
             '<div class="field"><label for="w-radius">RADIUS server</label>'
             f'<select id="w-radius" name="radius_server">{radius}</select>'
             '<p class="hint">With Cisco Meraki Access Manager, profiles trust its server '
             "(eap.meraki.com, under IdenTrust Commercial Root CA 1) without anything else to add. With your "
             f'own server, add the CA that issued its certificate under <a href="{esc(self.url("/tools/cas"))}">'
             "Other trusted CAs</a> if it is not this CA.</p></div>"
-            + section("RADIUS server names", textarea(
+            + textarea(
                 "radius_server_names", "RADIUS server names (optional)",
-                "Usually leave this empty. Devices then accept any RADIUS certificate issued by a trusted CA "
-                "above. Listing names (one per line, wildcards such as *.example.com work) pins the server, which "
-                "matters only when that CA also issues certificates to other servers, such as a public CA. "
-                "Meraki's name is added for you.", "radius.example.com"), bool(values["radius_server_names"]))
+                "List the names on the RADIUS server certificate, one per line. Empty accepts any name under "
+                "the trusted CAs. Set names to restrict trust, especially for a public CA. Meraki's name is "
+                "included automatically.", "radius.example.com")
+            + '<div class="field-row"><div class="field"><label for="w-tls-min">Minimum TLS version</label>'
+            f'<select id="w-tls-min" name="tls_minimum">'
+            f'{select("tls_minimum", [("1.2", "TLS 1.2"), ("1.3", "TLS 1.3")])}</select></div>'
+            '<div class="field"><label for="w-tls-max">Maximum TLS version</label>'
+            f'<select id="w-tls-max" name="tls_maximum">'
+            f'{select("tls_maximum", [("", "Device default"), ("1.2", "TLS 1.2"), ("1.3", "TLS 1.3")])}</select>'
+            '</div></div><p class="hint">TLS 1.2 is the compatibility default. To require TLS 1.3, set both '
+            'limits to 1.3 and check support on your devices and RADIUS server.</p></div>', True)
             + "</div>"
             + section("Proxy", (
                 '<div class="field"><label for="w-proxy">Proxy</label>'
@@ -2803,14 +3642,14 @@ class Handler(BaseHTTPRequestHandler):
                        "http://wpad.example.com/proxy.pac", maxlength="2000")
                 + checkbox("proxy_pac_fallback", "Connect directly when the PAC file cannot be reached")
                 + "</div>"), values["proxy"] != "none")
-            + section("Joining", (
+            + section("Device-specific behavior", (
                 checkbox("captive_bypass", "Skip captive portal detection",
                          "The device does not check for a sign-in page on this network or show the captive portal "
                          "sheet. iPhone and iPad.")
                 + checkbox("mac_login_window", "Mac: connect at the login window",
                            "The Mac joins before anyone signs in, using the certificate in the System keychain, so "
-                           "network accounts and FileVault unlock work. The profile then installs for the whole "
-                           "Mac (an administrator approves it).")), values["captive_bypass"] or values["mac_login_window"])
+                           "network accounts can connect. Requires EAP-TLS; the profile installs for the whole "
+                           "Mac and needs administrator approval. This does not enable Wi-Fi in FileVault preboot.")), values["captive_bypass"] or values["mac_login_window"])
             + section("QoS (Cisco Fast Lane)", (
                 '<div class="field"><label for="w-qos">QoS marking</label>'
                 f'<select id="w-qos" name="qos_marking">{qos}</select>'
@@ -2823,7 +3662,7 @@ class Handler(BaseHTTPRequestHandler):
             + section("Passpoint (Hotspot 2.0)", (
                 checkbox("passpoint", "Passpoint network",
                          "Devices find and join the network by its Passpoint domain or roaming consortium instead of "
-                         "only its SSID. Needs EAP-TLS; the SSID is then optional.", "w-passpoint")
+                         "only its SSID. Use an enterprise EAP method; the SSID is then optional. Shared keys and LEAP are unsupported.", "w-passpoint")
                 + '<div data-show-when="w-passpoint=1">'
                 + text("passpoint_domain", "Domain", "The Passpoint (home operator) domain name.", "example.com",
                        maxlength="253")
@@ -2850,7 +3689,7 @@ class Handler(BaseHTTPRequestHandler):
         original = field("original")
         port = field("proxy_port").strip()
         values = {
-            "original": original, "name": field("name").strip(), "ssid": field("ssid").strip(), "authentication": field("authentication"),
+            "original": original, "name": field("name").strip(), "ssid": field("ssid"), "authentication": field("authentication"),
             "password": field("password"), "security": field("security"),
             "proxy": field("proxy"), "proxy_server": field("proxy_server"),
             "proxy_port": int(port) if port.isdigit() and len(port) <= 5 else (-1 if port else None),
@@ -2864,6 +3703,12 @@ class Handler(BaseHTTPRequestHandler):
             **{name: listed(name) for name in WIFI_LISTS},
         }
         values["radius_server"] = field("radius_server")
+        values.update({name: field(name) for name in ("eap_username", "eap_password", "eap_outer_identity",
+                                                     "ttls_inner_authentication", "tls_minimum", "tls_maximum")})
+        values.update({name: field(name) == "1" for name in ("eap_password_per_connection", "eap_client_certificate",
+                                                            "eap_fast_use_pac", "eap_fast_provision_pac")})
+        rands = field("eap_sim_rands") or "3"
+        values["eap_sim_rands"] = int(rands) if rands in ("2", "3") else -1
         try:
             options = saved_options()
             networks = wifi_networks(options)
@@ -2871,17 +3716,25 @@ class Handler(BaseHTTPRequestHandler):
             if original and original not in names:
                 raise ValueError(f"The network {original} no longer exists; it may have been removed elsewhere.")
             saved = networks[names.index(original)] if original else {}
-            for secret in ("password", "proxy_password"):
+            for secret in ("password", "proxy_password", "eap_password"):
                 if not values[secret] and saved:
                     values[secret] = saved[secret]
             if values["proxy_port"] == -1:
                 raise ValueError("Enter the proxy port, 1 to 65535.")
             network = wifi_settings(values)
             network["proxy_port"] = values["proxy_port"]
+            if network["authentication"] not in enroll.TUNNELED_EAP:
+                network["eap_password_per_connection"] = False
+                network["eap_client_certificate"] = False
             others = [n for n in networks if enroll.wifi_name(n) != original]
             check_wifi_option(network, others)
             if network["authentication"] != "psk":
                 network["password"] = ""
+            if network["authentication"] not in enroll.PASSWORD_EAP or (
+                    network["authentication"] in enroll.TUNNELED_EAP and network["eap_password_per_connection"]):
+                network["eap_password"] = ""
+            if field("clear_eap_password") == "1":
+                network["eap_password"] = ""
             networks = ([network if enroll.wifi_name(n) == original else n for n in networks]
                         if original else networks + [network])
             self.save_wifi_networks(options, networks)
@@ -2922,14 +3775,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def options_page(self):
         def option(label, value):
-            return f'<div class="kv"><dt>{label}</dt><dd>{value}</dd><span></span></div>'
+            return ui.kv_row(label, value)
 
         challenge = (ui.chip("ok", "Set") if SCEP_CHALLENGE else
                      ui.chip("warn", "Not set") + " Needed for MDM profiles in the default group")
         wifi = "<br>".join(
-            f"<b>{esc(enroll.wifi_name(w))}</b>, " + ("pre-shared key" if w["authentication"] == "psk" else "EAP-TLS")
+            f"<b>{esc(enroll.wifi_name(w))}</b>, " + esc(enroll.WIFI_AUTH.get(w["authentication"], ("Unknown method",))[0])
             + (f", RADIUS {esc(service['label'])} ({esc(', '.join(service['server_names']))})"
-               if (service := enroll.radius_service(w)) and w["authentication"] != "psk" else "")
+               if (service := enroll.radius_service(w)) and w["authentication"] in enroll.TLS_EAP else "")
             for w in WIFI_NETWORKS) or "Off"
         groups = "<br>".join(
             f"<b>{esc(g['name'])}</b>: OU={esc(g['ou'])}, "
@@ -2938,7 +3791,7 @@ class Handler(BaseHTTPRequestHandler):
             + (", email required" if g.get("require_email") else "")
             for g in GROUPS.values()) or "None"
         body = (
-            '<div class="card"><div class="card-header"><h2>Add-on options</h2>'
+            '<div class="card"><div class="card-header"><h2>Running configuration</h2>'
             f'<p class="muted">The running configuration. Edit groups under <a href="{esc(self.url("/tools/groups"))}">'
             f'Groups</a> and the networks under <a href="{esc(self.url("/tools/wifi"))}">Wi-Fi networks</a>; '
             "change the rest on the add-on's Configuration tab in Home Assistant.</p></div>"
@@ -2976,9 +3829,9 @@ class Handler(BaseHTTPRequestHandler):
         )
         body = (
             self.tools_notice(query, "New profiles and .p12 files include the certificate.")
-            + '<div class="card"><div class="card-header"><h2>Other trusted CAs</h2>'
+            + '<div class="card"><div class="card-header"><h2>Device trust certificates</h2>'
             '<p class="muted">CA certificates devices must also trust, such as the CA that issued your RADIUS '
-            "server's certificate for EAP-TLS Wi-Fi. They are added to Apple profiles (and trusted for the "
+            "server's certificate for enterprise Wi-Fi. They are added to Apple profiles (and trusted for the "
             "Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p></div>"
             + (f'<div class="rows">{extra_rows}</div>' if extra else "")
             + f'<form class="card-content" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/extra"))}">'
@@ -3001,7 +3854,7 @@ class Handler(BaseHTTPRequestHandler):
 
         body = (
             self.tools_notice(query)
-            + '<div class="card"><div class="card-header"><h2>Sign a request</h2>'
+            + '<div class="card"><div class="card-header"><h2>Upload a certificate request</h2>'
             "<p class=\"muted\">CSRs from servers, VPNs, or another CA such as Meraki's SCEP CA. The download "
             "holds the signed certificate followed by its CA chain.</p></div>"
             f'<form class="card-content" method="post" enctype="multipart/form-data" action="{esc(self.url("/ca/sign"))}">'
@@ -3094,19 +3947,9 @@ class Handler(BaseHTTPRequestHandler):
         for wifi in WIFI_NETWORKS:
             label = f"<b>{esc(enroll.wifi_ssid(wifi))}</b>" + (
                 f" ({esc(wifi['name'])})" if wifi["name"] and wifi["name"] != enroll.wifi_ssid(wifi) else "")
-            if wifi["authentication"] == "psk":
-                rows.append(("Wi-Fi", f"SSID {label}, {esc(wifi['security'])} Personal with the saved password",
-                             None))
-            else:
-                names = ", ".join(wifi["radius_server_names"]) or "the names in your RADIUS certificate"
-                rows.append(("Wi-Fi", f"{'Passpoint ' if not wifi['ssid'] else 'SSID '}{label}, EAP-TLS, identity = "
-                             "the SCEP payload, trusted certificates = the certificate payloads above, trusted "
-                             f"server names = {esc(names)}", None))
-        dl = "".join(
-            f'<div class="kv"><dt>{k}</dt><dd>{v}</dd>'
-            + (ui.copy_button(c, k) if c else "<span></span>") + "</div>"
-            for k, v, c in rows
-        )
+            rows.append(("Wi-Fi", f"{'Passpoint ' if not wifi['ssid'] else 'SSID '}{label}, "
+                         + esc(mdm_wifi_settings(wifi)), None))
+        dl = "".join(ui.kv_row(k, v, ui.copy_button(c, k) if c else "") for k, v, c in rows)
         body = (
             self.tools_notice(query)
             + '<div class="grid"><div>'
@@ -3219,7 +4062,7 @@ class EnrollHandler(Handler):
     def page(self, title, body, status=200, back=None, narrow=False, heading=None, head=""):
         self.document(
             title,
-            '<main class="public"><div class="brand">'
+            '<main id="main-content" tabindex="-1" class="public"><div class="brand">'
             f'<span class="brand-mark">{ui.icon("certificate")}</span><span>{esc(CA_NAME)}</span></div>'
             f"{body}</main>",
             status, head='<meta name="referrer" content="no-referrer">',
@@ -3266,11 +4109,21 @@ class EnrollHandler(Handler):
         if token is None or sub:
             self.send(404, "Not found", "text/plain")
             return
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self.send(400, "Invalid request size", "text/plain")
+            return
+        if length < 0:
+            self.send(400, "Invalid request size", "text/plain")
+            return
         if length > 4096:
             self.send(413, "Request too large", "text/plain")
             return
         form = urllib.parse.parse_qs(self.rfile.read(length).decode(errors="replace"))
+        if any(len(values) != 1 for values in form.values()):
+            self.send(400, "Submit each form field once.", "text/plain")
+            return
         link_id, link = LINKS.get(token)
         if link is None:
             self.gone()
@@ -3312,9 +4165,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if self.path != "/scep-challenge" and group not in GROUPS:
             self.send_error(404)
             return
-        length = int(self.headers.get("Content-Length") or 0)
         try:
-            request = json.loads(self.rfile.read(min(length, 1 << 20)))
+            length = int(self.headers.get("Content-Length") or 0)
+            if not 0 <= length <= 1 << 20:
+                raise ValueError("Invalid request size")
+            request = json.loads(self.rfile.read(length))
             challenge = str(request.get("scepChallenge") or "")
             csr = request.get("x509CertificateRequest") or {}
             cn = str((csr.get("subject") or {}).get("commonName") or "")
@@ -3357,6 +4212,7 @@ def main():
     threads = [
         serve(("0.0.0.0", LISTEN_PORT), Handler, "Management page"),
         serve(("0.0.0.0", ENROLL_PORT), EnrollHandler, "Enrollment pages"),
+        serve(("0.0.0.0", RESIDENT_PORTAL_PORT), ipsk.PublicPortalHandler, "Resident Wi-Fi portal"),
         serve(("127.0.0.1", WEBHOOK_PORT), WebhookHandler, "SCEP challenge webhook",
               tls=(WEBHOOK_CERT, WEBHOOK_KEY)),
     ]

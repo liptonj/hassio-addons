@@ -1,0 +1,243 @@
+{
+  "date": "2026-10-02",
+  "scope": "Current release candidate; disposable local runtime, no live providers or deployment",
+  "versions": {
+    "step_ca_addon": "0.30.2.46",
+    "bundled_companion": "1.5.0",
+    "meraki_base": "3.2.9-beta.1",
+    "meraki_sdk": "4.5.0b4"
+  },
+  "git_base": {
+    "addon": "98edcfdfc75c3e5f7ee80df5a39b7bb19256c25b",
+    "meraki": "2da75f7971b26e03a086bfc9baab0bbc7104eca7"
+  },
+  "corrections": [
+    "Renamed local connection guidance to avoid shadowing imported module during resident POSTs",
+    "Preserved DeviceAddressError contract while associating hardware-MAC errors with their field",
+    "Matched individual search words so private MAC finds its help guide",
+    "Advanced Meraki feature branch to current beta and resolved four overlaps; retained upstream rate limiting with secret-safe errors"
+  ],
+  "portal_tests": {
+    "status": "passed",
+    "count": 140,
+    "new_guidance_tests": 14
+  },
+  "mariadb": {
+    "mariadb": "10.11.19-MariaDB-ubu2204",
+    "checks": [
+      "stepca_audit_fresh: repeated setup preserves consumed invitations",
+      "stepca_audit_fresh: limited portal and read-only certificate privileges",
+      "stepca_audit_fresh: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_fresh: revoked device history and replacement MAC",
+      "stepca_audit_fresh: revoked legacy email/MAC can be replaced",
+      "stepca_audit_fresh: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_fresh: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_fresh: concurrent owner quota cannot be exceeded",
+      "stepca_audit_fresh: invitation expiry checked inside real transaction",
+      "stepca_audit_fresh: concurrent invitation consumption provisions one key",
+      "stepca_audit_fresh: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_fresh: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_fresh: repeated schema upgrade retains historical duplicates safely",
+      "stepca_audit_fresh: inventory pages all 303 matching legacy and account-device records without duplicates",
+      "stepca_audit_fresh: inventory searches all records with literal parameterized terms and bounded sorting/pagination",
+      "stepca_audit_legacy: repeated setup preserves consumed invitations",
+      "stepca_audit_legacy: limited portal and read-only certificate privileges",
+      "stepca_audit_legacy: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_legacy: revoked device history and replacement MAC",
+      "stepca_audit_legacy: revoked legacy email/MAC can be replaced",
+      "stepca_audit_legacy: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_legacy: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_legacy: concurrent owner quota cannot be exceeded",
+      "stepca_audit_legacy: invitation expiry checked inside real transaction",
+      "stepca_audit_legacy: concurrent invitation consumption provisions one key",
+      "stepca_audit_legacy: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_legacy: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_legacy: repeated schema upgrade retains historical duplicates safely",
+      "stepca_audit_legacy: inventory pages all 303 matching legacy and account-device records without duplicates",
+      "stepca_audit_legacy: inventory searches all records with literal parameterized terms and bounded sorting/pagination"
+    ],
+    "count": 30,
+    "status": "passed"
+  },
+  "certificate_lifecycle": {
+    "status": "passed",
+    "checks": [
+      "full startup with one MariaDB-backed CA",
+      "real CSR signing and decryptable PKCS#12 chain",
+      "actual certificate renewal with existing device key",
+      "actual certificate revocation",
+      "published CRL contains revoked certificate",
+      "running SCEP provisioner advertises supported capabilities",
+      "companion integration 1.5.0 installed with iPSK bridge",
+      "restart stays healthy and retains root"
+    ],
+    "count": 8,
+    "certificate_material": "disposable fixture only"
+  },
+  "images": [
+    {
+      "status": "passed",
+      "machine": "aarch64",
+      "portal_imports": true,
+      "companion_parse": true,
+      "source_sha256": {
+        "app.py": "0007783060cc714077029ff06e75cfecc89e8e79a53e79743297360a88d49890",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "9edec6389b48b2dc07126cbd5160c14f3d4de7986f14558251bd263c219d2d57",
+        "ipsk.py": "4d73ec80bf5e22b498ec74b600a540afaee17bc8c42ea030ac7acf823a5dab99",
+        "resident_access.py": "16429f20e9b74985e0713e116854070e004a92b7f6c09fd909cc4852159de0a6",
+        "ui.py": "0959f7461a3d247bb7cfaf379ae9dcbd0163c8c5fa0b5c76a7fadc84522ddfec"
+      },
+      "image_id": "sha256:7d8f7615620d7f2dedffac00803fdd7a17dd9129fe3fb947e27640cbf8352ab9",
+      "architecture": "arm64",
+      "variant": null,
+      "version": "0.30.2.46"
+    },
+    {
+      "status": "passed",
+      "machine": "x86_64",
+      "portal_imports": true,
+      "companion_parse": true,
+      "source_sha256": {
+        "app.py": "0007783060cc714077029ff06e75cfecc89e8e79a53e79743297360a88d49890",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "9edec6389b48b2dc07126cbd5160c14f3d4de7986f14558251bd263c219d2d57",
+        "ipsk.py": "4d73ec80bf5e22b498ec74b600a540afaee17bc8c42ea030ac7acf823a5dab99",
+        "resident_access.py": "16429f20e9b74985e0713e116854070e004a92b7f6c09fd909cc4852159de0a6",
+        "ui.py": "0959f7461a3d247bb7cfaf379ae9dcbd0163c8c5fa0b5c76a7fadc84522ddfec"
+      },
+      "image_id": "sha256:231a1f3a276ade70846ef02c2840f5a53a9c6617b7c3461681d69de9fd9ee3ef",
+      "architecture": "amd64",
+      "variant": null,
+      "version": "0.30.2.46"
+    },
+    {
+      "status": "passed",
+      "machine": "armv7l",
+      "portal_imports": true,
+      "companion_parse": true,
+      "source_sha256": {
+        "app.py": "0007783060cc714077029ff06e75cfecc89e8e79a53e79743297360a88d49890",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "9edec6389b48b2dc07126cbd5160c14f3d4de7986f14558251bd263c219d2d57",
+        "ipsk.py": "4d73ec80bf5e22b498ec74b600a540afaee17bc8c42ea030ac7acf823a5dab99",
+        "resident_access.py": "16429f20e9b74985e0713e116854070e004a92b7f6c09fd909cc4852159de0a6",
+        "ui.py": "0959f7461a3d247bb7cfaf379ae9dcbd0163c8c5fa0b5c76a7fadc84522ddfec"
+      },
+      "image_id": "sha256:733fcba938a4f6caa3185f81083ef0a8527c9fb21f78860c94883b4944b7cbff",
+      "architecture": "arm",
+      "variant": "v7",
+      "version": "0.30.2.46"
+    }
+  ],
+  "meraki_checks": {
+    "run_checks": "passed",
+    "lint": "passed",
+    "format": "passed",
+    "bandit": "passed",
+    "mypy": "passed",
+    "run_checks_tests": 1172,
+    "run_checks_skipped": 7,
+    "full_pytest_tests": 1172,
+    "full_pytest_skipped": 8,
+    "new_retry_redaction_tests": 2,
+    "upstream_beta_retained": true
+  },
+  "source_sha256": {
+    ".dockerignore": "13f3777b428b87ae5dc1d0ecd77615b1649c01e1bebcb2617d96b1eaf73d9f67",
+    "Dockerfile": "7fa1454d00fde5be0a1047d7fc4e6094715bf952dd57df3aaeb1d1d941ecce4b",
+    "admin/app.py": "0007783060cc714077029ff06e75cfecc89e8e79a53e79743297360a88d49890",
+    "admin/captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+    "admin/db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+    "admin/enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+    "admin/guidance.py": "9edec6389b48b2dc07126cbd5160c14f3d4de7986f14558251bd263c219d2d57",
+    "admin/ipsk.py": "4d73ec80bf5e22b498ec74b600a540afaee17bc8c42ea030ac7acf823a5dab99",
+    "admin/requirements.txt": "19e7475354e1c38f98f48f0c9e8c02e1dd7f9820d8b9826cf8439dc04f351f33",
+    "admin/resident_access.py": "16429f20e9b74985e0713e116854070e004a92b7f6c09fd909cc4852159de0a6",
+    "admin/ui.py": "0959f7461a3d247bb7cfaf379ae9dcbd0163c8c5fa0b5c76a7fadc84522ddfec",
+    "build.yaml": "2d92c7d3addae930a679445408d9d84f5c9d095b4f81bad80ddc3c44e8c88465",
+    "config.yaml": "7aab820d78c65123816e973329d594da1029295b70dedf18daa564b843c85697",
+    "custom_components/step_ca_scep/__init__.py": "ec7ec8596455b519374f2d44659982f5a3ed74389ce954610baf1a0aa33462dd",
+    "custom_components/step_ca_scep/config_flow.py": "cb91258c3b56771dcfd02979eb538bbf8b9cc56057603238c1d2d2608ac217eb",
+    "custom_components/step_ca_scep/const.py": "82362be8bb6b2f2b76a9ed4eece622eb3fb866c1dd077893a6a957ebf92592c1",
+    "custom_components/step_ca_scep/ipsk_websocket.py": "c6d7bcac90b9bd132e3cf9774d36bdc2df883e9b9a43e1c0c3d0a42e39228c03",
+    "custom_components/step_ca_scep/manifest.json": "d4b1e295d2009e9ee05269f6677f786dbe6971b0048ecca6ae5e66ff9e995544",
+    "custom_components/step_ca_scep/meraki_ipsk.py": "ada3b01950e9ce3e3345b5fd26740ad8533e7b2f06beb48d3bface662ba04f9b",
+    "run.sh": "eb307ef3a56f53d24f3dbe02c0477dfba2de630f2d0d6f185755e26c6ed8a0e5",
+    "tests/ca_integration.py": "61121d8f24da2554cd9c7fe5adde20ee767d1a30072efb52038a645bddfad939",
+    "tests/mariadb_integration.py": "b2cf6e1f63605fd9121ea8c2305a9abb07e7346fe4d91689044cf6cb2deec178",
+    "tests/test_captive_portal.py": "8c0f648aa0d04fecdfec584ba4edce26eace9471c3ad73d242d648df9616ab69",
+    "tests/test_full_audit.py": "021b59a8ebf4bd1882f255ad18e24c880513be1db2e60ead89a1383d3d6cb687",
+    "tests/test_meraki_bridge.py": "3ae3cd43b7e1392b6e6de77f3c5aa28e27c070890df5fd13db1849181f98aef2",
+    "tests/test_preinstall_guidance.py": "a620f8976b19e49e9f2d29c3ffb71ce3bac8016594c7f5f1c7f5f854c15dac8a",
+    "tests/test_resident_access.py": "44f2b98a03c59fd0a51b31d30d5361ea099bd88f25070c03c5c423a649041f57",
+    "tests/test_wifi_profiles.py": "93f1784b0cb2e03871b72f47de79ab8c2cb0b07d8f236e4f1062b056e1ae3edb",
+    "tests/test_wifi_qr.py": "7e754dd7b0fff6876480c0db13f267614c5d2b2fbdecb856a584aacd1de772e8"
+  },
+  "meraki_source_sha256": {
+    "CHANGELOG.md": "95b1b094f79b89f9624ce92ac9d49e77035aa95c6341712c915fc98003bad526",
+    "README.md": "31c834b3a882e3ab5eb979e95ca46f60233968c986878b11fc504e1f6a3d002c",
+    "custom_components/meraki_ha/api/legacy.py": "f6df0706b7bb5d7246314d20b7085c8d3fabae179ae850e77a1367cf11841c65",
+    "custom_components/meraki_ha/application_credentials.py": "0e3355a93c8f936f203d7456fa9f26ed6bb0f4e110ce15b9d533578592612fa1",
+    "custom_components/meraki_ha/config_flow.py": "ecfb2b8eb7b5734cc8cd1f3263d0bf45775b6ca680b20900b22246cb65b92d3e",
+    "custom_components/meraki_ha/const.py": "f68ede1171e87c64253cf3b33f570d3280c960b56943c426bbb9fe6e7b3dd51e",
+    "custom_components/meraki_ha/core/api/client.py": "ca17e137b2585662206a1aa25825879f55d5c99c845aba3a6ebbac0c4e0cc23f",
+    "custom_components/meraki_ha/core/utils/api_utils.py": "fd4f73f132d72909f7bf7d60f999a147073889f3c3a3d8db3a52d12b6bd5a6f5",
+    "custom_components/meraki_ha/diagnostics.py": "6a469ebe94e3a4c0f1d68a6e2295c58df931a4ce01c1845e46f7e74745edb4c4",
+    "custom_components/meraki_ha/manifest.json": "e51976db38d81c430bc5c09990df46c63dff06dfa714c35af07c9cbd05e47591",
+    "custom_components/meraki_ha/web_api.py": "ea6a6bb6f8926a75ab8b4a5815a8c86b544f1b7062727812428c090658a10840",
+    "pyproject.toml": "d185f2143b2beb353d3cfad9aa7baade58f3023e29d616c61a0ddfb09a8fd550",
+    "tests/api/test_websocket_api.py": "58cbc4b0c14d1ee18418f98471cb5bb9c3abd232872998fd0ba7826207607d10",
+    "tests/core/api/test_client.py": "2b5b10b4321abcd8f8786cbfd1f010935e41222c1fbd8e9e9edf2c0c251f3b90",
+    "tests/core/utils/test_api_utils.py": "4baa59aac5945f10f4c8d7647a93e2b7cce55f775b484838925d135f031a250d",
+    "tests/services/test_push_api.py": "64a113fab025c2e74822621ad66775e0ac6340232f5e9752fd0d4a03201251f7",
+    "tests/test_application_credentials.py": "f44bfac7f7a109f4381f8e4e713d4428e95fd50e199b95b6d15dfb993ccb41eb",
+    "tests/test_diagnostics.py": "61ade611b21907c58de76e044d9092929ae0e00e660b70d6dfe2fdfe4c403c79",
+    "tests/test_web_api.py": "cdd21e2ce93b8686f6a43bdc091a541edac2294302ada39094d4c69a8734c24c",
+    "uv.lock": "79275b8c73b1476e08283bd6ba283895a622e73238b9bc8ddf4cb69911aabf5b"
+  },
+  "proof_log_sha256": {
+    "tests": "37d7daf8dbcf8dd8c402541625a059e47a95cd26f4406ebcb0060d8dbb7bda62",
+    "mariadb": "6b32b7c87b96ba8c9f1640ad9ac99c96908cfa5e40fadbd802dbec91dca8613a",
+    "ca": "d17ed22861acec5e67caeae417ceedac71866b53dbb96ad725c77bf9cd3b3ec5",
+    "aarch64": "f2b84c314c0c36fee4579abc2176c858ecdbc56fe0ec5d3ae7c2253ae949e524",
+    "amd64": "9cf1bb101d7aa6949ae7a20da3644399006e411fbd25f3e01d329d7245084c2d",
+    "armv7": "c87e2a564d5c5affa3989f8b7f2704f244ddfd828e617f06b2de17609b284018"
+  },
+  "meraki_proof_log_sha256": {
+    "checks": "c5b2bcca979311da8db2d9375b025622496bae41334781a54f41b8af0de9c562",
+    "full-tests": "07cd1946edb17cc1da391feb457ef58cc80a32c9aefc12f89e9f184312702cea"
+  },
+  "release_behavior": {
+    "addon": "No image reference or Step CA publish job: Supervisor builds from repository source",
+    "meraki": "PR to beta; merge creates next beta version. ENABLE_HACS_DEPLOY=true with HA_URL/HA_TOKEN names present; release workflow can install and restart HA. Target and secret values not inspected."
+  },
+  "remaining": [
+    "Live Home Assistant installation and configuration",
+    "Meraki guest/setup captive portal and hardware/private-MAC device checks",
+    "Duo allowed/denied group members, browser callback and real provider credentials",
+    "Public HTTPS, device trust and deployed certificate enrollment"
+  ],
+  "cleanup": {
+    "profile": "stepca-release",
+    "context_before": "default",
+    "default_profile_before": "Stopped",
+    "status": "complete",
+    "command": "colima delete --profile stepca-release --force --data",
+    "context_after": "default",
+    "default_profile_after": "Stopped",
+    "owned_profile_and_container_data_removed": true,
+    "cleanup_log_sha256": "99d51198be463477b240662132ce3fee551dee7e777dbbcfd8852e0db16ff267"
+  },
+  "published": {
+    "commit": false,
+    "push": false,
+    "deploy": false
+  }
+}

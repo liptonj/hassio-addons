@@ -13,6 +13,13 @@ records stored in the MariaDB add-on.
 Devices can be enrolled without an MDM: send a one-time link or QR code, or
 click **Enroll this device** in the panel on a Mac or Windows PC. Apple
 devices get a Let's Encrypt-signed profile that enrolls over SCEP and can set
-up EAP-TLS Wi-Fi; other devices get a .p12 file.
+up EAP-TLS or account-based enterprise Wi-Fi; other devices get a .p12 file
+with method-specific Wi-Fi instructions. The panel also supports shared-key
+networks and carrier SIM/AKA profiles for compatible iPhones and iPads.
+
+Step CA also includes resident Wi-Fi onboarding and a Meraki iPSK manager.
+Each resident receives an individual Wi-Fi key, with resident and invitation
+records stored in the same MariaDB database Step CA uses. Step CA remains the
+only certificate system.
 
 See [DOCS.md](DOCS.md) for setup and configuration.

@@ -1,0 +1,184 @@
+{
+  "date": "2026-10-02",
+  "status": "local checks passed; independent critique and deployed checks pending",
+  "supersedes": "2026-10-02-runtime-evidence.json image/source/cleanup claims for current portal revision",
+  "portal_tests": {
+    "count": 119,
+    "status": "passed",
+    "meraki_sdk": "4.5.0b4",
+    "upstream_fixture_warning": "Provider standard 40-byte HMAC secret below PyJWT SHA512 recommendation; retained warning"
+  },
+  "images": [
+    {
+      "id": "sha256:377f46479b7c276fcc9d2eb29f99669377545ce6c07a1de122152b6b422e7a09",
+      "addon_arch": "aarch64",
+      "architecture": "arm64",
+      "machine": "aarch64",
+      "build": "passed",
+      "runtime": "passed",
+      "network": "none for module/CSP smoke checks",
+      "duo_universal": "2.3.1",
+      "duo_client": "5.7.0",
+      "portal_imports": true,
+      "companion_compile": true,
+      "configured_duo_csp_origin": true,
+      "packaged_source_sha256": {
+        "admin/ipsk.py": "368ac27749bf676b61efcf908f51a74a560b899a61461877a810929c07478367",
+        "admin/resident_access.py": "44e06bd531be1721a379856b4bedcea90874b50b0ff30eb4b22386d4d943c63a"
+      }
+    },
+    {
+      "id": "sha256:0fd03e26bd44ffc4e8d431c4baa8bdee23b802cb8dc7843239c5c70a929e8f83",
+      "addon_arch": "amd64",
+      "architecture": "amd64",
+      "machine": "x86_64",
+      "build": "passed",
+      "runtime": "passed",
+      "network": "none for module/CSP smoke checks",
+      "duo_universal": "2.3.1",
+      "duo_client": "5.7.0",
+      "portal_imports": true,
+      "companion_compile": true,
+      "configured_duo_csp_origin": true,
+      "packaged_source_sha256": {
+        "admin/ipsk.py": "368ac27749bf676b61efcf908f51a74a560b899a61461877a810929c07478367",
+        "admin/resident_access.py": "44e06bd531be1721a379856b4bedcea90874b50b0ff30eb4b22386d4d943c63a"
+      }
+    },
+    {
+      "id": "sha256:6c74b1576015a1ed239f73be1bd9eff7e5b8fb4b0b314d7c1177703d13e29da3",
+      "addon_arch": "armv7",
+      "architecture": "arm",
+      "machine": "armv7l",
+      "build": "passed",
+      "runtime": "passed",
+      "network": "none for module/CSP smoke checks",
+      "duo_universal": "2.3.1",
+      "duo_client": "5.7.0",
+      "portal_imports": true,
+      "companion_compile": true,
+      "configured_duo_csp_origin": true,
+      "packaged_source_sha256": {
+        "admin/ipsk.py": "368ac27749bf676b61efcf908f51a74a560b899a61461877a810929c07478367",
+        "admin/resident_access.py": "44e06bd531be1721a379856b4bedcea90874b50b0ff30eb4b22386d4d943c63a"
+      }
+    }
+  ],
+  "mariadb": {
+    "mariadb": "10.11.19-MariaDB-ubu2204",
+    "checks": [
+      "stepca_audit_fresh: repeated setup preserves consumed invitations",
+      "stepca_audit_fresh: limited portal and read-only certificate privileges",
+      "stepca_audit_fresh: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_fresh: revoked device history and replacement MAC",
+      "stepca_audit_fresh: revoked legacy email/MAC can be replaced",
+      "stepca_audit_fresh: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_fresh: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_fresh: concurrent owner quota cannot be exceeded",
+      "stepca_audit_fresh: invitation expiry checked inside real transaction",
+      "stepca_audit_fresh: concurrent invitation consumption provisions one key",
+      "stepca_audit_fresh: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_fresh: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_fresh: repeated schema upgrade retains historical duplicates safely",
+      "stepca_audit_legacy: repeated setup preserves consumed invitations",
+      "stepca_audit_legacy: limited portal and read-only certificate privileges",
+      "stepca_audit_legacy: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_legacy: revoked device history and replacement MAC",
+      "stepca_audit_legacy: revoked legacy email/MAC can be replaced",
+      "stepca_audit_legacy: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_legacy: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_legacy: concurrent owner quota cannot be exceeded",
+      "stepca_audit_legacy: invitation expiry checked inside real transaction",
+      "stepca_audit_legacy: concurrent invitation consumption provisions one key",
+      "stepca_audit_legacy: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_legacy: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_legacy: repeated schema upgrade retains historical duplicates safely"
+    ],
+    "count": 26,
+    "status": "passed"
+  },
+  "ca": {
+    "status": "passed",
+    "checks": [
+      "full startup with one MariaDB-backed CA",
+      "real CSR signing and decryptable PKCS#12 chain",
+      "actual certificate renewal with existing device key",
+      "actual certificate revocation",
+      "published CRL contains revoked certificate",
+      "running SCEP provisioner advertises supported capabilities",
+      "companion integration 1.5.0 installed with iPSK bridge",
+      "certificate issued on current image renews after restart"
+    ],
+    "count": 8,
+    "certificate_material": "disposable fixture only"
+  },
+  "ca_root_public_sha256": "976072dd9818fff0875e188a7d702dc19c74e366bc371b1c121f089ded6b3221",
+  "root_unchanged_after_image_replacement_and_restart": true,
+  "browser": {
+    "before": "Native POST redirect blocked by form-action self",
+    "after": "Native POST reaches CDP-fulfilled dummy Duo authorization response",
+    "confirmation_page": "### Page\n- Page URL: https://api-fixture.duosecurity.com/oauth/v1/authorize?state=fixture-state\n### Snapshot\n```yaml\n- heading \"Fixture Duo reached\" [level=1] [ref=f4e2]\n```\n",
+    "confirmation_console": "### Result\nTotal messages: 0 (Errors: 0, Warnings: 0)\n\n",
+    "scope": "Controlled fixture, not a live Duo verification",
+    "network_note": "Earlier Playwright interception missed redirected request: one GET to api-fixture.duosecurity.com with literal fixture-state returned HTTP 400; no credentials or real account"
+  },
+  "source_sha256": {
+    ".dockerignore": "e51091ec920bb4e8c95ebaedef64bda6b14c16268cad05bfb1232191f7658b3c",
+    "Dockerfile": "30b46543b111591b9028f3c936a865952092abda17814fbb4be5a443f26ea1e4",
+    "admin/app.py": "90b3e9c61fe94d3457c659ebee37f16c32fe893548be834ee3fbc4b1cb3599fc",
+    "admin/captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+    "admin/db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+    "admin/enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+    "admin/ipsk.py": "368ac27749bf676b61efcf908f51a74a560b899a61461877a810929c07478367",
+    "admin/requirements.txt": "19e7475354e1c38f98f48f0c9e8c02e1dd7f9820d8b9826cf8439dc04f351f33",
+    "admin/resident_access.py": "44e06bd531be1721a379856b4bedcea90874b50b0ff30eb4b22386d4d943c63a",
+    "admin/ui.py": "221ad0705baf17685f1014775074985b2f89a4e64c6e4394923afb77edd90e8b",
+    "config.yaml": "7aab820d78c65123816e973329d594da1029295b70dedf18daa564b843c85697",
+    "custom_components/step_ca_scep/__init__.py": "ec7ec8596455b519374f2d44659982f5a3ed74389ce954610baf1a0aa33462dd",
+    "custom_components/step_ca_scep/config_flow.py": "cb91258c3b56771dcfd02979eb538bbf8b9cc56057603238c1d2d2608ac217eb",
+    "custom_components/step_ca_scep/const.py": "82362be8bb6b2f2b76a9ed4eece622eb3fb866c1dd077893a6a957ebf92592c1",
+    "custom_components/step_ca_scep/ipsk_websocket.py": "c6d7bcac90b9bd132e3cf9774d36bdc2df883e9b9a43e1c0c3d0a42e39228c03",
+    "custom_components/step_ca_scep/manifest.json": "d4b1e295d2009e9ee05269f6677f786dbe6971b0048ecca6ae5e66ff9e995544",
+    "custom_components/step_ca_scep/meraki_ipsk.py": "ada3b01950e9ce3e3345b5fd26740ad8533e7b2f06beb48d3bface662ba04f9b",
+    "run.sh": "eb307ef3a56f53d24f3dbe02c0477dfba2de630f2d0d6f185755e26c6ed8a0e5",
+    "tests/ca_integration.py": "61121d8f24da2554cd9c7fe5adde20ee767d1a30072efb52038a645bddfad939",
+    "tests/mariadb_integration.py": "5130821a27a7cb1f8a37776bc9fc0b37940c7d7126c62c2415da2cbc6453801f",
+    "tests/test_full_audit.py": "58e91b350bcd0aaed43468d7ea62321890d8809917dae1cea2d4e313e9c02708",
+    "tests/test_resident_access.py": "83775c2331031c88dc0706501e82e8f74465709e56f62490abc0b9abeaea4b85",
+    "translations/en.yaml": "5ae2e7aaefcaf11e6117eb9e54853f53e6ba3aee3280c93883c0e47a7c9c27b2"
+  },
+  "proof_logs_sha256": {
+    "/tmp/codex-stepca-portal-final-tests.log": "a01daecf7dda9f98d7802745ddc78a673f9355b0a3f4837da70a38158815697c",
+    "/tmp/codex-stepca-portal-mariadb.log": "8b359a0a9ba49feec2468ad5213bd706c0aa7c6e443e376a8e36906f3f198bd0",
+    "/tmp/codex-stepca-portal-ca.log": "d17ed22861acec5e67caeae417ceedac71866b53dbb96ad725c77bf9cd3b3ec5",
+    "/tmp/codex-stepca-portal-restart.log": "00a1a11f3e92c31bcdd34c2026b4e02b56723ec1c1b53ba2fc26a57a084741c6",
+    "/tmp/codex-stepca-duo-csp-before-console.log": "3ada3e961c246695881cb9eaafa2fdea2480005b5dfdcc0e99515cb6254555ec",
+    "/tmp/codex-stepca-duo-csp-before-requests.log": "ca1dcfd633fe430489631e651dc4165713b408edc54936a31d58afe005682fb5",
+    "/tmp/codex-stepca-duo-csp-confirmation-console.log": "d0e5634bb0c1271965327ad2ac18107af18fa7da6d2c9ce13e03eeda6cb603db",
+    "/tmp/codex-stepca-duo-csp-confirmation-page.log": "be60e0f330a0b28a28436faf9e4058de90a76c351126ac076b5e35c7612cf4f9",
+    "/tmp/codex-stepca-portal-cleanup.log": "aabf6ae3093414b9555ab16d0b63e532493015a9fe7fa5e03bf0e9d62c82bfc1",
+    "/tmp/codex-stepca-portal-aarch64-build.log": "68e481897efd0c78b55d44531d5e1052ba284c3828e07cae4974f45d808652be",
+    "/tmp/codex-stepca-portal-amd64-build.log": "75f0dc4f6d5c7b4a8a92105aad4172650f15d74e80d32ba72ba4cf7d22cab07a",
+    "/tmp/codex-stepca-portal-armv7-build.log": "8ef8e90d2afdae4584e57999d0a2bf04a914bc698ffb341ba342aaa26b7f87e5"
+  },
+  "isolation": {
+    "colima_profile": "stepca-audit",
+    "host_ports_published": false,
+    "production_certificates_changed": false,
+    "production_wifi_changed": false,
+    "prior_cleanup_correction": "Initial VM deletion retained container data. Final deletion explicitly included --data.",
+    "cleanup_command": "colima delete --profile stepca-audit --force --data",
+    "cleanup_status": "passed",
+    "audit_profile_removed": true,
+    "fixture_database_and_ca_removed": true,
+    "cleanup_log": "time=\"2026-10-02T16:51:36-04:00\" level=info msg=\"deleting colima [profile=stepca-audit]\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"deleting ...\" context=docker\ncolima-stepca-audit\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Sending SIGKILL to the vz driver process 36262\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Sending SIGKILL to the host agent process 36262\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Removing *.pid *.sock *.tmp under `/Users/jolipton/.colima/_lima/colima-stepca-audit`\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Removing `/Users/jolipton/.colima/_lima/colima-stepca-audit/ha.pid`\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Removing `/Users/jolipton/.colima/_lima/colima-stepca-audit/ha.sock`\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Removing `/Users/jolipton/.colima/_lima/colima-stepca-audit/ssh.sock`\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Removing `/Users/jolipton/.colima/_lima/colima-stepca-audit/vz.pid`\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"Deleted `colima-stepca-audit` (`/Users/jolipton/.colima/_lima/colima-stepca-audit`)\"\ntime=\"2026-10-02T16:51:37-04:00\" level=info msg=\"deleting container data\"\ntime=\"2026-10-02T16:51:38-04:00\" level=info msg=done\n",
+    "remaining_profile": "default, stopped; unchanged",
+    "preview_and_browser_stopped": true
+  },
+  "remaining": [
+    "deployed Home Assistant/Meraki/Duo access",
+    "physical Wi-Fi QR and SCEP/MDM installs",
+    "Impeccable independent-review permission already requested"
+  ],
+  "historical_revision_note": "Source/image/test records preserved for their historical revision. Current critique changes and runtime proof are in 2026-10-02-critique-final-evidence.json."
+}

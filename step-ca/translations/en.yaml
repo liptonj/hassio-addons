@@ -93,8 +93,9 @@ configuration:
   database:
     name: Database
     description: >-
-      mariadb stores step-ca's records in the MariaDB add-on and enables the
-      certificate list. embedded uses step-ca's built-in database.
+      mariadb stores Step CA records and resident iPSK portal data in the
+      MariaDB add-on. embedded uses Step CA's built-in database and cannot be
+      shared with resident onboarding.
   mariadb_database:
     name: MariaDB database name
     description: Do not use a database that something else uses.
@@ -110,6 +111,73 @@ configuration:
       link_hours:
         name: Link lifetime (hours)
         description: How long enrollment links stay valid (1-168).
+  resident_onboarding:
+    name: Resident iPSK onboarding
+    description: >-
+      Move resident registration and iPSK management into Step CA. Resident
+      records are stored in the same MariaDB database; Step CA remains the only CA.
+      Registration starts through the default-PSK captive portal and blocks private MAC addresses.
+    fields:
+      enabled:
+        name: Enable the public resident portal
+      invite_required:
+        name: Require an invitation code
+      network_id:
+        name: Meraki network ID
+        description: Network used when a resident registers.
+      ssid_number:
+        name: SSID number
+        description: Meraki SSID used for resident iPSKs.
+      group_policy_id:
+        name: Registered-resident group policy ID
+        description: >-
+          Required when onboarding is enabled. Meraki policy applied to individual resident keys. Use splash bypass;
+          keep the default setup key on a separate restricted captive portal policy.
+      duration_hours:
+        name: iPSK lifetime in hours
+        description: Set to 0 for keys without an expiry.
+      guest_ssid:
+        name: Guest QR network name
+        description: The existing Wi-Fi network guests join by scanning the guest QR.
+      guest_psk:
+        name: Guest QR password
+        description: Existing guest PSK or iPSK, configured in Meraki with splash bypass.
+      setup_ssid:
+        name: Registration QR network name
+        description: The existing setup network used to open resident registration.
+      setup_psk:
+        name: Registration QR password
+        description: Existing default setup PSK or iPSK, configured to use the captive portal.
+      self_service_enabled:
+        name: Allow residents to add other devices
+        description: Residents can create an individual device key and download its join QR.
+      sign_in_required:
+        name: Require Duo verification
+        description: Use Duo Universal SDK factor verification for permitted group members. This is not primary password SSO.
+      no_sign_in_user_list:
+        name: Show group-only resident list without sign-in
+        description: Selecting a group member attributes a new key but does not verify identity or reveal existing passwords.
+      max_devices_per_resident:
+        name: Device limit per resident
+        description: Administrators can revoke or delete a self-service key here to release its device slot.
+      duo_client_id:
+        name: Duo Web SDK client ID
+      duo_client_secret:
+        name: Duo Web SDK client secret
+      duo_api_hostname:
+        name: Duo Web SDK API hostname
+      duo_redirect_uri:
+        name: Public Duo callback URL
+        description: Public HTTPS Home Assistant URL ending in /api/step_ca_scep/portal?action=duo_callback.
+      duo_admin_integration_key:
+        name: Duo Admin API integration key
+      duo_admin_secret:
+        name: Duo Admin API secret
+      duo_admin_hostname:
+        name: Duo Admin API hostname
+      duo_group_id:
+        name: Permitted Duo resident group ID
+        description: Required for verification and the selector. The portal never retrieves the full tenant user list.
   profile_signing:
     name: Profile signing
     description: >-
@@ -135,7 +203,8 @@ configuration:
         name: Authentication
         description: >-
           eap_tls: devices sign in with the certificate from this CA (WPA Enterprise).
-          psk: a shared network password (WPA Personal).
+          peap, eap_ttls, eap_fast: RADIUS account credentials. eap_sim and eap_aka:
+          compatible carrier SIM. leap: legacy only. psk: shared network password.
       password:
         name: Password
         description: The network password when authentication is psk (8 to 63 characters).
@@ -168,3 +237,32 @@ configuration:
       Wi-Fi networks added to Apple profiles, with proxy, captive portal, QoS, and Passpoint
       settings. Easiest to edit in the panel under Tools > Wi-Fi networks, where
       each network can have its own profile name so one SSID can be set up more than once.
+    fields:
+      authentication:
+        name: Authentication
+        description: EAP-TLS, PEAP, EAP-TTLS, EAP-FAST, SIM/AKA, legacy LEAP, or a shared password.
+      eap_username:
+        name: 802.1X user name
+        description: Empty prompts on the device for password methods; EAP-TLS defaults to the certificate name.
+      eap_password:
+        name: 802.1X password
+        description: Optional. Included in downloaded profiles. Empty prompts on the device.
+      eap_outer_identity:
+        name: Outer identity
+        description: Hides the account name outside the PEAP, TTLS, or FAST tunnel.
+      eap_password_per_connection:
+        name: Ask for a password on every connection
+      eap_client_certificate:
+        name: Also require the device certificate
+      ttls_inner_authentication:
+        name: TTLS inner authentication
+      tls_minimum:
+        name: Minimum TLS version
+      tls_maximum:
+        name: Maximum TLS version
+      eap_fast_use_pac:
+        name: Use a Protected Access Credential (PAC)
+      eap_fast_provision_pac:
+        name: Provision PAC from the server
+      eap_sim_rands:
+        name: Minimum SIM challenges (RANDs)

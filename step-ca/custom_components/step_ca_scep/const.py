@@ -6,6 +6,7 @@ DOMAIN = "step_ca_scep"
 
 CONF_ROOT_PEM = "root_pem"
 CONF_ENROLL_PORT = "enroll_port"
+CONF_PORTAL_PORT = "portal_port"
 
 URL_BASE = f"/api/{DOMAIN}"
 

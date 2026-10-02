@@ -1,5 +1,94 @@
 # Changelog
 
+## 0.30.2.46
+
+- Fixed a guidance variable collision that interrupted successful resident
+  onboarding and validation recovery; help search now matches separate words.
+- Verified this release with 140 portal tests, 30 real MariaDB checks,
+  disposable certificate lifecycle/restart checks and all three architecture builds.
+
+- Added installation guidance, read-only connection readiness and searchable
+  in-app troubleshooting before deployment. Public resident pages include
+  connection help and clear onboarding progress.
+- Added database-backed resident search and pagination beyond 250 records;
+  bounded key-table pagination, independent sorting and preserved filter links.
+- Added searchable permitted-group account choices, field-specific validation
+  and recovery of non-secret identity/device details.
+- Disclosed secondary tools on phones and supplied progress for readiness checks.
+
+- Completed the independent interface critique: put searchable device/key
+  management above setup, disclose key creation, show another-device address
+  fields only for that choice, preserve registration details after validation,
+  and explain saving the one-time password and joining the resident network.
+- Reused nonce-protected shared controls on resident pages for password copying,
+  progress feedback and conditional fields; clarified account labels, dates,
+  certificate choices and tool headings.
+- Allowed the configured Duo host through the resident form policy so browser
+  redirects complete. Contained provider error bodies in pages and logs, and
+  rotated successful device-request tokens before releasing the session lock.
+- Verified the shared Meraki connection against SDK 4.5.0b4 and documented
+  Home Assistant's credential storage. Its integration now redacts Wi-Fi/RADIUS
+  secrets in diagnostic and dashboard data and restricts key creation to admins.
+
+- Fixed the build context to include all resident modules and SDK requirements,
+  removed an unavailable Alpine package and corrected MariaDB generated MAC
+  columns so indexed expressions work across SQL padding modes.
+- Added Step CA companion integration 1.5.0's authenticated Meraki SDK bridge;
+  network-scoped choices, group-policy validation and key attribution/history
+  use the existing Meraki connection and Step CA's MariaDB database.
+- Completed a full local interface and implementation audit: corrected
+  definition lists, inline link recognition, scrollable-table keyboard access,
+  secret controls, mobile group actions and 44px action targets.
+- Checked invitation expiry and freed recorded slots for revoked/expired keys.
+- Serialized registration across both resident tables and validated authoritative
+  Wi-Fi credentials before recording success; retained revoked device history.
+- Bounded full WebSocket exchanges, request sizes and rate-limit memory; preserved submit-button values,
+  improved enrollment QR quiet zones and respected explicitly disabled options.
+
+- Added optional resident creation of device iPSKs with downloadable join QRs,
+  attributed device records and limits in Step CA's MariaDB schema.
+- Added administrator controls for Duo Universal SDK verification or a
+  no-sign-in resident selector restricted to one Duo group through the Admin API.
+- Bound Duo callbacks to browser state, nonce and username; rejected bypass
+  responses, rechecked group membership and blocked legacy registration bypasses.
+- Added secure resident sessions, duplicate-form protection and other-device
+  hardware-MAC checks. No-sign-in selection cannot reveal existing passwords.
+
+- Add separate downloadable Wi-Fi QRs for guest access and joining the
+  setup network to register for an individual key. Save their existing
+  network names and passwords in the Residents panel's QR network settings.
+- Generate a join QR after creating a key for another device and add
+  **Show QR** for existing active iPSKs. Password fields preserve spaces,
+  and QR payloads escape Wi-Fi delimiter characters.
+- Make the migrated WPN resident flow start through Meraki's default-PSK
+  captive portal. Block missing, invalid and private/randomized device MACs
+  before registration, with device-specific recovery instructions. Keep the
+  captured address in a short-lived server session and record it in Step CA's
+  database. Add validated click-through completion after registration.
+- Fix resident database setup to include source IP and device MAC columns.
+- Bring resident onboarding and Meraki iPSK administration into the Step CA
+  panel. Resident records and one-time invitations use restricted tables in
+  Step CA's MariaDB database; certificate issuance remains in Step CA.
+- Add the public resident registration route through the Home Assistant
+  integration and require MariaDB when resident onboarding is enabled.
+- Create all portal records directly in Step CA's MariaDB for a new installation;
+  removed the unneeded old WPN database import and its options.
+
+## 0.30.2.45
+
+- Reorganized Wi-Fi setup with a wider editor, consistent expandable sections,
+  a live profile summary, saved networks, and an authentication/setup guide.
+- Added PEAP, EAP-TTLS (with inner authentication), EAP-FAST, EAP-SIM,
+  EAP-AKA, and legacy LEAP. Added account credentials, outer identity,
+  per-connection passwords, optional client certificates, TLS limits, PAC,
+  and SIM challenge settings in the UI, options schema, and Apple profiles.
+- Corrected EAP server-trust placement and isolated hosted RADIUS CA trust
+  per network. Manual setup instructions now match the selected EAP method.
+- Standardized tool navigation, password visibility controls, field help,
+  keyboard access, and submission feedback across the panel.
+- Fixed optional profile-name validation and preserved spaces in SSIDs.
+  Corrected WPA security and Mac login-window guidance.
+
 ## 0.30.2.44
 
 - **Serial number enrollment removed**: enrollment links and **Enroll this

@@ -1,0 +1,1361 @@
+{
+  "assessment": "B",
+  "date": "2026-10-02",
+  "target_slug": "admin-app-py",
+  "targets": [
+    "admin/app.py",
+    "admin/ui.py",
+    "admin/enroll.py",
+    "admin/ipsk.py",
+    "admin/resident_access.py"
+  ],
+  "independence": "Separate approved subagent; did not read Assessment A, prior audits or surface histories. Findings withheld until parent announced Assessment A complete. context.mjs was not rerun. PRODUCT.md/DESIGN.md used for incumbent HA constraints.",
+  "evidence_recovery": "This evidence was saved after a deliberate turn interruption. Original /tmp detector JSON, rendered HTML and manifest had disappeared. Counts, exact file/rule locations, statuses/byte sizes, selected exact snippets, source observations and browser outcomes were recovered from already recorded tool output. This is a reconstructed evidence index, not a byte-identical original detector JSON. No detector rerun or fabricated hashes.",
+  "ignore_list": {
+    "exists": false,
+    "rules_applied": []
+  },
+  "cli": {
+    "bundled_command": "node /Users/jolipton/.agents/skills/impeccable/scripts/detect.mjs --json /tmp/codex-stepca-critique-b-fixtures/html",
+    "bundled_exit": 2,
+    "bundled_stderr": "impeccable detect: DEGRADED - HTML parser modules unavailable (htmlparser2, css-select, css-tree, domutils).\nFalling back to regex matching. Custom properties, selector matching and computed contrast are NOT evaluated; findings are an undercount, not a clean bill of health.\n",
+    "authoritative_command": "node /tmp/codex-stepca-audit-tools/detector/detect-antipatterns.mjs --json /tmp/codex-stepca-critique-b-fixtures/html",
+    "exit": 2,
+    "stderr": "",
+    "raw_count": 82,
+    "counts_by_rule": {
+      "overused-font": 31,
+      "flat-type-hierarchy": 18,
+      "dark-glow": 31,
+      "cramped-padding": 2
+    },
+    "counts_by_file": {
+      "authority.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "certificate-active.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "certificate-expiring.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "certificate-revoked.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "certificates-all.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "certificates.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "enroll-admin.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "enroll-gone.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "enroll-public.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "enroll-self.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "groups.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "mdm.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "not-found.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "options.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "portal-device-address.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-duo-account.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-duo.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "portal-group-account.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-group-finished.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "portal-group-ready.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "portal-group-validation.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-group.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "portal-legacy-ready.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-legacy.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-no-context.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "portal-supplied-url.html": {
+        "overused-font": 1,
+        "dark-glow": 1
+      },
+      "residents.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "cramped-padding": 2,
+        "dark-glow": 1
+      },
+      "sign.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "tools.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "trusted-cas.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      },
+      "wifi.html": {
+        "overused-font": 1,
+        "flat-type-hierarchy": 1,
+        "dark-glow": 1
+      }
+    },
+    "warning_instances": [
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/authority.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/authority.html",
+        "line": 0,
+        "snippet": "Sizes: 12px, 13px, 14px, 16px, 20px (ratio 1.7:1)",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/authority.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-active.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-active.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-expiring.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-expiring.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-revoked.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-revoked.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificates-all.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificates-all.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificates-all.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificates.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificates.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/certificates.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-admin.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-admin.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-admin.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-gone.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-gone.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-public.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-public.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-self.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-self.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-self.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/groups.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/groups.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/groups.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/mdm.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/mdm.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/mdm.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/not-found.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/not-found.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/not-found.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/options.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/options.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/options.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-device-address.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-device-address.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo-account.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo-account.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-account.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-account.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-finished.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-finished.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-finished.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-ready.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-ready.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-ready.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-validation.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-validation.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-legacy-ready.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-legacy-ready.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-legacy.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-legacy.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-no-context.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-no-context.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-supplied-url.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/portal-supplied-url.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/residents.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/residents.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "cramped-padding",
+        "severity": "warning",
+        "category": "quality",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/residents.html",
+        "line": 0,
+        "snippet": "<div> \"card\": children flush against border+bg on all sides (no inset)",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "cramped-padding",
+        "severity": "warning",
+        "category": "quality",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/residents.html",
+        "line": 0,
+        "snippet": "<section> \"card\": children flush against border+bg on all sides (no inset)",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/residents.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/sign.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/sign.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/sign.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/tools.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/tools.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/tools.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/trusted-cas.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/trusted-cas.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/trusted-cas.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "overused-font",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/wifi.html",
+        "line": 0,
+        "snippet": "Primary font: roboto",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "flat-type-hierarchy",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/wifi.html",
+        "line": 0,
+        "snippet": null,
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      },
+      {
+        "antipattern": "dark-glow",
+        "severity": "warning",
+        "category": "slop",
+        "file": "/tmp/codex-stepca-critique-b-fixtures/html/wifi.html",
+        "line": 0,
+        "snippet": "Colored box-shadow glow (#03a9f4) on dark page",
+        "provenance": "Reconstructed from recorded exact tool output; null snippet means original snippet was not retained in transcript."
+      }
+    ],
+    "byte_comparison": "20 copied detector .mjs/.js files byte-identical to bundled detector. Comparison included 21 files; sole mismatch was absent optional detect.mjs launcher. Invoked byte-identical detector/detect-antipatterns.mjs directly using parser dependencies already installed in isolated /tmp tool copy.",
+    "confirmed_actionable_count": 0,
+    "dispositions": {
+      "overused-font": {
+        "count": 31,
+        "disposition": "incumbent-platform exception",
+        "evidence": "Roboto follows the explicit Home Assistant identity in PRODUCT.md, DESIGN.md and the ui.py body font stack. Replacing it for novelty would conflict with the brief."
+      },
+      "flat-type-hierarchy": {
+        "count": 18,
+        "disposition": "incumbent-platform exception / heuristic false positive",
+        "evidence": "The detector compares maximum/minimum font size across all headings, body, labels and captions, and warns below 2.0. HA uses 12px captions, 14px body, 16px labels and 20px card headings. Inspected screenshots had recognizable heading/card/task hierarchy. No task-level hierarchy failure was verified from these warnings."
+      },
+      "dark-glow": {
+        "count": 31,
+        "disposition": "false positive",
+        "evidence": "ui.py .choice:has(input:checked) uses inset 0 0 0 1px var(--primary-color); focused inputs use 0 0 0 1px var(--focus-color). These are zero-blur selection/focus outlines. Browser screenshots show sharp outlines, not decorative glow. Recurrence on pages without choice cards comes from shared stylesheet inspection."
+      },
+      "cramped-padding": {
+        "count": 2,
+        "disposition": "false positive",
+        "evidence": "residents.html zero-padding div.card and section.card contain details.expand; summaries and contents own the insets. Browser measured card-header 16px 16px 8px and card-content 0px 16px 16px. Screenshots show inset QR content and disclosure labels; padding the wrapper would duplicate the insets."
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "name": "certificates",
+      "status": 200,
+      "bytes": 61928,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/certificates.html"
+    },
+    {
+      "name": "certificates-all",
+      "status": 200,
+      "bytes": 64530,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/certificates-all.html"
+    },
+    {
+      "name": "certificate-active",
+      "status": 200,
+      "bytes": 53668,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-active.html"
+    },
+    {
+      "name": "certificate-expiring",
+      "status": 200,
+      "bytes": 53696,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-expiring.html"
+    },
+    {
+      "name": "certificate-revoked",
+      "status": 200,
+      "bytes": 54032,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/certificate-revoked.html"
+    },
+    {
+      "name": "enroll-admin",
+      "status": 200,
+      "bytes": 63187,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-admin.html"
+    },
+    {
+      "name": "enroll-self",
+      "status": 200,
+      "bytes": 52603,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-self.html"
+    },
+    {
+      "name": "authority",
+      "status": 200,
+      "bytes": 66153,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/authority.html"
+    },
+    {
+      "name": "tools",
+      "status": 200,
+      "bytes": 61493,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/tools.html"
+    },
+    {
+      "name": "groups",
+      "status": 200,
+      "bytes": 63956,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/groups.html"
+    },
+    {
+      "name": "wifi",
+      "status": 200,
+      "bytes": 76842,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/wifi.html"
+    },
+    {
+      "name": "mdm",
+      "status": 200,
+      "bytes": 65752,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/mdm.html"
+    },
+    {
+      "name": "sign",
+      "status": 200,
+      "bytes": 59785,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/sign.html"
+    },
+    {
+      "name": "trusted-cas",
+      "status": 200,
+      "bytes": 56901,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/trusted-cas.html"
+    },
+    {
+      "name": "options",
+      "status": 200,
+      "bytes": 56863,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/options.html"
+    },
+    {
+      "name": "residents",
+      "status": 200,
+      "bytes": 125242,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/residents.html"
+    },
+    {
+      "name": "not-found",
+      "status": 404,
+      "bytes": 49752,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/not-found.html"
+    },
+    {
+      "name": "enroll-public",
+      "status": 200,
+      "bytes": 51692,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-public.html"
+    },
+    {
+      "name": "enroll-gone",
+      "status": 404,
+      "bytes": 50541,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/enroll-gone.html"
+    },
+    {
+      "name": "portal-supplied-url",
+      "status": 400,
+      "bytes": 35120,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-supplied-url.html"
+    },
+    {
+      "name": "portal-group",
+      "status": 200,
+      "bytes": 34461,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group.html"
+    },
+    {
+      "name": "portal-group-redirect",
+      "status": 303,
+      "bytes": 0,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-redirect.html"
+    },
+    {
+      "name": "portal-group-account",
+      "status": 200,
+      "bytes": 35322,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-account.html"
+    },
+    {
+      "name": "portal-group-validation",
+      "status": 400,
+      "bytes": 35795,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-validation.html"
+    },
+    {
+      "name": "portal-group-ready",
+      "status": 200,
+      "bytes": 62942,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-ready.html"
+    },
+    {
+      "name": "portal-group-finished",
+      "status": 400,
+      "bytes": 34389,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-group-finished.html"
+    },
+    {
+      "name": "portal-duo",
+      "status": 200,
+      "bytes": 34383,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo.html"
+    },
+    {
+      "name": "portal-duo-redirect",
+      "status": 303,
+      "bytes": 0,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo-redirect.html"
+    },
+    {
+      "name": "portal-duo-callback",
+      "status": 303,
+      "bytes": 0,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo-callback.html"
+    },
+    {
+      "name": "portal-duo-account",
+      "status": 200,
+      "bytes": 35322,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-duo-account.html"
+    },
+    {
+      "name": "portal-legacy",
+      "status": 200,
+      "bytes": 34884,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-legacy.html"
+    },
+    {
+      "name": "portal-legacy-ready",
+      "status": 200,
+      "bytes": 48837,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-legacy-ready.html"
+    },
+    {
+      "name": "portal-no-context",
+      "status": 200,
+      "bytes": 34846,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-no-context.html"
+    },
+    {
+      "name": "portal-device-address",
+      "status": 403,
+      "bytes": 35148,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-device-address.html"
+    },
+    {
+      "name": "portal-expired-callback",
+      "status": 404,
+      "bytes": 455,
+      "former_path": "/tmp/codex-stepca-critique-b-fixtures/html/portal-expired-callback.html"
+    }
+  ],
+  "fixture_scope_notes": [
+    "35 responses; 31 nonempty application pages carry warnings, three 303 bodies are empty, and one standard 404 is not application markup.",
+    "Supplied /grant query returned 400 recovery. Valid resident states used current contract /splash/grant; no app validation was modified.",
+    "portal-group-finished was actually a 400 Check your details response after stale CSRF reuse, not successful logout.",
+    "portal-expired-callback was captured after legacy mode; standard 404, not verified Duo expiry state.",
+    "enroll-gone returned current source 404.",
+    "Synthetic services only; no live credentials, real CA private key or WPN signing key used."
+  ],
+  "browser": {
+    "provider": "native Codex In-app Browser through mcp__cua_repl",
+    "owned_successful_tab": "2",
+    "failed_initial_tab": "1",
+    "fresh_tab": true,
+    "viewport_desktop": {
+      "width": 1280,
+      "height": 900
+    },
+    "viewport_mobile": {
+      "width": 390,
+      "height": 844
+    },
+    "color_scheme": "incumbent browser dark mode",
+    "screenshot_provenance": "Native images were emitted in the tool transcript. No separate screenshot files were saved. Two immediately post-resize captures were stale/composited and excluded; enrollment mobile was reloaded for correct capture. Other mobile pages were navigated at mobile width.",
+    "views": [
+      "inventory desktop plus mobile DOM metrics",
+      "Wi-Fi settings desktop/mobile",
+      "public enrollment desktop/mobile",
+      "resident recovery desktop/mobile",
+      "resident group selector desktop",
+      "resident current-device account mobile",
+      "admin residents desktop/mobile"
+    ],
+    "metrics": [
+      {
+        "page": "inventory mobile",
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "dpr": 1,
+        "bodyWidth": 390,
+        "scrollWidth": 390
+      },
+      {
+        "page": "enrollment mobile",
+        "innerWidth": 390,
+        "scrollWidth": 390
+      },
+      {
+        "page": "resident current-device account mobile",
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "fields": [
+          {
+            "name": "device",
+            "value": "",
+            "visible": true,
+            "required": true
+          },
+          {
+            "name": "target",
+            "value": "current",
+            "visible": true,
+            "required": false
+          },
+          {
+            "name": "mac",
+            "value": "",
+            "visible": true,
+            "required": false
+          },
+          {
+            "name": "unit",
+            "value": "",
+            "visible": true,
+            "required": false
+          }
+        ]
+      },
+      {
+        "page": "admin residents mobile",
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "alerts": []
+      }
+    ],
+    "mutable_preflight": {
+      "transport": "documented CDP Runtime.evaluate",
+      "title_changed": true,
+      "title_value": "Impeccable B preflight",
+      "script_appended": true,
+      "script_id": "impeccable-b-preflight",
+      "inline_execution": false
+    },
+    "injections": [
+      {
+        "page": "admin /",
+        "script_url": "http://localhost:8400/detect.js",
+        "transport": "native CUA CDP Runtime.evaluate",
+        "script_append_succeeded": true,
+        "load_result": "blocked via script.onerror setting window.__impeccableBExternal",
+        "executed": false,
+        "overlay_exists": false,
+        "impeccable_console": []
+      },
+      {
+        "page": "admin /tools/wifi",
+        "script_url": "http://localhost:8400/detect.js",
+        "transport": "native CUA CDP Runtime.evaluate",
+        "script_append_succeeded": true,
+        "load_result": "blocked via script.onerror setting window.__impeccableBExternal",
+        "executed": false,
+        "overlay_exists": false,
+        "impeccable_console": []
+      },
+      {
+        "page": "public /enroll/<fixture-token>",
+        "script_url": "http://localhost:8400/detect.js",
+        "transport": "native CUA CDP Runtime.evaluate",
+        "script_append_succeeded": true,
+        "load_result": "blocked via script.onerror setting window.__impeccableBExternal",
+        "executed": false,
+        "overlay_exists": false,
+        "impeccable_console": []
+      },
+      {
+        "page": "public /portal supplied query (recovery state)",
+        "script_url": "http://localhost:8400/detect.js",
+        "transport": "native CUA CDP Runtime.evaluate",
+        "script_append_succeeded": true,
+        "load_result": "blocked via script.onerror setting window.__impeccableBExternal",
+        "executed": false,
+        "overlay_exists": false,
+        "impeccable_console": []
+      },
+      {
+        "page": "admin /residents",
+        "script_url": "http://localhost:8400/detect.js",
+        "transport": "native CUA CDP Runtime.evaluate",
+        "script_append_succeeded": true,
+        "load_result": "blocked via script.onerror setting window.__impeccableBExternal",
+        "executed": false,
+        "overlay_exists": false,
+        "impeccable_console": []
+      }
+    ],
+    "console": {
+      "impeccable": [],
+      "captured_warn_error": [],
+      "interpretation": "No captured application console errors; no detector console results because CSP blocked execution. Empty console logs are not a clean detector result."
+    },
+    "visibility": {
+      "explicit_visible_false_error": "IAB visibility is not supported in a subagent thread",
+      "fallback": "Fresh tab created without visibility option",
+      "set_true": false,
+      "visibility_verified": false,
+      "human_overlay_presented": false
+    },
+    "injection_note": "Temporary [Human] titles were applied. Initial inventory overlay probe used [id*=impeccable], matching injected script and returning true; this was not valid overlay evidence. Blocked script.onerror result plus absence of detector execution are authoritative. Subsequent pages returned overlay false.",
+    "csp": "Admin script-src permits only nonce-bearing scripts; public resident default-src none. Controls unchanged; no nonce borrowed or bypass used."
+  },
+  "manual_actionable": [
+    {
+      "priority": "P2",
+      "file": "admin/resident_access.py",
+      "line": 240,
+      "issue": "Other-device hardware MAC field remains visible when This device is selected",
+      "evidence": "At 390x844 target=current with an empty optional mac field visible before Unit or room and Create device key and QR; current-device address already shown. account_form adds mac whenever self_service_enabled, independent of target. Roughly 150px of avoidable mobile content.",
+      "recommendation": "Reveal the other-device field for target=other while retaining a no-script path and CSP."
+    }
+  ],
+  "cleanup": {
+    "preview": {
+      "pid": 44738,
+      "ports": [
+        49608,
+        49609,
+        49610
+      ],
+      "stop": "kill 44738",
+      "observed_state_before_interrupt": "stopped"
+    },
+    "detector_server": {
+      "pid": 45215,
+      "port": 8400,
+      "cwd": "/tmp/codex-stepca-critique-b-live",
+      "stop": "node /Users/jolipton/.agents/skills/impeccable/scripts/live-server.mjs stop",
+      "observed_state_before_interrupt": "stopped",
+      "stop_warning": "config_missing prevented source injection cleanup; injected DOM tags/titles removed through navigation/reload/tab closure"
+    },
+    "ports_confirmed_closed_before_interrupt": [
+      49608,
+      49609,
+      49610,
+      8400
+    ],
+    "viewport_reset": true,
+    "tab_2_closed": true,
+    "tab_1": "Explicit rebind/close failed because error-page data: URL was policy blocked. Subject to documented automatic cleanup of unmarked agent tabs at turn completion.",
+    "temporary_files": "Owned /tmp fixture/server/preview files absent after interruption. Original markup and raw payloads could not be archived; report records the loss. Shared isolated detector copy was not modified."
+  },
+  "fallback_signals": [
+    "Native CDP mutation worked, script execution blocked by app CSP.",
+    "Bundled scan degraded for missing parser modules; isolated byte-identical detector supplied full-parser findings.",
+    "IAB visibility controls unsupported in subagent; no verified user-visible overlay.",
+    "Original temporary evidence lost at interruption; reconstruction from exact recorded outputs, no rerun.",
+    "Native browser sufficed; no terminal browser fallback."
+  ],
+  "questions": "Questions skipped: parent synthesis owns the critique close."
+}

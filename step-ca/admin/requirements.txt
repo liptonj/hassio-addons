@@ -1,0 +1,2 @@
+duo-universal==2.3.1
+duo-client==5.7.0

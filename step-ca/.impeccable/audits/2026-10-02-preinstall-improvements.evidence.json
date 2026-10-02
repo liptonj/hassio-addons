@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-02",
+  "scope": "Pre-install source improvements; no deployment, provider credentials or production keys changed",
+  "implemented": [
+    "Ordered setup guidance and explicitly requested read-only connection checks",
+    "Searchable in-app help and public resident recovery guidance",
+    "Resident progress, local permitted-group search and field-specific accessible validation",
+    "Database-backed full active resident inventory search, 25-row paging and sorting",
+    "Independent 25-key paging/sorting, preserved filter links and disclosed mobile tools"
+  ],
+  "verification": {
+    "python_source_parse": "passed",
+    "javascript_syntax": "checked separately with node --check",
+    "browser": "Native IAB, one inspection batch and one bounded confirmation; desktop 1280 and phone 320, inherited HA dark styling",
+    "fixture_only": true,
+    "fixture_population": {
+      "device_records": 301,
+      "keys": 77,
+      "group_choices": 120
+    },
+    "observed": [
+      "Unconfigured setup states explain next actions",
+      "Search invitation yields two help guides",
+      "Resident record pages 12/13 and key page 4/4 rendered independent links",
+      "Local account search returns only Fixture Resident 120",
+      "Invitation aria-invalid and describedBy reference its error; invitation value remains blank",
+      "Record search 301 returns Fixture Resident 301; empty key match offers corrective guidance",
+      "Sorting and mobile secondary tools initially collapsed",
+      "Inspected 320/1280 views have matching document/viewport width"
+    ],
+    "test_suite": "not run; existing regression fixtures adapted to the inventory API; no new tests added",
+    "container_builds": "not rerun",
+    "database_integration": "new pagination SQL not executed against MariaDB in this pass",
+    "independent_rescore": "not run; prior 32/40 and 17/20 are historical",
+    "whitespace_diff": "passed after removing one new trailing space"
+  },
+  "source_sha256": {
+    "admin/app.py": "0007783060cc714077029ff06e75cfecc89e8e79a53e79743297360a88d49890",
+    "admin/ui.py": "0959f7461a3d247bb7cfaf379ae9dcbd0163c8c5fa0b5c76a7fadc84522ddfec",
+    "admin/ipsk.py": "4d73ec80bf5e22b498ec74b600a540afaee17bc8c42ea030ac7acf823a5dab99",
+    "admin/resident_access.py": "84ffcd5a0f5ca97795e27e468b7b1c39e99ae5deffc13011455075a22eabe466",
+    "admin/guidance.py": "98de9684b0c04299a6e6d68f5433eec4e07ba2e3f787af7132d65dc3d25b6224",
+    "Dockerfile": "7fa1454d00fde5be0a1047d7fc4e6094715bf952dd57df3aaeb1d1d941ecce4b",
+    ".dockerignore": "13f3777b428b87ae5dc1d0ecd77615b1649c01e1bebcb2617d96b1eaf73d9f67",
+    "DOCS.md": "a08158a525cdf21f334af3fe0f166d325ce1abee4796a8f8aa619d274780d95f",
+    "CHANGELOG.md": "ff52d1deed9d9ff3499448f4c50f854e4e73ff16b9e3cea341cd7b115b26f7a2",
+    "tests/test_full_audit.py": "021b59a8ebf4bd1882f255ad18e24c880513be1db2e60ead89a1383d3d6cb687"
+  },
+  "proof_screenshot": "preinstall-assets/setup-readiness.jpg",
+  "cleanup": {
+    "preview_port": 49908,
+    "preview_stopped": true,
+    "owned_tab_closed": true,
+    "viewport_and_media_overrides_reset": true
+  },
+  "remaining": [
+    "Live Home Assistant/Meraki/Duo checks and configured positive readiness results",
+    "Database integration checks for the added pagination query",
+    "Current image builds and full regression suite",
+    "Physical QR/certificate installs, assistive-technology walkthrough and independent score reassessment"
+  ],
+  "later_release_verification": {
+    "record": "2026-10-02-release-readiness.evidence.json",
+    "note": "Historical evidence retained. Current source, refreshed Meraki beta base, tests, MariaDB and architecture proof are recorded in the release verification."
+  }
+}

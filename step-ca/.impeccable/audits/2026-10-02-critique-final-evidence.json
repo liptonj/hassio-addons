@@ -1,0 +1,291 @@
+{
+  "date": "2026-10-02",
+  "status": "local audit and independent critique clean: zero remaining actionable findings in assessed scope; production checks unverified",
+  "supersedes": "2026-10-02-portal-final-evidence.json image/source/test claims for current UI revision",
+  "source_sha256": {
+    ".dockerignore": "e51091ec920bb4e8c95ebaedef64bda6b14c16268cad05bfb1232191f7658b3c",
+    "Dockerfile": "30b46543b111591b9028f3c936a865952092abda17814fbb4be5a443f26ea1e4",
+    "admin/app.py": "d003f9f326c314445d21c45efbf1a65313815a0c7d7496fda6ed8f512373366b",
+    "admin/captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+    "admin/db_setup.py": "8361af19a911e281127d9a4a1a365f39fa635e51ef4bc408d9351b31740db1df",
+    "admin/enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+    "admin/ipsk.py": "8f6b96cd55c8cbff10b8187f1e2fb5e40efc087bf7f3b86b819c0602b5626524",
+    "admin/requirements.txt": "19e7475354e1c38f98f48f0c9e8c02e1dd7f9820d8b9826cf8439dc04f351f33",
+    "admin/resident_access.py": "dfb75bbf99f264e3206a0d6a1da384ae8f828ab58427021d6587b6becfa7178d",
+    "admin/ui.py": "154dd56adb1f2a704d38eb3058e055f0d9ab0a74911088992a95b6f338d50e6b",
+    "config.yaml": "7aab820d78c65123816e973329d594da1029295b70dedf18daa564b843c85697",
+    "custom_components/step_ca_scep/__init__.py": "ec7ec8596455b519374f2d44659982f5a3ed74389ce954610baf1a0aa33462dd",
+    "custom_components/step_ca_scep/config_flow.py": "cb91258c3b56771dcfd02979eb538bbf8b9cc56057603238c1d2d2608ac217eb",
+    "custom_components/step_ca_scep/const.py": "82362be8bb6b2f2b76a9ed4eece622eb3fb866c1dd077893a6a957ebf92592c1",
+    "custom_components/step_ca_scep/ipsk_websocket.py": "c6d7bcac90b9bd132e3cf9774d36bdc2df883e9b9a43e1c0c3d0a42e39228c03",
+    "custom_components/step_ca_scep/manifest.json": "d4b1e295d2009e9ee05269f6677f786dbe6971b0048ecca6ae5e66ff9e995544",
+    "custom_components/step_ca_scep/meraki_ipsk.py": "ada3b01950e9ce3e3345b5fd26740ad8533e7b2f06beb48d3bface662ba04f9b",
+    "run.sh": "eb307ef3a56f53d24f3dbe02c0477dfba2de630f2d0d6f185755e26c6ed8a0e5",
+    "tests/ca_integration.py": "61121d8f24da2554cd9c7fe5adde20ee767d1a30072efb52038a645bddfad939",
+    "tests/mariadb_integration.py": "5130821a27a7cb1f8a37776bc9fc0b37940c7d7126c62c2415da2cbc6453801f",
+    "tests/test_full_audit.py": "a253cac6daf255588fda073b449f3d1ddafab68094e7907154ebeb939e90a4d9",
+    "tests/test_resident_access.py": "44f2b98a03c59fd0a51b31d30d5361ea099bd88f25070c03c5c423a649041f57",
+    "translations/en.yaml": "5ae2e7aaefcaf11e6117eb9e54853f53e6ba3aee3280c93883c0e47a7c9c27b2"
+  },
+  "portal_tests": {
+    "count": 126,
+    "status": "passed",
+    "upstream_fixture_warning": "Provider standard 40-byte HMAC secret below PyJWT SHA512 recommendation; retained warning"
+  },
+  "images": [
+    {
+      "addon_arch": "aarch64",
+      "id": "sha256:933eac40dba53b0b897c15487686103649d678a8b0c722b57427d256558db2e3",
+      "architecture": "arm64",
+      "build": "passed",
+      "runtime": {
+        "status": "passed",
+        "machine": "aarch64",
+        "duo_universal": "2.3.1",
+        "duo_client": "5.7.0",
+        "portal_imports": true,
+        "companion_compile": true,
+        "public_nonce_policy": true,
+        "configured_duo_origin": true,
+        "source_sha256": {
+          "app.py": "d003f9f326c314445d21c45efbf1a65313815a0c7d7496fda6ed8f512373366b",
+          "ipsk.py": "8f6b96cd55c8cbff10b8187f1e2fb5e40efc087bf7f3b86b819c0602b5626524",
+          "resident_access.py": "dfb75bbf99f264e3206a0d6a1da384ae8f828ab58427021d6587b6becfa7178d",
+          "ui.py": "154dd56adb1f2a704d38eb3058e055f0d9ab0a74911088992a95b6f338d50e6b"
+        }
+      }
+    },
+    {
+      "addon_arch": "amd64",
+      "id": "sha256:c40f6c33d6f869f2db4477441b7094869c9d78c42d8cabe62f76a5c8106805bf",
+      "architecture": "amd64",
+      "build": "passed",
+      "runtime": {
+        "status": "passed",
+        "machine": "x86_64",
+        "duo_universal": "2.3.1",
+        "duo_client": "5.7.0",
+        "portal_imports": true,
+        "companion_compile": true,
+        "public_nonce_policy": true,
+        "configured_duo_origin": true,
+        "source_sha256": {
+          "app.py": "d003f9f326c314445d21c45efbf1a65313815a0c7d7496fda6ed8f512373366b",
+          "ipsk.py": "8f6b96cd55c8cbff10b8187f1e2fb5e40efc087bf7f3b86b819c0602b5626524",
+          "resident_access.py": "dfb75bbf99f264e3206a0d6a1da384ae8f828ab58427021d6587b6becfa7178d",
+          "ui.py": "154dd56adb1f2a704d38eb3058e055f0d9ab0a74911088992a95b6f338d50e6b"
+        }
+      }
+    },
+    {
+      "addon_arch": "armv7",
+      "id": "sha256:4c117b117df6a7bfe046caa01087c0d71a8583f8618a0fc644f6732de4eae092",
+      "architecture": "arm",
+      "build": "passed",
+      "runtime": {
+        "status": "passed",
+        "machine": "armv7l",
+        "duo_universal": "2.3.1",
+        "duo_client": "5.7.0",
+        "portal_imports": true,
+        "companion_compile": true,
+        "public_nonce_policy": true,
+        "configured_duo_origin": true,
+        "source_sha256": {
+          "app.py": "d003f9f326c314445d21c45efbf1a65313815a0c7d7496fda6ed8f512373366b",
+          "ipsk.py": "8f6b96cd55c8cbff10b8187f1e2fb5e40efc087bf7f3b86b819c0602b5626524",
+          "resident_access.py": "dfb75bbf99f264e3206a0d6a1da384ae8f828ab58427021d6587b6becfa7178d",
+          "ui.py": "154dd56adb1f2a704d38eb3058e055f0d9ab0a74911088992a95b6f338d50e6b"
+        }
+      }
+    }
+  ],
+  "mariadb": {
+    "mariadb": "10.11.19-MariaDB-ubu2204",
+    "checks": [
+      "stepca_audit_fresh: repeated setup preserves consumed invitations",
+      "stepca_audit_fresh: limited portal and read-only certificate privileges",
+      "stepca_audit_fresh: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_fresh: revoked device history and replacement MAC",
+      "stepca_audit_fresh: revoked legacy email/MAC can be replaced",
+      "stepca_audit_fresh: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_fresh: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_fresh: concurrent owner quota cannot be exceeded",
+      "stepca_audit_fresh: invitation expiry checked inside real transaction",
+      "stepca_audit_fresh: concurrent invitation consumption provisions one key",
+      "stepca_audit_fresh: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_fresh: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_fresh: repeated schema upgrade retains historical duplicates safely",
+      "stepca_audit_legacy: repeated setup preserves consumed invitations",
+      "stepca_audit_legacy: limited portal and read-only certificate privileges",
+      "stepca_audit_legacy: key attribution and revocation history stored only in MariaDB without passwords",
+      "stepca_audit_legacy: revoked device history and replacement MAC",
+      "stepca_audit_legacy: revoked legacy email/MAC can be replaced",
+      "stepca_audit_legacy: concurrent same-MAC registration creates one remote key",
+      "stepca_audit_legacy: legacy/self-service race creates one remote key across both tables",
+      "stepca_audit_legacy: concurrent owner quota cannot be exceeded",
+      "stepca_audit_legacy: invitation expiry checked inside real transaction",
+      "stepca_audit_legacy: concurrent invitation consumption provisions one key",
+      "stepca_audit_legacy: generated MAC index remains consistent across SQL padding modes",
+      "stepca_audit_legacy: invalid authoritative credentials roll back and clean remote key",
+      "stepca_audit_legacy: repeated schema upgrade retains historical duplicates safely"
+    ],
+    "count": 26,
+    "status": "passed"
+  },
+  "ca": {
+    "status": "passed",
+    "checks": [
+      "full startup with one MariaDB-backed CA",
+      "real CSR signing and decryptable PKCS#12 chain",
+      "actual certificate renewal with existing device key",
+      "actual certificate revocation",
+      "published CRL contains revoked certificate",
+      "running SCEP provisioner advertises supported capabilities",
+      "companion integration 1.5.0 installed with iPSK bridge",
+      "certificate issued on current image renews after restart"
+    ],
+    "count": 8,
+    "certificate_material": "disposable fixture only",
+    "restart": {
+      "status": "passed",
+      "check": "certificate issued on current image renews after restart",
+      "root_public_sha256": "e72a484c9c402970c0cb88a300281784baa145769ede6d0f2f929fd4f5c1459b",
+      "root_unchanged_after_restart": true,
+      "certificate_material": "disposable fixture only"
+    }
+  },
+  "proof_logs": {
+    "/tmp/codex-stepca-critique-tests.log": {
+      "sha256": "6e8db54a04bb726ae8bf8066bc7dada3cdfbcecb0e78f52c97e98e79ea0fa3cb",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-mariadb.log": {
+      "sha256": "8b359a0a9ba49feec2468ad5213bd706c0aa7c6e443e376a8e36906f3f198bd0",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-ca.log": {
+      "sha256": "d17ed22861acec5e67caeae417ceedac71866b53dbb96ad725c77bf9cd3b3ec5",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-restart.log": {
+      "sha256": "a7665655edae3fd2485a24bc0b65a682b1718c75c4f3ce149f2fc548e093b6cb",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-cleanup.log": {
+      "sha256": "b570870387cdca2bfd1ef46811c2740f5df22f0b76f8ac4c2c3a0c8c5c197c8a",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-build-aarch64.log": {
+      "sha256": "8c640bb09a50efee2fead03cddc6187efedcd7fa6104cf747ed26bc177f8036e",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-build-amd64.log": {
+      "sha256": "fcfc1e49bbf2204ee751f69c47c01210ed8751ba4d06e80ce1c6cfbaaed3d622",
+      "available_at_recording": true
+    },
+    "/tmp/codex-stepca-critique-build-armv7.log": {
+      "sha256": "0c578a8406d53142ca153267974c1e96e3e68a7e32f52e2c59936fe84ad7d9bd",
+      "available_at_recording": true
+    }
+  },
+  "sdk_followup": {
+    "source_files_match_prior_passing_evidence": 20,
+    "version": "4.5.0b4",
+    "prior_full_tests_passed": 1141,
+    "new_sdk_edits": false,
+    "evidence": "2026-10-02-meraki-sdk-secrets-evidence.json"
+  },
+  "isolation": {
+    "colima_profile": "stepca-critique",
+    "host_ports_published": false,
+    "cleanup_command": "colima delete --profile stepca-critique --force --data",
+    "cleanup_status": "passed",
+    "default_profile": "stopped, 4 CPU, 8 GiB, 50 GiB; unchanged",
+    "docker_context": "Colima selected colima-stepca-critique temporarily. Deletion selected default. Pre-start context was not recorded; no claim that its original selection was restored.",
+    "fixture_database_and_ca_removed": true,
+    "parent_preview_stopped": true,
+    "parent_ports_closed": [
+      49708,
+      49709,
+      49710
+    ],
+    "technical_preview_stopped": true,
+    "technical_preview_ports_closed": [
+      49808,
+      49809,
+      49810
+    ],
+    "reviewer_browsers_closed": "Both reviewers explicitly closed their owned successful tabs/contexts. Assessment B initial failed data-URL tab could not be rebound and used automatic agent cleanup."
+  },
+  "scope_limits": [
+    "deployed Home Assistant/Meraki/Duo services",
+    "physical QR and SCEP/MDM devices",
+    "physical screen-reader session",
+    "large inventory and resident-group scale"
+  ],
+  "critique": {
+    "method": "dual-agent",
+    "A": "/root/critique_design",
+    "B": "/root/critique_detector",
+    "independent_initial_assessments": true,
+    "A_complete_before_B_synthesis": true,
+    "score_before": 27,
+    "score_after": 32,
+    "max_score": 40,
+    "priority_issues_resolved": 4,
+    "minor_observations_resolved": 5,
+    "remaining_actionable_priorities": 0,
+    "detector": {
+      "raw_flags": 82,
+      "actionable_flags": 0,
+      "rules": {
+        "overused-font": 31,
+        "dark-glow": 31,
+        "flat-type-hierarchy": 18,
+        "cramped-padding": 2
+      },
+      "raw_payload_recovered_from_transcript": true,
+      "live_overlay": "CSP blocked external detector; no overlay executed",
+      "ignored_rules": 0
+    },
+    "technical_confirmation": {
+      "matrix": [
+        "1280 light",
+        "1280 dark",
+        "320 light",
+        "320 dark",
+        "390 light",
+        "390 dark"
+      ],
+      "rawAssertions": 246,
+      "rawPassed": 243,
+      "rawFailed": 3,
+      "resolvedAsyncSamplingFailures": 3,
+      "finalPassedAssertions": 246,
+      "settledStyleChecks": 1,
+      "axeScans": 48,
+      "axeRawViolations": 4,
+      "axeRawNodes": 4,
+      "axeSettledUnresolvedViolations": 0,
+      "axeIncompleteRuleResults": 8,
+      "axePassRuleResults": 1758,
+      "nonceInjectionSuccesses": 48,
+      "documentOverflowStates": 0,
+      "consoleErrors": 12,
+      "expectedValidationHttp400Errors": 12,
+      "pageErrors": 0,
+      "busyCaptures": 6
+    }
+  },
+  "review_files": {
+    "assessment-b-2026-10-02.md": "7d5ef08cf429a72b4a4fa6e18825c3a4c676d42e6f3fde7e8bd564bc1e305836",
+    "assessment-a-2026-10-02.md": "1699e458f01b2c677b3b9956550b5ed5f4a75f423dca7899b30890a02329183c",
+    "confirmation-a-2026-10-02.md": "ad73162f8b5e170d091c2937bbd30d49cfa31b79cbf39ce01b672d4ab2f5c182",
+    "confirmation-b-2026-10-02.md": "abeeae926edff52b74c9b8f1dccd42e249f3efc0574755021814ce6003ffc0fa",
+    "confirmation-b-2026-10-02.evidence.json": "6c5e828ad1da9d0605e563465958391e535a2ef195b0c21e31f87836b72a3466",
+    "assessment-b-2026-10-02.evidence.json": "9ac21226e78deb04e02c8478ee83b787bf3b471cc50066e55bd2e9510bb250ef"
+  },
+  "accessibility_incomplete_disposition": "Eight color-contrast incomplete rule results concern overlapping toast or clipped columns in scrollable tables; they are retained as incomplete, not counted as automated passes. The settled toast measures 11.35:1; table keyboard/scroll affordances pass. Full assistive-technology validation remains outside local proof.",
+  "later_source_revision": "2026-10-02-preinstall-improvements.evidence.json: subsequent additions are not covered by this historical test/build/score evidence."
+}
