@@ -166,10 +166,11 @@ class AuditRegression(unittest.TestCase):
         self.assertEqual(sum('GENERATED ALWAYS AS (CASE WHEN active THEN RTRIM(mac_address) ELSE NULL END)' in q for q in queries), 2)
         self.assertTrue(any('CASE WHEN active THEN email ELSE NULL END' in q for q in queries))
         self.assertTrue(any('ADD COLUMN IF NOT EXISTS `expires_at`' in q for q in queries))
+        self.assertTrue(any("ADD COLUMN IF NOT EXISTS `label` VARCHAR(100) NOT NULL DEFAULT ''" in q for q in queries))
         self.assertTrue(any('DROP INDEX IF EXISTS `uq_stepca_devices_mac`' in q for q in queries))
 
 class ResidentManagementRegression(unittest.TestCase):
-    def render(self, query=None):
+    def render(self, query=None, section="keys"):
         import datetime
         stamp = datetime.datetime(2026, 10, 2, 12, 30, 15, 987654)
         residents = [{"name":"Alex", "email":"alex@example.org", "unit":"101", "ipsk_name":"Living room TV",
@@ -189,30 +190,59 @@ class ResidentManagementRegression(unittest.TestCase):
                     "total": len(residents), "matched": sum(search.casefold() in " ".join(str(value) for value in row.values()).casefold() for row in residents),
                     "page": 1, "pages": 1, "size": 25}), \
                 patch.object(ipsk, "list_invites", return_value=[]), \
-                patch.object(ipsk, "list_ipsks", return_value=keys), \
-                patch.object(ipsk, "get_options", return_value={} ), \
+                patch.object(ipsk, "list_ipsks", return_value=keys) as live_keys, \
+                patch.object(ipsk, "get_options", return_value={} ) as options, \
                 patch.object(ipsk, "inactive_ipsk_ids", return_value=[]):
-            handler.residents_page(query)
+            handler.residents_page(query, section=section)
+        if section not in ("keys", "devices"):
+            live_keys.assert_not_called()
+        if section != "create":
+            options.assert_not_called()
         return handler.page.call_args.args[1]
 
-    def test_management_precedes_join_codes_and_creation_is_disclosed(self):
+    def test_keys_page_contains_only_inventory_and_creation_link(self):
         markup = self.render()
-        self.assertLess(markup.index('id="device-keys"'), markup.index('id="join-codes"'))
-        self.assertIn('href="#create-device-key"', markup)
-        self.assertIn('<details class="expand" id="create-device-key">', markup)
-        self.assertIn("1 registered device record · 2 Wi-Fi keys", markup)
+        self.assertIn('href="/ipsk/create"', markup)
+        self.assertIn('id="device-keys"', markup)
+        self.assertIn("2 Wi-Fi keys", markup)
+        for unrelated in ('id="registered-devices"', 'id="create-device-key"',
+                          'id="join-codes"', 'id="resident-access-settings"', 'Create invitation code'):
+            self.assertNotIn(unrelated, markup)
+
+    def test_devices_have_their_own_search_and_readable_dates(self):
+        markup = self.render(section="devices")
+        self.assertIn('action="/ipsk/devices"', markup)
+        self.assertIn("1 registered device record", markup)
         self.assertIn("2026-10-02 12:30 UTC", markup)
         self.assertNotIn("987654", markup)
+        self.assertNotIn('name="key_status"', markup)
+        self.assertNotIn('id="device-keys"', markup)
+        self.assertIn("No matching device records", self.render({"q": ["nobody"]}, section="devices"))
+
+    def test_each_task_is_a_separate_page_with_current_navigation(self):
+        checks = (("create", 'id="create-device-key"'), ("invitations", "Create invitation code"),
+                  ("join-codes", 'id="join-codes"'), ("join-codes/settings", 'id="qr-settings"'),
+                  ("access", "Save access settings"))
+        for section, expected in checks:
+            with self.subTest(section=section):
+                markup = self.render(section=section)
+                self.assertIn(expected, markup)
+                self.assertEqual(markup.count('aria-current="page"'), 1)
+                self.assertNotIn('id="device-keys"', markup)
+                self.assertNotIn('id="registered-devices"', markup)
+                if section != "access":
+                    self.assertNotIn("Save access settings", markup)
+                if section != "invitations":
+                    self.assertNotIn("Create invitation code", markup)
 
     def test_search_matches_resident_key_and_network_and_status_filters_keys(self):
         markup = self.render({"q":["jordan"], "key_status":["expired"]})
-        table = markup.split('id="device-keys"', 1)[1].split('<details', 1)[0]
+        table = markup.split('id="device-keys"', 1)[1].split('<tbody role="rowgroup">', 1)[1].split('</tbody>', 1)[0]
         self.assertIn("Old laptop", table)
         self.assertNotIn("Living room TV", table)
-        self.assertIn("No matching device records", markup)
         self.assertIn('value="expired" selected', markup)
         network_results = self.render({"q":["Residents"], "key_status":["active"]})
-        table = network_results.split('id="device-keys"', 1)[1].split('<details', 1)[0]
+        table = network_results.split('id="device-keys"', 1)[1].split('<tbody role="rowgroup">', 1)[1].split('</tbody>', 1)[0]
         self.assertIn("Living room TV", table)
         self.assertNotIn("Old laptop", table)
 
@@ -222,6 +252,29 @@ class ResidentManagementRegression(unittest.TestCase):
         self.assertIn("Clear filters", markup)
         self.assertIn('value="&lt;script&gt;&quot;"', markup)
         self.assertNotIn('<script>"', markup)
+
+    def test_all_ipsk_get_routes_dispatch_to_the_matching_page(self):
+        routes = {"/ipsk": "keys", "/ipsk/devices": "devices", "/ipsk/create": "create",
+                  "/ipsk/invitations": "invitations", "/ipsk/join-codes": "join-codes",
+                  "/ipsk/join-codes/settings": "join-codes/settings", "/ipsk/access": "access"}
+        for path, section in routes.items():
+            with self.subTest(path=path):
+                handler = app.Handler.__new__(app.Handler)
+                handler.path = path + "?q=fixture"
+                handler.allowed = lambda: True
+                handler.residents_page = MagicMock()
+                handler.do_GET()
+                handler.residents_page.assert_called_once_with({"q": ["fixture"]}, section=section)
+                self.assertEqual(handler.current_tab(), "/ipsk")
+
+    def test_legacy_bookmark_redirects_and_preserves_filters(self):
+        handler = app.Handler.__new__(app.Handler)
+        handler.path = "/residents?q=fixture&key_status=active"
+        handler.allowed = lambda: True
+        handler.redirect = MagicMock()
+        handler.do_GET()
+        handler.redirect.assert_called_once_with("/ipsk?q=fixture&key_status=active")
+        self.assertIn(("/ipsk", "IPSK", "wifi"), app.Handler.TABS)
 
 
 class RemoteStatusRegression(unittest.TestCase):

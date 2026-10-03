@@ -1,0 +1,11 @@
+{
+  "step-ca/admin/app.py": "60df9ec30b4b4f8ad5f97b1affe450f329eb48912f6fb53e4cedb7d023089c2d",
+  "step-ca/admin/ipsk.py": "b68616eeb6a32dbe67baf9f778803a74f31442a698a27ba9a79a2d92c6dfa01a",
+  "step-ca/admin/resident_access.py": "0b746f366c7cd7bfb50c603ee6e1e49591b59d3f49ae7657c5a4b5038519ad62",
+  "step-ca/admin/ui.py": "5226b41b42b53262e4b6cefba5d875f91eddd39a5f312d7364beb7a193cf5fe3",
+  "step-ca/admin/guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+  "step-ca/admin/db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+  "step-ca/tests/test_ipsk_critique_fixes.py": "046eabd250e5c345b8d590e4192664dbb4d65d08a34f1dbcb4d5c2b6550da75e",
+  "step-ca/DESIGN.md": "86848f8e0a88d64ed5034e08127b542d8962defaccdb5e4f1e82c3c89a91d484",
+  "step-ca/DOCS.md": "c28b9d0ba23862a0322fea02ae7f0592c2f688661c0f0e557275a67ae9da350d"
+}

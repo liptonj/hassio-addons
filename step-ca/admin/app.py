@@ -1269,15 +1269,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     TABS = (("/", "Certificates", "certificate"), ("/enroll", "Enroll", "qrcode"),
-            ("/residents", "Residents", "wifi"),
+            ("/ipsk", "IPSK", "wifi"),
             ("/ca", "Authority", "shield-check"), ("/tools", "Tools", "wrench"))
 
     def current_tab(self):
         path = urllib.parse.urlsplit(self.path).path
         if path.startswith(("/enroll", "/issue")):
             return "/enroll"
-        if path.startswith("/residents"):
-            return "/residents"
+        if path.startswith(("/ipsk", "/residents")):
+            return "/ipsk"
         if path.startswith("/ca"):
             return "/ca"
         if path.startswith("/tools"):
@@ -1309,7 +1309,7 @@ class Handler(BaseHTTPRequestHandler):
                 f'{" aria-current=page" if path == current else ""}>{ui.icon(icon)}<span>{label}</span></a>'
                 for path, label, icon in self.TABS
             )
-            bar = f'<h1 class="toolbar-title">Certificates</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
+            bar = f'<h1 class="toolbar-title">{esc(heading or ("IPSK" if current == "/ipsk" else "Certificates"))}</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
         self.document(
             title,
             f'<header class="toolbar">{bar}</header>'
@@ -1374,7 +1374,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/enroll":
                 self.enroll_page(query=query)
             elif path == "/residents":
-                self.residents_page(query)
+                self.redirect("/ipsk" + ("?" + parsed.query if parsed.query else ""))
+            elif path in ("/ipsk", "/ipsk/devices", "/ipsk/create", "/ipsk/invitations",
+                          "/ipsk/join-codes", "/ipsk/join-codes/settings", "/ipsk/access"):
+                self.residents_page(query, section=path.removeprefix("/ipsk/") if path != "/ipsk" else "keys")
             elif path == "/enroll/self":
                 self.self_enroll_page()
             elif m := ENROLL_SELF_FILE_RE.fullmatch(path):
@@ -1430,6 +1433,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_post(self):
         path = urllib.parse.urlsplit(self.path).path
+        # Keep older form URLs working while the panel uses the IPSK routes.
+        path = {"/ipsk/create": "/residents/ipsk/create",
+                "/ipsk/key/action": "/residents/ipsk/action"}.get(path, path)
+        if path.startswith("/ipsk/"):
+            path = "/residents/" + path.removeprefix("/ipsk/")
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -1472,11 +1480,15 @@ class Handler(BaseHTTPRequestHandler):
             self.wifi_delete(form)
             return
         if path == "/residents/invite":
+            label = str(form.get("label", [""])[0]).strip()
             if not os.environ.get("PORTAL_DB_HOST"):
-                self.residents_page({}, error="Resident onboarding requires the MariaDB database used by Step CA.")
+                self.residents_page({}, error="Invitations require the MariaDB database used by Step CA.", section="invitations")
             else:
-                code = ipsk.create_invite(self.headers.get("X-Remote-User-Id", "Home Assistant administrator"))
-                self.residents_page({}, invite_code=code)
+                try:
+                    code = ipsk.create_invite(self.headers.get("X-Remote-User-Id", "Home Assistant administrator"), label)
+                    self.residents_page({}, invite_code=code, section="invitations")
+                except Exception as err:
+                    self.residents_page({}, error=err, section="invitations", draft={"label": label[:100]})
             return
         if path == "/residents/qr/settings":
             try:
@@ -1489,7 +1501,10 @@ class Handler(BaseHTTPRequestHandler):
                         settings[kind + "_ssid"] = settings[kind + "_psk"] = ""
                     else:
                         password = password or str(settings.get(kind + "_psk") or "")
-                        ipsk.validate_wifi_credentials(ssid, password)
+                        try:
+                            ipsk.validate_wifi_credentials(ssid, password)
+                        except ValueError as err:
+                            raise guidance.FieldError(kind + ("_ssid" if not ssid or len(ssid.encode("utf-8")) > 32 else "_psk"), str(err)) from err
                         settings[kind + "_ssid"], settings[kind + "_psk"] = ssid, password
                 if (settings.get("guest_ssid") and settings.get("setup_ssid")
                         and (settings["guest_ssid"], settings["guest_psk"])
@@ -1497,53 +1512,73 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Use different guest and setup credentials so guests can bypass registration.")
                 options["resident_onboarding"] = settings
                 supervisor("POST", "/addons/self/options", {"options": options})
-                self.residents_page({"qr_saved": ["1"]})
+                self.residents_page({"qr_saved": ["1"]}, section="join-codes/settings")
             except Exception as err:  # noqa: BLE001 - the authenticated panel explains the failure
-                self.residents_page({}, error=str(err))
+                self.residents_page({}, error=err, section="join-codes/settings",
+                                    draft={key: str(form.get(key, [""])[0])[:100] for key in ("guest_ssid", "setup_ssid")})
             return
         if path == "/residents/access/settings":
+            access = ipsk.resident_access
             try:
                 options = saved_options()
                 settings = dict(options.get("resident_onboarding") or {})
-                access = ipsk.resident_access
                 for key in access.BOOL_FIELDS:
                     settings[key] = form.get(key, [""])[0] == "1"
                 for key in access.TEXT_FIELDS:
-                    settings[key] = str(form.get(key, [""])[0]).strip()
+                    if key in form:
+                        settings[key] = str(form[key][0]).strip()
                 for key in access.SECRET_FIELDS:
                     settings[key] = str(form.get(key, [""])[0]) or settings.get(key, "")
-                settings["max_devices_per_resident"] = int(form.get("max_devices_per_resident", ["5"])[0])
+                try:
+                    settings["max_devices_per_resident"] = int(form.get("max_devices_per_resident", ["5"])[0])
+                except ValueError as err:
+                    raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.") from err
                 access.validate_settings(settings)
                 options["resident_onboarding"] = settings
                 supervisor("POST", "/addons/self/options", {"options": options})
                 access.SETTINGS_OVERRIDE = settings
-                self.residents_page({"access_saved": ["1"]})
+                self.residents_page({"access_saved": ["1"]}, section="access")
             except Exception as err:
-                self.residents_page({}, error=str(err))
+                draft = {key: str(form[key][0])[:512] for key in access.TEXT_FIELDS if key in form}
+                draft.update({key: form.get(key, [""])[0] == "1" for key in access.BOOL_FIELDS})
+                draft["max_devices_per_resident"] = str(form.get("max_devices_per_resident", ["5"])[0])[:8]
+                self.residents_page({}, error=err, section="access", draft=draft)
             return
         if path == "/residents/ipsk/create":
             values = {key: str(items[0]).strip() for key, items in form.items() if items}
             try:
                 name = values.get("name", "")
                 network_id = values.get("network_id", "")
-                ssid_number = int(values.get("ssid_number", "-1"))
-                duration = int(values.get("duration_hours", "0"))
+                try:
+                    ssid_number = int(values.get("ssid_number", "-1"))
+                except ValueError as err:
+                    raise guidance.FieldError("ssid_number", "Choose an available Wi-Fi network (SSID).") from err
+                try:
+                    duration = int(values.get("duration_hours", "0"))
+                except ValueError as err:
+                    raise guidance.FieldError("duration_hours", "Enter a whole number of hours from 0 to 87,600.") from err
                 # Spaces can be part of a Wi-Fi password.
                 passphrase = str(form.get("passphrase", [""])[0])
                 if not name or len(name) > 100 or not name.isprintable():
-                    raise ValueError("Enter a key name of 1 to 100 printable characters.")
+                    raise guidance.FieldError("name", "Enter a key name of 1 to 100 printable characters.")
                 if duration < 0 or duration > 87600:
-                    raise ValueError("Choose a duration between 0 and 87,600 hours.")
+                    raise guidance.FieldError("duration_hours", "Choose a duration between 0 and 87,600 hours.")
                 if passphrase and not (8 <= len(passphrase) <= 63 and passphrase.isascii()
                                        and passphrase.isprintable() or re.fullmatch(r"[0-9A-Fa-f]{64}", passphrase)):
-                    raise ValueError("Passphrases must be 8–63 printable ASCII characters or 64 hexadecimal digits.")
+                    raise guidance.FieldError("passphrase", "Passphrases must be 8–63 printable ASCII characters or 64 hexadecimal digits.")
                 options = ipsk.get_options(network_id)
                 networks = options.get("networks") or []
                 ssids = options.get("ssids") or []
                 if not any(str(item.get("id")) == network_id for item in networks):
-                    raise ValueError("Choose a network available in Home Assistant.")
+                    raise guidance.FieldError("network_id", "Choose a network available in Home Assistant.")
                 if not any(int(item.get("number", -1)) == ssid_number for item in ssids):
-                    raise ValueError("Choose an SSID available in Home Assistant.")
+                    raise guidance.FieldError("ssid_number", "Choose an SSID available in Home Assistant.")
+                for field, limit in (("user", 254), ("unit", 80)):
+                    value = values.get(field, "")
+                    if len(value) > limit or (value and not value.isprintable()):
+                        raise guidance.FieldError(field, f"Use at most {limit} printable characters.")
+                if not any(str(item.get("id")) == values.get("group_policy_id", "") for item in options.get("group_policies") or []):
+                    raise guidance.FieldError("group_policy_id", "Choose a group policy available in this network.")
                 created = ipsk.create_admin_ipsk(
                     name, network_id, ssid_number, passphrase, duration,
                     values.get("group_policy_id", ""), values.get("unit", ""), values.get("user", ""),
@@ -1554,29 +1589,36 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     join_key = ipsk.ipsk_join_details(ident)
                 except Exception as err:
-                    self.residents_page({}, error=f"The key was created, but its QR is unavailable: {err}", created_key=ident)
+                    self.residents_page({}, error=f"The key was created, but its QR is unavailable: {err}", created_key=ident, section="create")
                 else:
-                    self.residents_page({}, created_key=ident, join_key=join_key)
+                    self.residents_page({}, created_key=ident, join_key=join_key, section="create")
             except Exception as err:  # noqa: BLE001 - shown in the admin panel
-                self.residents_page({}, error=str(err))
+                self.residents_page({"network": [values.get("network_id", "")]}, error=err, section="create",
+                                    draft={key: values.get(key, "")[:254] for key in
+                                           ("name", "user", "unit", "ssid_number", "group_policy_id", "duration_hours")})
             return
         if path == "/residents/invite/revoke":
             ipsk.revoke_invite(form.get("invite_id", [""])[0])
-            self.redirect("/residents?invite_revoked=1")
+            self.redirect("/ipsk/invitations?invite_revoked=1")
             return
         if path == "/residents/ipsk/action":
             ident = str(form.get("ipsk_id", [""])[0])
             action = str(form.get("action", [""])[0])
+            key_query = {key: [str(form[key][0])[:254]] for key in
+                         ("key_id", "device_q", "device_sort", "device_page") if key in form}
             if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,191}", ident) or action not in ("reveal", "qr", "revoke", "delete"):
                 self.residents_page({}, error="Choose a valid iPSK action.")
                 return
             if action == "qr":
                 try:
-                    self.residents_page({}, join_key=ipsk.ipsk_join_details(ident))
+                    self.residents_page(key_query, join_key=ipsk.ipsk_join_details(ident))
                 except Exception as err:
-                    self.residents_page({}, error=str(err))
+                    self.residents_page(key_query, error=str(err))
             elif action == "reveal":
-                self.residents_page({}, revealed=(ident, ipsk.reveal_ipsk(ident)))
+                try:
+                    self.residents_page(key_query, revealed=(ident, ipsk.reveal_ipsk(ident)))
+                except Exception as err:
+                    self.residents_page(key_query, error=str(err))
             else:
                 ipsk.set_ipsk_status(ident, action)
                 if os.environ.get("PORTAL_DB_HOST"):
@@ -1584,7 +1626,8 @@ class Handler(BaseHTTPRequestHandler):
                         cursor.execute("UPDATE stepca_resident_devices SET active = FALSE WHERE ipsk_id = %s", (ident,))
                         cursor.execute("UPDATE stepca_residents SET active = FALSE WHERE ipsk_id = %s", (ident,))
                         conn.commit()
-                self.redirect("/residents?ipsk_" + action + "d=1")
+                key_query["ipsk_" + action + "d"] = ["1"]
+                self.redirect("/ipsk?" + urllib.parse.urlencode(key_query, doseq=True))
             return
         if path == "/tools/groups/save":
             self.group_save(form)
@@ -2368,7 +2411,8 @@ class Handler(BaseHTTPRequestHandler):
         self.page("Enroll devices", body)
 
     def enroll_create(self, form):
-        field = lambda name: form.get(name, [""])[0].strip()
+        def field(name):
+            return form.get(name, [""])[0].strip()
         label, cn = field("label")[:64], field("cn")
         base_url = enroll.normalize_base_url(field("base_url"))
         try:
@@ -2715,7 +2759,7 @@ class Handler(BaseHTTPRequestHandler):
                 identity_state = "Needs attention"
                 identity_detail = "Complete the permitted Duo group and required Admin API settings; verification also needs Universal SDK credentials and the exact public callback URL."
         qr_state = "Configured; not verified" if all(config.get(key) for key in ("guest_ssid", "guest_psk", "setup_ssid", "setup_psk")) else "Not fully configured"
-        qr_detail = "Save guest/setup network credentials under Residents. Guest policy must bypass splash; setup policy must open the captive portal. Physical QR scans remain a deployment check."
+        qr_detail = "Save guest/setup network credentials under IPSK → Join codes. Guest policy must bypass splash; setup policy must open the captive portal. Physical QR scans remain a deployment check."
         rows = (("MariaDB", database_state, database_detail), ("Meraki connection", provider_state, provider_detail),
                 ("Resident network and policy", network_state, network_detail), ("Public HTTPS", https_state, https_detail),
                 ("Resident identity", identity_state, identity_detail), ("Guest and setup QR codes", qr_state, qr_detail))
@@ -2734,7 +2778,7 @@ class Handler(BaseHTTPRequestHandler):
                 + f'<form method="get" data-readiness-check action="{esc(self.url("/tools/setup"))}"><input type="hidden" name="check" value="1">'
                 '<button class="btn" type="submit">Check connections</button></form>'
                 '<p class="hint">Checks run only when requested and may take a few minutes if services time out. Results describe this request, not continuous monitoring.</p>'
-                + f'<p><a href="{esc(self.url("/residents"))}">Resident settings and QR codes</a> · '
+                + f'<p><a href="{esc(self.url("/ipsk/access"))}">IPSK access settings</a> · '
                 + f'<a href="{esc(self.url("/tools/options"))}">View running options</a> · '
                 + f'<a href="{esc(self.url("/tools/help"))}">Setup help</a></p></div></div>'
                 + '<div class="card" id="setup-readiness"><div class="card-header"><h2>Connection readiness</h2></div><div class="rows">' + states + '</div></div>')
@@ -2759,9 +2803,24 @@ class Handler(BaseHTTPRequestHandler):
             articles = '<div class="card"><div class="empty"><h2>No matching guides</h2><p>Try Wi-Fi, invitation, private MAC, password or certificate; or clear the search.</p></div></div>'
         self.page("Help and troubleshooting", controls + articles, narrow=True)
 
-    def residents_page(self, query=None, error="", invite_code="", revealed=None, created_key="", join_key=None):
-        """Resident onboarding, invitations, and live Meraki iPSK management."""
+    def residents_page(self, query=None, error="", invite_code="", revealed=None, created_key="", join_key=None, section="keys", draft=None):
+        """Render one focused IPSK task; existing POST handlers share feedback here."""
+        pages = (("keys", "/ipsk", "Wi-Fi keys"),
+                 ("devices", "/ipsk/devices", "Registered devices"),
+                 ("invitations", "/ipsk/invitations", "Invitations"),
+                 ("join-codes", "/ipsk/join-codes", "Join codes"),
+                 ("access", "/ipsk/access", "Access settings"))
+        page_path = "/ipsk" if section == "keys" else "/ipsk/" + section
         query = query or {}
+        draft = draft or {}
+        key_id = str((query.get("key_id") or [""])[0])[:191]
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,191}", key_id):
+            key_id = ""
+        key_context = {key: str(query[key][0])[:254] for key in
+                       ("device_q", "device_sort", "device_page") if key in query}
+        if key_id:
+            key_context["key_id"] = key_id
+        context_fields = "".join(f'<input type="hidden" name="{key}" value="{esc(value)}">' for key, value in key_context.items())
         search = str((query.get("q") or [""])[0])[:254].strip()
         record_sort = str((query.get("record_sort") or ["newest"])[0])
         if record_sort not in ("newest", "oldest", "name", "unit"):
@@ -2776,6 +2835,8 @@ class Handler(BaseHTTPRequestHandler):
         notice = ""
         if error:
             notice = ui.alert("error", esc(error), "Could not complete the action")
+            if draft and section in ("create", "access", "join-codes/settings"):
+                notice += '<p class="hint">Your other details are kept. Re-enter any new passwords or secrets before saving.</p>'
         elif created_key:
             notice = ui.alert("success", f"Created iPSK {esc(created_key)}.", "Key created")
         elif query.get("invite_revoked"):
@@ -2787,7 +2848,7 @@ class Handler(BaseHTTPRequestHandler):
         elif query.get("qr_saved"):
             notice = ui.alert("success", "The guest and registration QR settings were saved.", "QR settings saved")
         elif query.get("access_saved"):
-            notice = ui.alert("success", "Resident self-service and Duo settings were saved.", "Resident access settings saved")
+            notice = ui.alert("success", "Self-service and Duo settings were saved.", "Access settings saved")
         elif invite_code:
             notice = ui.alert(
                 "success",
@@ -2804,6 +2865,13 @@ class Handler(BaseHTTPRequestHandler):
                 f'{ui.copy_button(revealed[1], "Wi-Fi passphrase")}</div>',
                 "Passphrase revealed",
             )
+        if key_id and section == "keys":
+            device_query = {"q": key_context.get("device_q", ""), "record_sort": key_context.get("device_sort", "newest"),
+                            "record_page": guidance.page_number(key_context.get("device_page", "1"))}
+            back_to_devices = self.url("/ipsk/devices") + "?" + urllib.parse.urlencode(device_query)
+            notice += (f'<p><a class="btn text" href="{esc(back_to_devices)}">Back to registered devices</a></p>'
+                       + f'<p class="hint">Showing key <code>{esc(key_id)}</code>. '
+                       + f'<a href="{esc(self.url("/ipsk"))}">View all Wi-Fi keys</a></p>')
         if join_key:
             notice += ipsk.wifi_join_card(
                 "Join with " + join_key["name"], join_key["ssid"], join_key["passphrase"],
@@ -2811,19 +2879,19 @@ class Handler(BaseHTTPRequestHandler):
                 "Keep private or randomized addressing off for the resident network.",
                 filename="device-wifi.svg", show_password=True,
             )
-        if not ipsk.PORTAL_ENABLED:
+        if section == "access" and not ipsk.PORTAL_ENABLED:
             notice += ui.alert(
                 "info",
                 "Resident onboarding is turned off. Enable it in the add-on's Resident onboarding options.",
                 "Resident portal disabled",
             )
-        if not os.environ.get("PORTAL_DB_HOST"):
+        if section in ("devices", "invitations", "create", "access") and not os.environ.get("PORTAL_DB_HOST"):
             notice += ui.alert(
                 "warning",
                 "Resident and invitation records share Step CA's MariaDB database. Select MariaDB in the add-on options to use this page.",
                 "MariaDB required",
             )
-        if not SUPERVISOR_TOKEN:
+        if section in ("keys", "devices", "create", "access") and not SUPERVISOR_TOKEN:
             notice += ui.alert(
                 "warning",
                 "Home Assistant has not provided its service connection. iPSK actions are unavailable until the add-on is connected to Home Assistant.",
@@ -2831,18 +2899,19 @@ class Handler(BaseHTTPRequestHandler):
             )
 
         try:
-            if os.environ.get("PORTAL_DB_HOST"):
+            if section == "devices" and os.environ.get("PORTAL_DB_HOST"):
                 inventory = ipsk.resident_inventory(search, record_sort, record_page)
             residents = inventory["rows"]
-            invites = ipsk.list_invites() if os.environ.get("PORTAL_DB_HOST") else []
-        except Exception as err:  # noqa: BLE001 - surfaced in the admin panel
+            invites = ipsk.list_invites() if section == "invitations" and os.environ.get("PORTAL_DB_HOST") else []
+        except Exception:  # noqa: BLE001 - surfaced in the admin panel
             residents, invites = [], []
             inventory = {"rows": [], "total": 0, "matched": 0, "page": 1, "pages": 1, "size": 25}
             notice += ui.alert("error", "Could not read resident records. Check MariaDB under Setup and checks, then reload this page.", "Resident database unavailable")
 
         try:
-            keys = ipsk.list_ipsks() if SUPERVISOR_TOKEN else []
-            inactive = ipsk.inactive_ipsk_ids(keys)
+            keys = ipsk.list_ipsks() if section in ("keys", "devices") and SUPERVISOR_TOKEN else []
+            keys = [dict(row, status=row.get("status") if row.get("status") in ("active", "revoked", "expired") else "unknown") for row in keys]
+            inactive = ipsk.inactive_ipsk_ids(keys) if section == "devices" else []
             if inactive and os.environ.get("PORTAL_DB_HOST"):
                 with ipsk.db_connect() as conn, conn.cursor() as cursor:
                     ipsk.sync_inactive_keys(cursor, inactive)
@@ -2856,7 +2925,7 @@ class Handler(BaseHTTPRequestHandler):
         selected_network = str((query.get("network") or [""])[0] or
                                ipsk.resident_access.settings().get("network_id") or "")
         try:
-            options = ipsk.get_options(selected_network) if SUPERVISOR_TOKEN else {}
+            options = ipsk.get_options(selected_network) if section == "create" and SUPERVISOR_TOKEN else {}
             networks = options.get("networks") or []
             ssids = options.get("ssids") or []
             policies = options.get("group_policies") or []
@@ -2865,10 +2934,11 @@ class Handler(BaseHTTPRequestHandler):
             notice += ui.alert("warning", f"{esc(err)}", "Could not load iPSK options")
 
         try:
-            qr_settings = dict(saved_options().get("resident_onboarding") or {})
+            qr_settings = dict(saved_options().get("resident_onboarding") or {}) if section in ("access", "join-codes", "join-codes/settings") else {}
         except RuntimeError as err:
             qr_settings = {}
             notice += ui.alert("warning", esc(err), "QR settings unavailable")
+        qr_settings.update(draft)
         resident_count, key_count = inventory["total"], len(keys)
         status = str((query.get("key_status") or ["all"])[0])
         if status not in ("all", "active", "revoked", "expired", "unknown"):
@@ -2876,7 +2946,8 @@ class Handler(BaseHTTPRequestHandler):
         def matches(row, fields):
             return not search or search.casefold() in " ".join(str(row.get(field) or "") for field in fields).casefold()
         keys = [row for row in keys if matches(row, ("id", "psk_group_id", "name", "ssid_name", "associated_user", "associated_unit"))
-                and (status == "all" or str(row.get("status") or "unknown") == status)]
+                and (status == "all" or str(row.get("status") or "unknown") == status)
+                and (not key_id or str(row.get("id") or row.get("psk_group_id") or "") == key_id)]
         key_sort_field = {"name": "name", "network": "ssid_name", "resident": "associated_user", "status": "status"}[key_sort]
         keys.sort(key=lambda row: (str(row.get(key_sort_field) or "").casefold(), str(row.get("id") or row.get("psk_group_id") or "")))
         matched_keys = len(keys)
@@ -2884,50 +2955,56 @@ class Handler(BaseHTTPRequestHandler):
         key_page = min(key_page, key_pages)
         keys = keys[(key_page - 1) * 25:key_page * 25]
         def inventory_link(number, field, anchor):
-            values = {"network": selected_network, "q": search, "key_status": status,
-                      "record_sort": record_sort, "key_sort": key_sort,
-                      "record_page": inventory["page"], "key_page": key_page}
+            values = {"network": selected_network, "q": search, **key_context}
+            if section == "devices":
+                values["record_sort"] = record_sort
+            else:
+                values.update(key_status=status, key_sort=key_sort)
             values[field] = number
-            return self.url("/residents") + "?" + urllib.parse.urlencode(values) + anchor
+            return self.url(page_path) + "?" + urllib.parse.urlencode(values) + anchor
         key_pager = guidance.pagination(key_page, key_pages, (key_page - 1) * 25 + 1,
                                        min(key_page * 25, matched_keys), matched_keys,
                                        lambda number: inventory_link(number, "key_page", "#device-keys"), "Wi-Fi key pages")
         record_pager = guidance.pagination(inventory["page"], inventory["pages"], (inventory["page"] - 1) * inventory["size"] + 1,
                                           min(inventory["page"] * inventory["size"], inventory["matched"]), inventory["matched"],
                                           lambda number: inventory_link(number, "record_page", "#registered-devices"), "Registered device pages")
+        navigation = '<nav class="tool-nav ipsk-nav" aria-label="IPSK pages">' + "".join(
+            f'<a href="{esc(self.url(path))}"' + (' aria-current="page"' if name == section or
+                (name == "keys" and section == "create") or
+                (name == "join-codes" and section == "join-codes/settings") else '') + f'>{label}</a>'
+            for name, path, label in pages) + '</nav>'
+        is_devices = section == "devices"
+        sort_field = "record_sort" if is_devices else "key_sort"
+        sort_value = record_sort if is_devices else key_sort
+        sort_choices = (("newest", "Newest first"), ("oldest", "Oldest first"), ("name", "Resident name"), ("unit", "Unit or room")) if is_devices else (
+            ("name", "Key name"), ("network", "Network name"), ("resident", "Resident"), ("status", "Status"))
+        status_field = '' if is_devices else '<label>Key status<select name="key_status">' + "".join(
+            f'<option value="{value}"' + (' selected' if status == value else '') + f'>{label}</option>'
+            for value, label in (("all", "All keys"), ("active", "Active"), ("revoked", "Revoked"),
+                                ("expired", "Expired"), ("unknown", "Unknown"))) + '</select></label>'
         management = (
-            '<div class="card" id="resident-management"><div class="card-header"><h2>Manage resident access</h2>'
-            f'<p class="muted">{resident_count} registered device {"record" if resident_count == 1 else "records"} · {key_count} Wi-Fi {"key" if key_count == 1 else "keys"}</p></div>'
-            '<div class="card-content"><nav class="tool-nav" aria-label="Resident tasks">'
-            '<a class="btn text" href="#device-keys">Manage keys</a>'
-            '<a class="btn text" href="#create-device-key">Create a key</a>'
-            '<a class="btn text" href="#join-codes">Share join codes</a></nav>'
-            + f'<p class="hint"><a href="{esc(self.url("/tools/setup"))}">Setup and checks</a> · <a href="{esc(self.url("/tools/help"))}">Connection help</a></p>'
-            f'<form method="get" action="{esc(self.url("/residents"))}">'
+            '<div class="ipsk-filters">'
+            f'<form method="get" action="{esc(self.url(page_path))}">'
+            + context_fields +
             f'<input type="hidden" name="network" value="{esc(selected_network)}">'
-            '<div class="field-row"><label>Search resident, device or network'
-            f'<input type="search" name="q" maxlength="254" value="{esc(search)}"></label>'
-            '<label>Key status<select name="key_status">'
-            + "".join(f'<option value="{value}"' + (' selected' if status == value else '') + f'>{label}</option>'
-                      for value, label in (("all", "All keys"), ("active", "Active"), ("revoked", "Revoked"),
-                                           ("expired", "Expired"), ("unknown", "Unknown")))
-            + '</select></label></div><details class="expand sorting-options"><summary>Sorting options</summary><div class="field-row"><label>Sort registered devices<select name="record_sort">'
-            + "".join(f'<option value="{value}"' + (' selected' if record_sort == value else '') + f'>{label}</option>'
-                      for value, label in (("newest", "Newest first"), ("oldest", "Oldest first"), ("name", "Resident name"), ("unit", "Unit or room")))
-            + '</select></label><label>Sort Wi-Fi keys<select name="key_sort">'
-            + "".join(f'<option value="{value}"' + (' selected' if key_sort == value else '') + f'>{label}</option>'
-                      for value, label in (("name", "Key name"), ("network", "Network name"), ("resident", "Resident"), ("status", "Status")))
-            + '</select></label></div></details><button class="btn text" type="submit">Apply filters</button>'
-            + (f'<a class="btn text" href="{esc(self.url("/residents") + "?" + urllib.parse.urlencode({"network": selected_network}))}">Clear filters</a>'
-               if search or status != "all" or record_sort != "newest" or key_sort != "name" else '') + '</form></div></div>'
+            '<div class="field-row"><label>Search ' + ('resident or device' if is_devices else 'key, resident or network')
+            + f'<input type="search" name="q" maxlength="254" value="{esc(search)}"></label>' + status_field
+            + '</div><details class="sorting-options"><summary>Sorting options</summary><label>Sort by'
+            f'<select name="{sort_field}">'
+            + "".join(f'<option value="{value}"' + (' selected' if sort_value == value else '') + f'>{label}</option>'
+                      for value, label in sort_choices)
+            + '</select></label></details><div class="row-actions"><button class="btn text" type="submit">Apply filters</button>'
+            + (f'<a class="btn text" href="{esc(self.url(page_path))}">Clear filters</a>'
+               if search or (not is_devices and status != "all") or sort_value != ("newest" if is_devices else "name") else '')
+            + '</div></form></div>'
         )
         qr_cards = []
         access_settings_card = ipsk.resident_access.admin_settings_card(
-            ipsk, qr_settings, csrf, self.url("/residents/access/settings"))
+            ipsk, qr_settings, csrf, self.url("/ipsk/access/settings"), standalone=True) if section == "access" else ""
         for kind, title, description in (
             ("guest", "Guest access", "Scan to join with the guest password. No resident registration is required."),
             ("setup", "Join and create a key", "Scan to join the setup network, then open Wi-Fi sign-in to register and receive your individual key."),
-        ):
+        ) if section == "join-codes" else ():
             ssid, password = str(qr_settings.get(kind + "_ssid") or ""), str(qr_settings.get(kind + "_psk") or "")
             try:
                 if not ssid or not password:
@@ -2938,30 +3015,30 @@ class Handler(BaseHTTPRequestHandler):
                 qr_cards.append(
                     '<section class="card"><div class="card-header"><h2>' + esc(title)
                     + '</h2></div><div class="card-content"><p>' + esc(description) + '</p><p>'
-                    + esc(err) + '</p><a href="#qr-settings">QR network settings</a></div></section>'
+                    + esc(err) + f'</p><a href="{esc(self.url("/ipsk/join-codes/settings"))}">QR network settings</a></div></section>'
                 )
         qr_network_fields = ""
         for kind, title in (("guest", "Guest access"), ("setup", "Registration setup")):
             qr_network_fields += (
                 f'<fieldset><legend>{title}</legend><div class="field-row">'
-                f'<label>Network name<input name="{kind}_ssid" value="{esc(qr_settings.get(kind + "_ssid"))}" maxlength="32" autocomplete="off">'
+                f'<label>Network name<input id="{kind}_ssid" name="{kind}_ssid" value="{esc(qr_settings.get(kind + "_ssid") or "")}" maxlength="32" autocomplete="off">'
                 '<small class="muted">Leave empty to remove this QR.</small></label>'
-                f'<label>Wi-Fi password<input type="password" name="{kind}_psk" autocomplete="new-password" maxlength="64" '
+                f'<label>Wi-Fi password<input id="{kind}_psk" type="password" name="{kind}_psk" autocomplete="new-password" maxlength="64" '
                 'placeholder="Keep the saved password">'
                 '<small class="muted">Blank keeps the saved password. Enter one for a new network.</small></label>'
                 '</div></fieldset>'
             )
         qr_settings_card = (
-            '<div class="card"><details class="expand" id="qr-settings"><summary>QR network settings</summary>'
+            '<div class="card" id="qr-settings"><div class="card-header"><h2>QR network settings</h2></div>'
             '<div class="card-content"><p>Enter the credentials already configured in Meraki. '
             'The guest key needs a policy that bypasses splash; the setup key needs the captive portal.</p>'
-            f'<form method="post" action="{esc(self.url("/residents/qr/settings"))}">{csrf}'
+            f'<form method="post" action="{esc(self.url("/ipsk/qr/settings"))}">{csrf}'
             + qr_network_fields + '<button class="btn" type="submit">Save QR settings</button></form>'
-            '</div></details></div>'
+            '</div></div>'
         )
         portal_url = ipsk.PUBLIC_BASE
         intro = (
-            '<div class="card"><details class="expand" id="resident-setup"><summary>Captive portal setup and invitations</summary>'
+            '<div class="card"><details class="expand" id="resident-setup"><summary>Captive portal setup</summary>'
             '<div class="card-content">'
             '<p>Residents register once and receive an individual Meraki iPSK. Their Wi-Fi details are stored here; '
             'certificate issuance and renewal stay in Step CA.</p>'
@@ -2969,8 +3046,7 @@ class Handler(BaseHTTPRequestHandler):
             '<p>Use this path on your public Home Assistant URL as the Meraki click-through splash page '
             'for the default setup PSK. New residents must arrive through the captive portal. '
             'Private or randomized MAC addresses are blocked before registration.</p>'
-            f'<form method="post" action="{esc(self.url("/residents/invite"))}">{csrf}'
-            '<button class="btn" type="submit">Create invitation code</button></form></div></details></div>'
+            '</div></details></div>'
         )
         network_options = "".join(
             f'<option value="{esc(item.get("id"))}"' + (' selected' if str(item.get("id")) == selected_network else '')
@@ -2978,75 +3054,102 @@ class Handler(BaseHTTPRequestHandler):
             for item in networks
         )
         ssid_options = "".join(
-            f'<option value="{int(item.get("number", 0))}">{esc(item.get("name") or "SSID " + str(item.get("number")))}</option>'
+            f'<option value="{int(item.get("number", 0))}"'
+            + (' selected' if str(item.get("number", 0)) == str(draft.get("ssid_number", "")) else '')
+            + f'>{esc(item.get("name") or "SSID " + str(item.get("number")))}</option>'
             for item in ssids
         )
         policy_options = "".join(
-            f'<option value="{esc(item.get("id"))}">{esc(item.get("name") or item.get("id"))}</option>'
+            f'<option value="{esc(item.get("id"))}"'
+            + (' selected' if str(item.get("id")) == str(draft.get("group_policy_id", "")) else '')
+            + f'>{esc(item.get("name") or item.get("id"))}</option>'
             for item in policies
         )
         create_form = (
-            '<div class="card"><details class="expand" id="create-device-key"><summary>Create a key for another device</summary>'
-            '<div class="card-content"><p>Create an individual Wi-Fi key, then scan its join QR on the other device.</p>'
-            f'<form method="get" action="{esc(self.url("/residents"))}"><label>Network<select name="network" required>'
+            '<div class="card" id="create-device-key"><div class="card-header"><h2>Create a Wi-Fi key</h2></div>'
+            '<div class="card-content"><p>Create an individual Wi-Fi key for a device or resident.</p>'
+            f'<form method="get" action="{esc(self.url("/ipsk/create"))}"><label>Meraki network<select id="network_id" name="network" required>'
             + '<option value="">Choose a network</option>' + network_options
-            + '</select></label><button class="btn text" type="submit">Load network choices</button></form>'
-            '<p class="hint">SSID and policy choices belong to the loaded network.</p>'
-            f'<form method="post" action="{esc(self.url("/residents/ipsk/create"))}">{csrf}'
+            + '</select></label><button class="btn text" type="submit">Load Wi-Fi networks and policies</button></form>'
+            '<p class="hint">Load the Meraki network first. Its Wi-Fi networks and access policies appear below.</p>'
+            f'<form method="post" action="{esc(self.url("/ipsk/create"))}">{csrf}'
             f'<input type="hidden" name="network_id" value="{esc(selected_network)}">'
             '<div class="field-row">'
-            '<label>Device or key name<input name="name" maxlength="100" required autocomplete="off" placeholder="Living room TV"></label>'
-            '<label>Resident name or email<input name="user" maxlength="254" autocomplete="off"></label>'
+            f'<label>Device or key name<input id="name" name="name" maxlength="100" required autocomplete="off" placeholder="Living room TV" value="{esc(draft.get("name", ""))}"></label>'
+            f'<label>Resident name or email<input id="user" name="user" maxlength="254" autocomplete="off" value="{esc(draft.get("user", ""))}" aria-describedby="resident-attribution-help">'
+            '<small id="resident-attribution-help" class="muted">Optional label for your records; this does not select or verify a resident account.</small></label>'
             '</div><div class="field-row">'
-            '<label>SSID<select name="ssid_number" required>'
-            + ('<option value="">Choose an SSID</option>' + ssid_options if ssid_options else '<option value="">No SSIDs available</option>')
+            '<label>Wi-Fi network (SSID)<select id="ssid_number" name="ssid_number" required>'
+            + ('<option value="">Choose a Wi-Fi network</option>' + ssid_options if ssid_options else '<option value="">No Wi-Fi networks available</option>')
             + '</select></label></div><div class="field-row">'
-            '<label>Unit<input name="unit" maxlength="80" autocomplete="off"></label>'
-            '<label>Group policy<select name="group_policy_id" required><option value="">Choose a group policy</option>'
-            + policy_options + '</select></label>'
+            f'<label>Unit or room<input id="unit" name="unit" maxlength="80" autocomplete="off" value="{esc(draft.get("unit", ""))}"></label>'
+            '<label>Access policy<select id="group_policy_id" name="group_policy_id" required aria-describedby="policy-help"><option value="">Choose an access policy</option>'
+            + policy_options + '</select><small id="policy-help" class="muted">The Meraki group policy determines the access this key receives.</small></label>'
             '</div><div class="field-row">'
-            '<label>Passphrase<input type="password" name="passphrase" autocomplete="new-password" placeholder="Generate one automatically"></label>'
-            '<label>Duration in hours<input type="number" name="duration_hours" min="0" max="87600" value="0">'
-            '<small class="muted">0 means no expiry</small></label></div>'
-            '<button class="btn" type="submit"' + (" disabled" if not os.environ.get("PORTAL_DB_HOST") or not selected_network or not ssid_options or not policy_options else "") + '>Create key and QR</button></form></div></details></div>'
+            '<label>Wi-Fi password<input id="passphrase" type="password" name="passphrase" autocomplete="new-password" minlength="8" maxlength="64" '
+            r'pattern="[\x20-\x7E]{8,63}|[0-9A-Fa-f]{64}" aria-describedby="passphrase-help" placeholder="Generate one automatically">'
+            '<small id="passphrase-help" class="muted">Leave blank to generate a password. Otherwise use 8–63 printable ASCII characters or 64 hexadecimal digits. Passwords are not kept after an error.</small></label>'
+            '<label>Expires after<select class="preset js-only" data-for="duration_hours" aria-label="Expires after">'
+            '<option value="0">No expiry</option><option value="24">1 day</option><option value="168">1 week</option>'
+            '<option value="720">30 days</option><option value="" data-custom>Custom duration</option></select>'
+            f'<input id="duration_hours" name="duration_hours" type="number" min="0" max="87600" step="1" required value="{esc(draft.get("duration_hours", "0"))}" aria-label="Custom duration in hours" aria-describedby="duration-help">'
+            '<small id="duration-help" class="muted">Custom duration uses hours, up to 87,600; 0 means no expiry. No expiry keeps the key active until revoked.</small></label></div>'
+            '<button class="btn" type="submit"' + (" disabled" if not os.environ.get("PORTAL_DB_HOST") or not selected_network or not ssid_options or not policy_options else "") + '>Create key and QR</button></form></div></div>'
         )
+        create_form = guidance.form_error(create_form, error)
         invite_rows = []
         invite_dialogs = []
         for invite in invites:
+            invite_label = invite.get("label") or f'Invitation #{int(invite["id"])}'
             status = "Used" if invite.get("used_at") else "Ready"
             revoke = "" if invite.get("used_at") else (
-                f'<form method="post" action="{esc(self.url("/residents/invite/revoke"))}" data-confirm="invite-{int(invite["id"])}">{csrf}'
+                f'<form method="post" action="{esc(self.url("/ipsk/invite/revoke"))}" data-confirm="invite-{int(invite["id"])}">{csrf}'
                 f'<input type="hidden" name="invite_id" value="{int(invite["id"])}">'
-                '<button class="btn text danger" type="submit">Revoke</button></form>'
+                f'<button class="btn text danger" type="submit" aria-label="Revoke {esc(invite_label)}">Revoke</button></form>'
             )
             if not invite.get("used_at"):
                 dialog_id = f"invite-{int(invite['id'])}"
                 invite_dialogs.append(
                     f'<dialog id="{dialog_id}" aria-labelledby="{dialog_id}-title">'
-                    f'<h2 id="{dialog_id}-title">Revoke this invitation?</h2>'
+                    f'<h2 id="{dialog_id}-title">Revoke {esc(invite_label)}?</h2>'
                     '<p>The unused code will stop working. You can create a new code at any time.</p>'
                     '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
                     '<button type="button" class="btn danger" data-confirm-yes>Revoke</button></div></dialog>'
                 )
             invite_rows.append(
-                f'<tr><td>{esc(fmt_time(invite["created_at"]))}</td><td>{esc(invite["created_by"])}</td>'
-                f'<td>{status}</td><td class="actions">{revoke}</td></tr>'
+                f'<tr><td data-label="Invitation">{esc(invite_label)}</td><td data-label="Created">{esc(fmt_time(invite["created_at"]))}</td><td data-label="By">{esc(invite["created_by"])}</td>'
+                f'<td data-label="Status">{status}</td><td class="actions">{revoke}</td></tr>'
             )
         invites_card = (
             '<div class="card"><div class="card-header"><h2>Invitation codes</h2></div>'
-            + (f'<div class="table-wrap"><table><thead><tr><th>Created</th><th>By</th><th>Status</th><th>Actions</th></tr></thead>'
+            + f'<div class="card-content"><p>Create a single-use code for a resident who needs access.</p><form method="post" action="{esc(self.url("/ipsk/invite"))}">{csrf}'
+            + f'<label>Resident or purpose<input id="label" name="label" maxlength="100" value="{esc(draft.get("label", ""))}" aria-describedby="invite-label-help"></label>'
+            + '<p class="hint" id="invite-label-help">An optional label helps you identify the code later. It does not limit who can use it.</p>'
+            + '<button class="btn" type="submit"' + (' disabled' if not os.environ.get('PORTAL_DB_HOST') else '') + '>Create invitation code</button></form></div>'
+            + (f'<div class="table-wrap"><table class="ipsk-table"><thead><tr><th>Invitation</th><th>Created</th><th>By</th><th>Status</th><th>Actions</th></tr></thead>'
                f'<tbody>{"".join(invite_rows)}</tbody></table></div>' if invite_rows else
                '<div class="empty"><p class="empty-title">No active invitations</p><p class="muted">Create a code for a resident who needs access.</p></div>')
             + '</div>'
         )
+        invites_card = guidance.form_error(invites_card, error)
+        def device_key_link(row):
+            ident = str(row.get("ipsk_id") or "")
+            label = esc(row.get("ipsk_name") or ident or "—")
+            if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,191}", ident):
+                return label
+            target = self.url("/ipsk") + "?" + urllib.parse.urlencode({"key_id": ident, "device_q": search,
+                                                                       "device_sort": record_sort, "device_page": inventory["page"]})
+            return f'<a href="{esc(target)}" aria-label="Manage key {label}">{label}</a>'
         resident_rows = "".join(
-            f'<tr><td>{esc(row["name"])}</td><td>{esc(row["email"])}</td><td>{esc(row["unit"]) or "—"}</td>'
-            f'<td>{esc(row["ipsk_name"])}</td><td><code>{esc(row.get("mac_address")) or "—"}</code></td>'
-            f'<td>{esc(fmt_time(row["created_at"]))}</td></tr>' for row in residents
+            f'<tr><td data-label="Resident">{esc(row["name"])}</td><td data-label="Email">{esc(row["email"])}</td><td data-label="Unit">{esc(row["unit"]) or "—"}</td>'
+            f'<td data-label="Wi-Fi key">{device_key_link(row)}</td><td data-label="Device MAC"><code>{esc(row.get("mac_address")) or "—"}</code></td>'
+            f'<td data-label="Registered">{esc(fmt_time(row["created_at"]))}</td></tr>' for row in residents
         )
         residents_card = (
-            '<div class="card" id="registered-devices"><div class="card-header"><h2>Registered devices</h2></div>'
-            + (f'<div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Unit</th><th>Wi-Fi key</th><th>Device MAC</th><th>Registered</th></tr></thead>'
+            '<div class="card" id="registered-devices"><div class="card-header"><h2>Registered devices</h2>'
+            + f'<p class="muted">{resident_count} registered device {"record" if resident_count == 1 else "records"}</p></div>'
+            + management
+            + (f'<div class="table-wrap"><table class="ipsk-table"><thead><tr><th>Name</th><th>Email</th><th>Unit</th><th>Wi-Fi key</th><th>Device MAC</th><th>Registered</th></tr></thead>'
                f'<tbody>{resident_rows}</tbody></table></div>' if resident_rows else
                '<div class="empty"><p class="empty-title">' + ('No matching device records' if search and resident_count else 'No residents registered')
                + '</p><p class="muted">' + ('Change or clear the search above.' if search and resident_count else 'New registrations will appear here.') + '</p></div>')
@@ -3070,12 +3173,12 @@ class Handler(BaseHTTPRequestHandler):
                     klass = ' class="btn text danger"' if action in ("revoke", "delete") else ' class="btn text"'
                     confirm_id = f"ipsk-{index}-{action}"
                     action_forms += (
-                        f'<form method="post" action="{esc(self.url("/residents/ipsk/action"))}"'
+                        f'<form method="post" action="{esc(self.url("/ipsk/key/action"))}"'
                         + (f' data-confirm="{confirm_id}"' if action in ("revoke", "delete") else "")
-                        + f'>{csrf}'
+                        + f'>{csrf}' + context_fields +
                         f'<input type="hidden" name="ipsk_id" value="{esc(ident)}">'
                         f'<input type="hidden" name="action" value="{action}">'
-                        f'<button{klass} type="submit">{label}</button></form>'
+                        f'<button{klass} type="submit" aria-label="{label} {esc(name)}">{label}</button></form>'
                     )
                     if action in ("revoke", "delete"):
                         operation = "Revoke" if action == "revoke" else "Delete"
@@ -3090,22 +3193,65 @@ class Handler(BaseHTTPRequestHandler):
                         )
             assoc = key.get("associated_user") or key.get("associated_unit") or "—"
             key_rows.append(
-                f'<tr><td>{esc(name)}<small class="muted">{esc(ident)}</small></td>'
-                f'<td>{esc(key.get("ssid_name") or "—")}</td><td>{esc(assoc)}</td>'
-                f'<td>{ui.chip(chip_kind, state)}</td><td class="actions"><div class="row-actions">{action_forms}</div></td></tr>'
+                f'<tr><td data-label="Key">{esc(name)}<small class="muted">{esc(ident)}</small></td>'
+                f'<td data-label="Wi-Fi network">{esc(key.get("ssid_name") or "—")}</td><td data-label="Resident">{esc(assoc)}</td>'
+                f'<td data-label="Status">{ui.chip(chip_kind, state)}</td><td class="actions"><div class="row-actions">{action_forms}</div></td></tr>'
             )
         keys_card = (
-            '<div class="card" id="device-keys"><div class="card-header"><h2>Wi-Fi keys</h2></div>'
-            + (f'<div class="table-wrap"><table><thead><tr><th>Name / ID</th><th>SSID</th><th>Resident</th><th>Status</th><th>Actions</th></tr></thead>'
+            '<div class="card" id="device-keys"><div class="card-header"><h2>Wi-Fi keys</h2>'
+            + f'<a class="btn" href="{esc(self.url("/ipsk/create"))}">{ui.icon("plus")}Create a key</a>'
+            + f'<p class="muted">{key_count} Wi-Fi {"key" if key_count == 1 else "keys"} · Manage individual network access.</p></div>'
+            + management
+            + (f'<div class="table-wrap"><table class="ipsk-table"><thead><tr><th>Name / ID</th><th>SSID</th><th>Resident</th><th>Status</th><th>Actions</th></tr></thead>'
                f'<tbody>{"".join(key_rows)}</tbody></table></div>' if key_rows else
                '<div class="empty"><p class="empty-title">' + ('No matching keys' if key_count and (search or status != "all") else 'No iPSKs found')
                + '</p><p class="muted">' + ('Change or clear the filters above.' if key_count and (search or status != "all") else 'Keys created through resident registration will appear here.') + '</p></div>')
             + key_pager + '</div>'
         )
-        self.page("Residents", notice + management + keys_card + residents_card + create_form
-                  + '<div class="wifi-join-grid" id="join-codes">' + "".join(qr_cards) + '</div>'
-                  + qr_settings_card + access_settings_card + intro + invites_card
-                  + "".join(invite_dialogs) + "".join(key_dialogs), head="""<style>
+        content = {
+            "keys": keys_card + "".join(key_dialogs),
+            "devices": residents_card,
+            "create": create_form,
+            "invitations": invites_card + "".join(invite_dialogs),
+            "join-codes": '<div class="page-head"><h2>Join codes</h2>'
+                + f'<a class="btn text" href="{esc(self.url("/ipsk/join-codes/settings"))}">QR network settings</a></div>'
+                + '<p class="muted">Share guest access or guide a resident to registration.</p>'
+                + '<div class="wifi-join-grid" id="join-codes">' + "".join(qr_cards) + '</div>',
+            "join-codes/settings": f'<p><a href="{esc(self.url("/ipsk/join-codes"))}">Back to join codes</a></p>' + qr_settings_card,
+            "access": access_settings_card + intro,
+        }[section]
+        title = {"keys": "Wi-Fi keys", "devices": "Registered devices", "create": "Create a Wi-Fi key",
+                 "invitations": "Invitations", "join-codes": "Join codes", "join-codes/settings": "QR network settings",
+                 "access": "Access settings"}[section]
+        if section == "create":
+            content = f'<p><a href="{esc(self.url("/ipsk"))}">Back to Wi-Fi keys</a></p>' + content
+        if section == "access":
+            content += (f'<p class="hint"><a href="{esc(self.url("/tools/setup"))}">Setup and checks</a> · '
+                        f'<a href="{esc(self.url("/tools/help"))}">Connection help</a></p>')
+        content = guidance.form_error(content, error) if section in ("access", "join-codes/settings") else content
+        # Keep table semantics explicit when phone layouts stack the cells.
+        content = re.sub(r'<(table|thead|tbody|tr|th|td)(?=[\s>])',
+                         lambda match: match[0] + ' role="' + {"table": "table", "thead": "rowgroup", "tbody": "rowgroup",
+                                                              "tr": "row", "th": "columnheader", "td": "cell"}[match[1]] + '"', content)
+        self.page("IPSK · " + title, navigation + notice + content, head="""<style>
+                  #device-keys .card-header > p { max-width:none; width:100%; }
+                  #device-keys td:first-child small { display:block; margin-top:4px; overflow-wrap:anywhere; }
+                  .ipsk-table { width:100%; table-layout:fixed; }
+                  .ipsk-table td { overflow-wrap:anywhere; white-space:normal; }
+                  .ipsk-table td.actions { width:auto; }
+                  .ipsk-table .row-actions { flex-wrap:wrap; }
+                  #device-keys th:last-child { width:38%; }
+                  .ipsk-filters { padding:8px 16px 16px; border-bottom:1px solid var(--divider-color); }
+                  .ipsk-filters form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 16px; align-items:start; }
+                  .ipsk-filters .field-row { grid-column:1 / -1; }
+                  .ipsk-filters .sorting-options { margin:0; }
+                  .ipsk-filters .sorting-options[open] { grid-column:1 / -1; }
+                  .ipsk-filters .row-actions { justify-content:flex-end; flex-wrap:wrap; }
+                  .ipsk-filters .sorting-options summary { cursor:pointer; min-height:44px; display:flex; align-items:center; color:var(--accent-ink); }
+                  .ipsk-filters .sorting-options label { max-width:320px; }
+                  .ipsk-nav { margin-bottom:24px; }
+                  #create-device-key, #qr-settings, #resident-access-settings { max-width:760px; margin-inline:auto; }
+                  #qr-settings fieldset + fieldset { margin-top:24px; }
                   .wifi-join-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
                   .wifi-join-card code { overflow-wrap:anywhere; }
                   .wifi-join-card img { max-width:100%; height:auto; display:block; }
@@ -3117,6 +3263,19 @@ class Handler(BaseHTTPRequestHandler):
                     .wifi-join-grid { grid-template-columns:minmax(0,1fr); gap:0; }
                     main input, main select { font-size:16px; }
                     main .btn { min-height:44px; }
+                    .ipsk-table, .ipsk-table tbody { display:block; width:100%; }
+                    .ipsk-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+                    .ipsk-table tr { display:grid; grid-template-columns:minmax(0,1fr) auto; padding:16px; gap:8px 12px; border-bottom:1px solid var(--divider-color); }
+                    .ipsk-table tr:last-child { border-bottom:0; }
+                    .ipsk-table td { grid-column:1 / -1; padding:0; border:0; white-space:normal; overflow-wrap:anywhere; min-width:0; }
+                    .ipsk-table td:first-child { font-size:16px; line-height:24px; font-weight:500; }
+                    .ipsk-table tr:has(td[data-label="Status"]) > td:first-child { grid-column:1; }
+                    .ipsk-table td[data-label="Status"] { grid-column:2; grid-row:1; }
+                    .ipsk-table td[data-label]:not(:first-child):not([data-label="Status"]) { display:grid; grid-template-columns:90px minmax(0,1fr); gap:12px; }
+                    .ipsk-table td[data-label]:not(:first-child):not([data-label="Status"])::before { content:attr(data-label); color:var(--secondary-text-color); font-weight:400; }
+                    .ipsk-table .actions { width:auto; margin-top:8px; text-align:start; }
+                    .ipsk-table .row-actions { justify-content:flex-start; flex-wrap:wrap; gap:4px; }
+                    .ipsk-table .row-actions form { margin:0; }
                   }
                   </style>""")
 

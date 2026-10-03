@@ -2,8 +2,6 @@
 
 import http.client
 import io
-import json
-import os
 from pathlib import Path
 import re
 import sys
@@ -331,7 +329,6 @@ class AccessHttpFlow(unittest.TestCase):
         self.assertIn("Create device key and QR",page)
 
     def test_public_script_nonce_matches_policy_and_is_fresh(self):
-        import re
         pages = [self.request() for _ in range(2)]
         nonces = []
         for status, headers, page in pages:
@@ -466,7 +463,7 @@ class AdminAccessSettings(unittest.TestCase):
             self.assertEqual(saved["resident_onboarding"]["max_devices_per_resident"],7)
             self.assertFalse(saved["resident_onboarding"]["sign_in_required"])
             self.assertEqual(access.SETTINGS_OVERRIDE,saved["resident_onboarding"])
-        handler.residents_page.assert_called_once_with({"access_saved":["1"]})
+        handler.residents_page.assert_called_once_with({"access_saved":["1"]}, section="access")
 
     def test_settings_card_never_inserts_saved_secret_values(self):
         card=access.admin_settings_card(ipsk,CONFIG,"csrf-field","/settings")

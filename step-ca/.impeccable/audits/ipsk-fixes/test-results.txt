@@ -1,0 +1,9 @@
+Meraki iPSK options failed
+/tmp/codex-stepca-critique-venv/lib/python3.13/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 40 bytes long, which is below the minimum recommended length of 64 bytes for SHA512. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+Saved the Wi-Fi network 'Office' (peap, WPA2, RADIUS custom)
+Saved the Wi-Fi network 'Office' (peap, WPA2, RADIUS custom)
+----------------------------------------------------------------------
+Ran 153 tests in 14.137s
+
+OK

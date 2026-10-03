@@ -106,7 +106,7 @@ class AdminQrRoutes(unittest.TestCase):
         self.assertEqual(saved["resident_onboarding"]["guest_psk"], "saved-guest-password")
         self.assertEqual(saved["resident_onboarding"]["guest_ssid"], " Guest ")
         self.assertTrue(saved["resident_onboarding"]["invite_required"])
-        handler.residents_page.assert_called_once_with({"qr_saved": ["1"]})
+        handler.residents_page.assert_called_once_with({"qr_saved": ["1"]}, section="join-codes/settings")
 
     def test_clearing_a_network_clears_its_saved_secret(self):
         handler = self.handler("/residents/qr/settings", {"guest_ssid": "", "setup_ssid": ""})
@@ -126,44 +126,44 @@ class AdminQrRoutes(unittest.TestCase):
         with patch.object(app, "saved_options", return_value={}), patch.object(app, "supervisor") as supervisor:
             handler.handle_post()
         supervisor.assert_not_called()
-        self.assertIn("different guest", handler.residents_page.call_args.kwargs["error"])
+        self.assertIn("different guest", str(handler.residents_page.call_args.kwargs["error"]))
 
     def test_invalid_qr_password_does_not_save(self):
         handler = self.handler("/residents/qr/settings", {"guest_ssid": "Wifi", "guest_psk": "short"})
         with patch.object(app, "saved_options", return_value={}), patch.object(app, "supervisor") as supervisor:
             handler.handle_post()
         supervisor.assert_not_called()
-        self.assertTrue(handler.residents_page.call_args.kwargs["error"])
+        self.assertTrue(str(handler.residents_page.call_args.kwargs["error"]))
 
     def test_create_for_other_device_automatically_shows_its_qr(self):
-        handler = self.handler("/residents/ipsk/create", {
+        handler = self.handler("/ipsk/create", {
             "name": "Living room TV", "network_id": "N_fixture", "ssid_number": "0",
-            "passphrase": " spaced-password ", "duration_hours": "0",
+            "passphrase": " spaced-password ", "duration_hours": "0", "group_policy_id": "101",
         })
         details = {"id": "key1", "name": "Living room TV", "ssid": "Wifi", "passphrase": " spaced-password "}
         with patch.object(ipsk, "get_options", return_value={
-                "networks": [{"id": "N_fixture"}], "ssids": [{"number": 0}],
+                "networks": [{"id": "N_fixture"}], "ssids": [{"number": 0}], "group_policies": [{"id": "101"}],
         }), patch.object(ipsk, "create_admin_ipsk", return_value={"id": "key1"}) as create, \
                 patch.object(ipsk, "ipsk_join_details", return_value=details):
             handler.handle_post()
         self.assertEqual(create.call_args.args[3], " spaced-password ")
-        handler.residents_page.assert_called_once_with({}, created_key="key1", join_key=details)
+        handler.residents_page.assert_called_once_with({}, created_key="key1", join_key=details, section="create")
 
     def test_qr_retrieval_failure_reports_created_key_without_creating_again(self):
-        handler = self.handler("/residents/ipsk/create", {
-            "name": "TV", "network_id": "N_fixture", "ssid_number": "0", "duration_hours": "0",
+        handler = self.handler("/ipsk/create", {
+            "name": "TV", "network_id": "N_fixture", "ssid_number": "0", "duration_hours": "0", "group_policy_id": "101",
         })
         with patch.object(ipsk, "get_options", return_value={
-                "networks": [{"id": "N_fixture"}], "ssids": [{"number": 0}],
+                "networks": [{"id": "N_fixture"}], "ssids": [{"number": 0}], "group_policies": [{"id": "101"}],
         }), patch.object(ipsk, "create_admin_ipsk", return_value={"id": "key1"}) as create, \
                 patch.object(ipsk, "ipsk_join_details", side_effect=ValueError("unavailable")):
             handler.handle_post()
         create.assert_called_once()
         self.assertEqual(handler.residents_page.call_args.kwargs["created_key"], "key1")
-        self.assertIn("key was created", handler.residents_page.call_args.kwargs["error"])
+        self.assertIn("key was created", str(handler.residents_page.call_args.kwargs["error"]))
 
     def test_show_qr_action_retrieves_existing_key_without_creating(self):
-        handler = self.handler("/residents/ipsk/action", {"ipsk_id": "key1", "action": "qr"})
+        handler = self.handler("/ipsk/key/action", {"ipsk_id": "key1", "action": "qr"})
         details = {"id": "key1", "name": "TV", "ssid": "Wifi", "passphrase": "sample-password"}
         with patch.object(ipsk, "ipsk_join_details", return_value=details), \
                 patch.object(ipsk, "create_admin_ipsk") as create:

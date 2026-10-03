@@ -29,8 +29,8 @@ colors:
   text-secondary-dark: "#9b9b9b"
   divider: "rgba(0, 0, 0, 0.12)"
   divider-dark: "rgba(225, 225, 225, 0.12)"
-  outline: "rgba(33, 33, 33, 0.28)"
-  outline-dark: "rgba(225, 225, 225, 0.28)"
+  outline: "rgba(33, 33, 33, 0.54)"
+  outline-dark: "rgba(225, 225, 225, 0.54)"
   hover: "rgba(33, 33, 33, 0.05)"
   hover-dark: "rgba(225, 225, 225, 0.05)"
   toast: "#323232"
@@ -328,7 +328,7 @@ Quiet pills that follow ha-button.
 - **Hover / Focus:** border goes to text color on hover; on focus the border and a 1px ring use focus-color (no outline).
 - **Search:** a pill with a 20px magnifier inset 12px, filtering the table as you type.
 - **File picker:** the native control with its button restyled as a 36px outlined pill in accent ink.
-- **Radios and checkboxes:** native, 18px, `accent-color` primary.
+- **Radios and checkboxes:** native, 18px, `accent-color` accent fill (selected marks remain legible).
 - **Field help:** direct hint text is associated with the field controls through `aria-describedby` by the shared script.
 - **Secrets:** password fields receive a Show/Hide text button with `aria-controls`, `aria-pressed`, and an accessible name that includes the field label.
 - **Invalid and submitting states:** native validation opens enclosing expansion sections so invalid controls are reachable; server errors receive focus. Submitted POST forms expose `aria-busy`, disable submit buttons, and show “Working…”. Returning through the browser cache reloads the page to restore the controls.
@@ -396,13 +396,17 @@ For device owners: a list where each step has a 28px circular counter in a 16% p
 
 ## Resident Wi-Fi captive onboarding
 
-The resident portal shares the public enrollment brand, card header, card content inset, alerts and field styling. It starts with the default-PSK captive redirect and a device-address check. Recovery precedes personal-data collection. Mobile resident inputs use 16px text and actions have a 44px minimum height. Successful registration displays the QR and password before a separate captive completion action; it does not navigate away automatically. The admin resident table adds the hardware MAC as data, with a dash when unavailable.
+The resident portal shares the public enrollment brand, card header, card content inset, alerts and field styling. It starts with the default-PSK captive redirect and a device-address check. Recovery precedes personal-data collection. Mobile resident inputs use 16px text and actions have a 44px minimum height. Successful registration on the current device displays the password and completion action before a collapsed QR; it does not navigate away automatically. The admin resident table adds the hardware MAC as data, with a dash when unavailable.
 
-Residents opens on task links, inventory counts and searchable Wi-Fi keys and
-registered devices. Key creation and captive setup use native disclosures;
-Share join codes jumps to the guest/setup QR pair. Search matches resident,
-device and network; a separate key-status selector has an explicit clear action.
-Dates follow the existing readable UTC format.
+IPSK opens on a focused Wi-Fi key inventory. Five local page links keep Wi-Fi
+keys, registered devices, invitations, join codes and access settings separate.
+Key creation and QR network settings have their own URLs and explicit return
+links. Each inventory owns its search, sorting, pagination and empty recovery;
+key status belongs only to the key inventory. Counts stay alongside their list,
+and only Create a key leads the inventory's actions. Access settings retain
+self-service and Duo controls, with captive setup guidance disclosed below.
+The main section label is IPSK; resident remains the name for the person using
+Wi-Fi. Dates follow the existing readable UTC format.
 
 Public resident pages reuse the shared nonce-protected script for copy feedback,
 submission progress and conditional fields. The captured current-device address
@@ -440,3 +444,33 @@ associate the affected control without retaining invitation/password drafts.
 Inventories have independent page controls; sorting stays disclosed. On phones,
 secondary tools are behind Other tools so the current task leads the viewport.
 No change to the pinned HA font, tokens, CA ownership or MariaDB requirement.
+
+## IPSK critique fixes (2026-10-02)
+
+IPSK inventories preserve desktop table semantics and become stacked rows below
+640px. Name and status lead each row, followed by labelled metadata and visible,
+wrapping actions. Long names and attribution wrap without sideways scrolling.
+Repeated action names include the key or invitation label for assistive technology.
+Registered devices link to the exact key ID, with a return to the originating search.
+
+Creation, QR settings and access settings retain non-secret drafts on failure.
+Known validation errors name their field; passwords and new Duo secrets must be
+re-entered. Key expiry offers No expiry, 1 day, 1 week, 30 days and custom hours.
+The no-script form exposes hours directly. Resident attribution is a record label,
+not an account selector. Invitations can carry a descriptive resident/purpose label;
+older unlabelled records retain a stable invitation number.
+
+Duo group fields appear when verification or the resident list needs them. SDK
+fields appear only for verification. Hidden controls are disabled in the browser,
+and omitted provider settings retain their saved values on the server. The form
+works without JavaScript with all configuration fields available.
+
+All public success modes repeat the one-time password warning. For the current
+device, network/password copying and Finish setup precede the optional QR; for
+another device, scanning/downloading leads. Private-address recovery shows its
+platform instructions once and keeps other connection help in a disclosure.
+
+Control outlines mix primary text at 54% opacity to exceed 3:1 against the
+default light/dark card surfaces. Native checked controls use accent fill,
+which contrasts with both surfaces and their check mark. Decorative card
+dividers retain the quiet HA divider token.

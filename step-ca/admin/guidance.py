@@ -43,7 +43,9 @@ def progress(stage, identity=True):
         for index, label in enumerate(labels, 1)) + '</ol></nav>'
 
 
-def resident_help():
+def resident_help(include_private=True):
+    private = ('<p><b>Private address:</b> turn private/random addressing off for this network '
+               'in Wi-Fi settings, disconnect and reconnect to setup Wi-Fi.</p>') if include_private else ""
     return ('<details class="expand resident-help"><summary>Need help connecting?</summary>'
             '<div class="card-content"><h2>Choose the right connection</h2>'
             '<p><b>Guest:</b> scan the guest QR. You do not need to register a resident device.</p>'
@@ -52,8 +54,7 @@ def resident_help():
             '<p><b>Another device:</b> choose Another device if available, enter that device’s '
             'hardware Wi-Fi address, then scan its new QR on that device.</p>'
             '<h2>If something goes wrong</h2>'
-            '<p><b>Private address:</b> turn private/random addressing off for this network '
-            'in Wi-Fi settings, disconnect and reconnect to setup Wi-Fi.</p>'
+            + private +
             '<p><b>Expired session:</b> reconnect to setup Wi-Fi and open a fresh sign-in page. '
             'If Duo verification is required, start verification again.</p>'
             '<p><b>Lost password or device limit:</b> contact your building administrator '

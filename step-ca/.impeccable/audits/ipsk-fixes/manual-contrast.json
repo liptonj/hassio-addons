@@ -1,0 +1,22 @@
+[
+  {
+    "theme": "light",
+    "border": "color(srgb 0.129412 0.129412 0.129412 / 0.54)",
+    "borderContrast": 3.586681285147435,
+    "buttonTextContrast": 5.248253818781892,
+    "card": "rgb(255, 255, 255)",
+    "checkMarkContrast": 5.248253818781892,
+    "reducedToastTransition": "0s",
+    "selectedControlContrast": 5.248253818781892
+  },
+  {
+    "theme": "dark",
+    "border": "color(srgb 0.882353 0.882353 0.882353 / 0.54)",
+    "borderContrast": 4.704731033744949,
+    "buttonTextContrast": 5.248253818781892,
+    "card": "rgb(28, 28, 28)",
+    "checkMarkContrast": 5.248253818781892,
+    "reducedToastTransition": "0s",
+    "selectedControlContrast": 3.2471880019678494
+  }
+]

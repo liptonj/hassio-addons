@@ -85,7 +85,9 @@ def run_schema(name):
         seed_legacy_schema()
     db_setup.main()
     db_setup.main()
-    code=ipsk.create_invite('Fixture administrator')
+    code=ipsk.create_invite('Fixture administrator', label='Unit 1 — onboarding')
+    assert ipsk.list_invites()[0]['label']=='Unit 1 — onboarding'
+    checks.append(name+': invitation labels persist after additive schema upgrade')
     query('UPDATE stepca_invites SET used_at=UTC_TIMESTAMP() WHERE code_hash=SHA2(%s,256)',(code,))
     db_setup.main()
     assert query('SELECT used_at FROM stepca_invites WHERE code_hash=SHA2(%s,256)',(code,))[0]['used_at'] is not None
@@ -113,10 +115,13 @@ def run_schema(name):
     assert_denied('DELETE FROM stepca_ipsks',name+'_portal','fixture-portal')
     checks.append(name+': key attribution and revocation history stored only in MariaDB without passwords')
 
-    counter=[0]; mutex=threading.Lock(); cleanup=[]
+    counter=[0]
+    mutex=threading.Lock()
+    cleanup=[]
     def create(*args,**kwargs):
         with mutex:
-            counter[0]+=1; ident='fixture-key-'+str(counter[0])
+            counter[0]+=1
+            ident='fixture-key-'+str(counter[0])
         return {'id':ident,'ssid_name':'Fixture Wi-Fi','passphrase':'fixture-password'}
     config={'network_id':'N_fixture','ssid_number':0,'invite_required':False,'max_devices_per_resident':5}
     def identity(owner):
@@ -272,12 +277,16 @@ if __name__=='__main__':
     # Wait for this disposable MariaDB process, not an assumed production service.
     for attempt in range(40):
         try:
-            conn=root_connect();conn.close();break
+            conn=root_connect()
+            conn.close()
+            break
         except pymysql.MySQLError:
-            if attempt==39:raise
+            if attempt==39:
+                raise
             time.sleep(.25)
     with root_connect() as conn,conn.cursor() as cur:
-        cur.execute('SELECT VERSION() AS version');version=cur.fetchone()['version']
+        cur.execute('SELECT VERSION() AS version')
+        version=cur.fetchone()['version']
     for name in ('stepca_audit_fresh','stepca_audit_legacy'):
         run_schema(name)
     print(json.dumps({'mariadb':version,'checks':checks,'count':len(checks),'status':'passed'},indent=2))

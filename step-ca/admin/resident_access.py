@@ -43,23 +43,29 @@ def validate_settings(config):
     if not config.get("network_id"):
         raise ValueError("Choose the resident Meraki network in the add-on options first.")
     if not 1 <= int(config.get("max_devices_per_resident", 5)) <= 50:
-        raise ValueError("Choose a device limit from 1 to 50.")
+        raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.")
     needs_directory = config.get("sign_in_required") or config.get("no_sign_in_user_list")
     if needs_directory:
         if not re.fullmatch(r"DG[A-Z0-9]{18}", str(config.get("duo_group_id") or "")):
-            raise ValueError("Enter the permitted Duo group ID (DG followed by 18 letters or digits).")
+            raise guidance.FieldError("duo_group_id", "Enter the permitted Duo group ID (DG followed by 18 letters or digits).")
         if not all(config.get(k) for k in ("duo_admin_integration_key", "duo_admin_secret", "duo_admin_hostname")):
             raise ValueError("Enter the Duo Admin API credentials to check permitted group members.")
-        _host(config["duo_admin_hostname"])
+        try:
+            _host(config["duo_admin_hostname"])
+        except ValueError as err:
+            raise guidance.FieldError("duo_admin_hostname", str(err)) from err
     if config.get("sign_in_required"):
         if not all(config.get(k) for k in ("duo_client_id", "duo_client_secret", "duo_api_hostname", "duo_redirect_uri")):
             raise ValueError("Complete the Duo Universal SDK settings before requiring sign-in.")
-        _host(config["duo_api_hostname"])
+        try:
+            _host(config["duo_api_hostname"])
+        except ValueError as err:
+            raise guidance.FieldError("duo_api_hostname", str(err)) from err
         callback = urlsplit(config["duo_redirect_uri"])
         if (callback.scheme != "https" or not callback.hostname or callback.username or callback.password
                 or callback.path != "/api/step_ca_scep/portal" or callback.query != "action=duo_callback"
                 or callback.fragment or any(ord(c) < 33 for c in config["duo_redirect_uri"])):
-            raise ValueError("Use your public HTTPS Home Assistant URL followed by /api/step_ca_scep/portal?action=duo_callback.")
+            raise guidance.FieldError("duo_redirect_uri", "Use your public HTTPS Home Assistant URL followed by /api/step_ca_scep/portal?action=duo_callback.")
 
 
 def _host(value):
@@ -414,22 +420,10 @@ def handle_post(engine, handler, action, form, ip):
         finally:
             with LOCK:
                 session["busy"] = False
-        body = guidance.progress(3) + ui.alert("warning", "Save this Wi-Fi password before leaving this page. "
-                        "It is shown only once; contact your administrator if you lose it.", "Save your password")
-        connection_help = ("Save the password below. Finish setup, then open Wi-Fi settings and join "
-                    + result["ssid"] + " with this password.") if target == "current" else (
-                    "Scan this QR with the other device to join " + result["ssid"]
-                    + ". You can also download the QR or enter the Wi-Fi password in that device’s settings.")
-        body += engine.wifi_join_card("Join with " + result["name"], result["ssid"], result["passphrase"],
-                                      connection_help, filename="device-wifi.svg", show_password=True,
-                                      download_primary=target != "current").replace('class="card wifi-join-card"', 'class="wifi-join-card"')
-        body += '<p>Keep private or randomized addressing off for this resident network.</p>'
+        body = engine.device_success(result, context.grant if target == "current" else "")
         if target == "current":
             engine.CAPTIVE_SESSIONS.discard(session["captive"])
             session["captive"] = ""
-            body += f'<p><a class="btn" href="{engine.esc(context.grant)}">Finish setup</a></p>'
-            body += ('<p class=hint>This closes the setup sign-in with a five-minute access window. '
-                     'Then join the resident network with your saved individual password.</p>')
         if config.get("self_service_enabled"):
             body += f'<p><a class="btn text" href="{engine.esc(url(engine.PUBLIC_BASE, "account"))}">Add another device</a></p>'
         body += (f'<form method=post action="{engine.esc(url(engine.PUBLIC_BASE, "logout"))}">'
@@ -526,33 +520,37 @@ def create_device(engine, config, identity, name, mac, unit, invitation, ip):
         conn.close()
 
 
-def admin_settings_card(engine, config, csrf, action_url):
+def admin_settings_card(engine, config, csrf, action_url, standalone=False):
     toggles = ""
     for key, label, help_text in (
         ("self_service_enabled", "Allow residents to add other devices", "Residents can issue a device key and download its join QR."),
         ("sign_in_required", "Require Duo verification", "Residents enter a username and verify with Duo. The SDK verifies a factor; it does not provide primary password SSO."),
         ("no_sign_in_user_list", "Show a resident list when sign-in is off", "Only members of the permitted Duo group are listed. Selecting a name does not verify identity or reveal existing keys."),
     ):
-        toggles += (f'<label class="check"><input type=checkbox name="{key}" value=1' + (' checked' if config.get(key) else '')
-                    + f'>{label}</label><p class=hint>{help_text}</p>')
+        toggles += (f'<label class="check"><input id="{key}" type=checkbox name="{key}" value=1 aria-describedby="{key}-help"' + (' checked' if config.get(key) else '')
+                    + f'>{label}</label><p class=hint id="{key}-help">{help_text}</p>')
     def field(key, label, hint=""):
         secret = key in SECRET_FIELDS
-        return (f'<label>{label}<input name="{key}" type="{"password" if secret else "text"}" '
+        return (f'<div class="field"><label>{label}<input id="{key}" name="{key}" maxlength="512" aria-describedby="{key}-help" type="{"password" if secret else "text"}" '
                 + ('autocomplete="new-password" placeholder="Keep the saved secret"' if secret else f'value="{engine.esc(config.get(key))}" autocomplete=off')
-                + '><small class=muted>' + engine.esc(hint or ("Blank keeps the saved secret." if secret else "")) + '</small></label>')
-    return ('<section class=card><details class=expand id=resident-access-settings><summary>Resident self-service and Duo</summary>'
+                + f'></label><small class=muted id="{key}-help">' + engine.esc(hint or ("Blank keeps the saved secret." if secret else "")) + '</small></div>')
+    opening = ('<section class=card id=resident-access-settings><div class=card-header><h2>Access settings</h2></div>'
+               if standalone else '<section class=card><details class=expand id=resident-access-settings><summary>Resident self-service and Duo</summary>')
+    closing = '</section>' if standalone else '</details></section>'
+    return (opening +
             '<div class=card-content><p>Choose how residents create device keys. Guests still use the guest QR.</p>'
             f'<form method=post action="{engine.esc(action_url)}">{csrf}' + toggles
-            + '<label>Device limit per resident<input type=number name=max_devices_per_resident min=1 max=50 '
-            + f'value="{int(config.get("max_devices_per_resident", 5))}" required></label>'
-            + '<fieldset><legend>Permitted resident group</legend><div class=field-row>'
+            + '<label>Device limit per resident<input id="max_devices_per_resident" type=number name=max_devices_per_resident min=1 max=50 '
+            + f'value="{engine.esc(config.get("max_devices_per_resident", 5))}" required></label>'
+            + '<p class=hint>Saved Duo configuration is retained when its options are off.</p>'
+            + '<fieldset data-show-when="sign_in_required=1;no_sign_in_user_list=1" data-control-when-visible><legend>Permitted resident group</legend><div class=field-row>'
             + field("duo_group_id", "Duo group ID", "Required for Duo verification and the resident list. Only this group can receive keys.")
             + field("duo_admin_hostname", "Admin API hostname") + '</div><div class=field-row>'
             + field("duo_admin_integration_key", "Admin API integration key") + field("duo_admin_secret", "Admin API secret")
             + '</div><p class=hint>Use a separate Duo Admin API application with only Grant resource – Read enabled.</p></fieldset>'
-            + '<fieldset><legend>Duo Universal SDK</legend><div class=field-row>'
+            + '<fieldset data-show-when="sign_in_required=1" data-control-when-visible><legend>Duo Universal SDK</legend><div class=field-row>'
             + field("duo_client_id", "Client ID") + field("duo_client_secret", "Client secret") + '</div><div class=field-row>'
             + field("duo_api_hostname", "Web SDK API hostname")
             + field("duo_redirect_uri", "Public callback URL", "https://your-home-assistant/api/step_ca_scep/portal?action=duo_callback")
             + '</div><p class=hint>Duo failure or bypass blocks verification. Allow Duo Universal Prompt and its required resources through the setup network’s walled garden.</p></fieldset>'
-            + '<button class=btn type=submit>Save resident access settings</button></form></div></details></section>')
+            + '<button class=btn type=submit>Save access settings</button></form></div>' + closing)

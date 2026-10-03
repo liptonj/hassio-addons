@@ -1,0 +1,107 @@
+[
+  {
+    "view": "keys",
+    "path": "/ipsk",
+    "bytes": 73897
+  },
+  {
+    "view": "devices",
+    "path": "/ipsk/devices",
+    "bytes": 67648
+  },
+  {
+    "view": "invitations",
+    "path": "/ipsk/invitations",
+    "bytes": 68729
+  },
+  {
+    "view": "join-codes",
+    "path": "/ipsk/join-codes",
+    "bytes": 123731
+  },
+  {
+    "view": "create",
+    "path": "/ipsk/create",
+    "bytes": 69016
+  },
+  {
+    "view": "qr-settings",
+    "path": "/ipsk/join-codes/settings",
+    "bytes": 67393
+  },
+  {
+    "view": "access",
+    "path": "/ipsk/access",
+    "bytes": 71229
+  },
+  {
+    "view": "identity",
+    "path": "/preview/identity",
+    "bytes": 56536
+  },
+  {
+    "view": "directory",
+    "path": "/preview/identity?mode=directory",
+    "bytes": 56968
+  },
+  {
+    "view": "duo",
+    "path": "/preview/identity?mode=duo",
+    "bytes": 56469
+  },
+  {
+    "view": "device",
+    "path": "/preview/device",
+    "bytes": 57692
+  },
+  {
+    "view": "device-error",
+    "path": "/preview/device-error",
+    "bytes": 58288
+  },
+  {
+    "view": "register",
+    "path": "/preview/register",
+    "bytes": 56980
+  },
+  {
+    "view": "register-error",
+    "path": "/preview/register-error",
+    "bytes": 57510
+  },
+  {
+    "view": "success-current",
+    "path": "/preview/success-current",
+    "bytes": 84239
+  },
+  {
+    "view": "success-other",
+    "path": "/preview/success-other",
+    "bytes": 83899
+  },
+  {
+    "view": "success-simple",
+    "path": "/preview/success-simple",
+    "bytes": 84183
+  },
+  {
+    "view": "connect",
+    "path": "/preview/connect",
+    "bytes": 56931
+  },
+  {
+    "view": "empty",
+    "path": "/ipsk?sample=empty",
+    "bytes": 67225
+  },
+  {
+    "view": "long",
+    "path": "/ipsk?sample=long",
+    "bytes": 77416
+  },
+  {
+    "view": "key-link",
+    "path": "/ipsk?key_id=fixture-tv&device_q=Alex&device_sort=name&device_page=1",
+    "bytes": 71280
+  }
+]

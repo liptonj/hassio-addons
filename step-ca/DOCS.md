@@ -57,7 +57,7 @@ It lets you:
 - enroll devices with one-time links or QR codes, enroll the computer you are
   using, or issue a certificate directly (see
   [Enrolling devices](#enrolling-devices));
-- onboard residents and manage Meraki iPSKs from the **Residents** tab (see
+- onboard residents and manage Meraki iPSKs from the **IPSK** tab (see
   [Resident Wi-Fi](#resident-wi-fi));
 - sign certificate requests (CSRs) from other systems, such as a RADIUS or
   web server, or another CA (see
@@ -105,7 +105,7 @@ add-on's, so back up both.
 
 ## Resident Wi-Fi
 
-The **Residents** tab brings the WPN portal's resident iPSK onboarding and
+The **IPSK** tab brings the WPN portal's resident iPSK onboarding and
 key management into Step CA. Set up the `meraki_ha` integration in Home
 Assistant with access to the target Meraki organization. Step CA's companion
 integration **1.5.0 or later** supplies the `step_ca_scep/ipsk/` bridge for
@@ -142,7 +142,7 @@ Dashboard's create operation has no verified idempotency contract.
 Enable `resident_onboarding.enabled`, choose the Meraki `network_id` and
 `ssid_number`, and set an optional key lifetime in hours (`0` means no
 expiration). `invite_required` defaults to true. Restart the add-on, then use
-**Residents → Create invitation code** to issue single-use codes. The public
+**IPSK → Invitations → Create invitation code** to issue single-use codes. The public
 registration page is served through Home Assistant at
 `/api/step_ca_scep/portal`.
 
@@ -194,11 +194,15 @@ No grant link is offered on a rejected or failed registration.
 
 ### Guest, registration and device QR codes
 
-The **Residents** page opens with device/key counts, search and a key-status
-filter. **Manage keys**, **Create a key** and **Share join codes** jump to their
-tasks; key creation and setup instructions are collapsed until needed.
+The **IPSK** section opens on **Wi-Fi keys**, with search, status filtering,
+sorting, and key actions. **Create a key** opens a separate form. **Registered
+devices**, **Invitations**, **Join codes**, and **Access settings** each have their
+own page. QR network settings open from Join codes; captive setup guidance is
+under Access settings. Search and pagination stay on the current inventory
+page. Older `/residents` bookmarks redirect to IPSK, and older forms remain
+supported.
 
-Under **Share join codes**, the page offers two shareable Wi-Fi QRs:
+Under **Join codes**, the page offers two shareable Wi-Fi QRs:
 
 - **Guest access:** joins the network with the existing guest PSK or guest
   iPSK. Configure that key's Meraki policy with splash bypass so guests get
@@ -219,7 +223,7 @@ flows may use the same SSID with different iPSKs and group policies, or
 different SSIDs. They must not use the same name/password combination.
 Download either QR as an SVG to share or print it.
 
-An administrator can also use **Create a key for another device** to issue an
+An administrator can also use **Wi-Fi keys → Create a key** to issue an
 individual iPSK from their own computer or phone. Give the key the target
 device's name, choose its network and SSID, and select **Create key and QR**.
 The panel retrieves the actual SSID and password from Home Assistant and
@@ -232,8 +236,8 @@ The QR carries Wi-Fi credentials and does not bind the key to a hardware MAC.
 
 ### Resident self-service and Duo
 
-Enable the public resident portal and select MariaDB, then open **Residents →
-Resident self-service and Duo**. The same controls appear under
+Enable the public resident portal and select MariaDB, then open **IPSK →
+Access settings**. The same controls appear under
 `resident_onboarding` in the add-on options:
 
 | Setting | Behavior |
@@ -1171,3 +1175,21 @@ chaining to a trusted root.
 - If the add-on fails with "Could not configure the SCEP provisioner", the
   message ends with step's own error. Check the duration options and that
   `scep_provisioner_name` is not `admin` or `enrollment`.
+
+### IPSK task recovery and invitations
+
+Key creation and access/QR settings keep non-secret details after a failed
+request. Re-enter any newly supplied passwords or Duo secrets before saving.
+Expiry choices include no expiry, common durations and custom hours. The resident
+name/email field is an attribution label; it does not verify an account.
+
+Invitation codes can have a resident or purpose label so administrators can
+identify the correct unused code to revoke. Labels do not restrict who may use
+a code. Existing unlabelled invitations show their invitation number. Step CA
+adds the label column to MariaDB at add-on startup; restart after updating.
+
+On a phone, IPSK inventories stack their metadata and actions. Registered-device
+key links open the exact key and provide a return to the originating device list.
+Duo settings appear only when enabled features require them; switching a feature
+off retains its saved configuration. Current-device success puts password saving
+and Finish setup ahead of the optional QR.

@@ -7,7 +7,6 @@ enrollment stays in the Step CA enrollment flow.
 
 import asyncio
 import base64
-import datetime
 import hashlib
 import html
 import io
@@ -309,7 +308,7 @@ def wifi_qr_image(ssid, passphrase):
 
 
 def wifi_join_card(title, ssid, passphrase, description, filename="wifi-join.svg", show_password=False,
-                   download_primary=True):
+                   download_primary=True, credentials_first=False, completion=""):
     """An authenticated admin's shareable QR, with a download and literal SSID."""
     image = wifi_qr_image(ssid, passphrase)
     secret = (
@@ -317,16 +316,38 @@ def wifi_join_card(title, ssid, passphrase, description, filename="wifi-join.svg
         + ui.copy_field(passphrase, "Wi-Fi password", "secret") + '</div>'
         if show_password else ""
     )
+    qr = ('<div class="qr"><img width="232" height="232" src="' + image
+          + '" alt="Scan to join ' + esc(ssid) + ' Wi-Fi"></div>')
+    network = '<div class="field"><span class="label">Network</span><code>' + esc(ssid) + '</code></div>'
+    download = ('<a class="btn' + ('' if download_primary else ' text')
+                + '" href="' + image + '" download="' + esc(filename) + '">Download QR</a>')
+    contents = (network + secret + completion + '<details class="expand"><summary>QR for another device</summary>'
+                + qr + download + '</details>') if credentials_first else qr + network + secret + download + completion
     return (
         '<section class="card wifi-join-card"><div class="card-header"><h2>' + esc(title) + '</h2></div>'
         '<div class="card-content"><p>' + esc(description) + '</p>'
-        '<div class="qr"><img width="232" height="232" src="' + image
-        + '" alt="Scan to join ' + esc(ssid) + ' Wi-Fi"></div>'
-        '<div class="field"><span class="label">Network</span><code>' + esc(ssid) + '</code></div>'
-        + secret + '<a class="btn' + ('' if download_primary else ' text')
-        + '" href="' + image + '" download="' + esc(filename) + '">Download QR</a>'
+        + contents +
         '</div></section>'
     )
+
+
+def device_success(result, grant="", identity=True):
+    """Shared one-time result; put current-device completion before the optional QR."""
+    current = bool(grant)
+    description = ("Save the password below. Finish setup, then open Wi-Fi settings and join "
+                   + result["ssid"] + " with this password.") if current else (
+                   "Scan this QR with the other device to join " + result["ssid"]
+                   + ". You can also download the QR or enter the Wi-Fi password in that device’s settings.")
+    completion = (f'<p><a class="btn" href="{esc(grant)}">Finish setup</a></p>'
+                  '<p class="hint">This closes the setup sign-in with a five-minute access window. '
+                  'Then join the resident network with your saved individual password.</p>') if current else ""
+    return (guidance.progress(3 if identity else 2, identity=identity)
+            + ui.alert("warning", "Save this Wi-Fi password before leaving this page. "
+                       "It is shown only once; contact your administrator if you lose it.", "Save your password")
+            + wifi_join_card("Join with " + result["name"], result["ssid"], result["passphrase"], description,
+                             filename="device-wifi.svg", show_password=True, download_primary=not current,
+                             credentials_first=current, completion=completion).replace('class="card wifi-join-card"', 'class="wifi-join-card"')
+            + '<p>Keep private or randomized addressing off for this resident network.</p>')
 
 
 def set_ipsk_status(ipsk_id, action):
@@ -389,7 +410,7 @@ def resident_inventory(search="", sort="newest", page=1, size=25):
 def list_invites():
     with db_connect() as conn, conn.cursor() as cursor:
         cursor.execute(
-            "SELECT id, created_by, created_at, used_at FROM stepca_invites "
+            "SELECT id, label, created_by, created_at, used_at FROM stepca_invites "
             "WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP()) ORDER BY created_at DESC LIMIT 100"
         )
         return cursor.fetchall()
@@ -405,12 +426,15 @@ def revoke_invite(invite_id):
         return cursor.rowcount
 
 
-def create_invite(created_by="Home Assistant administrator"):
+def create_invite(created_by="Home Assistant administrator", label=""):
+    label = str(label).strip()
+    if len(label) > 100 or (label and not label.isprintable()):
+        raise guidance.FieldError("label", "Use at most 100 printable characters for the invitation label.")
     code = secrets.token_urlsafe(9).replace("-", "A").replace("_", "B").upper()
     with db_connect() as conn, conn.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO stepca_invites (code_hash, created_by, created_at) VALUES (SHA2(%s, 256), %s, UTC_TIMESTAMP())",
-            (code, created_by[:128]),
+            "INSERT INTO stepca_invites (code_hash, created_by, label, created_at) VALUES (SHA2(%s, 256), %s, %s, UTC_TIMESTAMP())",
+            (code, created_by[:128], label),
         )
         conn.commit()
     return code
@@ -494,7 +518,7 @@ def register_resident(name, email, unit, invite_code, client_ip, client_mac):
         conn.close()
 
 
-def _public_page(handler, title, body, status=200, set_cookie=""):
+def _public_page(handler, title, body, status=200, set_cookie="", include_private_help=True):
     nonce = secrets.token_urlsafe(24)
     markup = (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
@@ -505,7 +529,7 @@ def _public_page(handler, title, body, status=200, set_cookie=""):
         + '<main id="main-content" tabindex="-1" class="public resident-portal"><div class="brand">'
         + f'<span class="brand-mark">{ui.icon("wifi")}</span><span>Resident Wi-Fi</span></div>'
         + '<div class="card"><div class="card-header"><h1>' + esc(title) + "</h1></div>"
-        + '<div class="card-content">' + body + guidance.resident_help() + "</div></div></main>"
+        + '<div class="card-content">' + body + guidance.resident_help(include_private_help) + "</div></div></main>"
         + f'<script nonce="{nonce}">{ui.SCRIPT}</script></body></html>'
     )
     data = markup.encode()
@@ -565,7 +589,8 @@ def _connect_page(handler, message="", status=200, title="Connect to setup Wi-Fi
         'before you receive your own resident password.</p>' + _device_help()
     )
     _public_page(handler, title, body, status,
-                 f"portal_csrf=; Path={PUBLIC_BASE}; Max-Age=0; HttpOnly; Secure; SameSite=Strict")
+                 f"portal_csrf=; Path={PUBLIC_BASE}; Max-Age=0; HttpOnly; Secure; SameSite=Strict",
+                 include_private_help=False)
 
 
 def registration_form(context, csrf, draft=None, error=None):
@@ -728,22 +753,7 @@ class PublicPortalHandler(BaseHTTPRequestHandler):
             print("Resident Wi-Fi registration failed; administrator action required.", flush=True)
             _public_page(self, "Registration unavailable", ui.alert("error", "We could not complete registration. Please contact your building administrator."), 503)
             return
-        ssid = result["ssid"]
         CAPTIVE_SESSIONS.discard(cookie_token)
-        qr_image = _wifi_qr(ssid, result["passphrase"])
-        body = (
-            guidance.progress(2, identity=False)
-            + f"<p>{esc(result['name'])}, your Wi-Fi access is ready.</p>"
-            f'<div class="qr"><img style="width:232px;max-width:100%;height:auto" '
-            f'src="data:image/svg+xml;base64,{qr_image}" alt="Scan to connect to {esc(ssid)} Wi-Fi"></div>'
-            f'<div class="field"><span class="label">Network</span><p><code>{esc(result["ssid"])}</code></p></div>'
-            '<div class="field"><span class="label">Wi-Fi password</span>'
-            + ui.copy_field(result["passphrase"], "Wi-Fi password", "secret") + '</div>'
-            '<p>Save this password, then reconnect to the resident network with it. '
-            'Keep private or randomized addressing off for that network.</p>'
-            f'<p><a class="btn" href="{esc(context.grant)}">Finish captive portal</a></p>'
-            '<p class="hint">This closes the setup sign-in with a five-minute access window. '
-            'Use your individual password for ongoing access.</p>'
-        )
+        body = device_success(result, context.grant, identity=False)
         _public_page(self, "You are ready to connect", body, set_cookie=
                      f"portal_csrf=; Path={PUBLIC_BASE}; Max-Age=0; HttpOnly; Secure; SameSite=Strict")

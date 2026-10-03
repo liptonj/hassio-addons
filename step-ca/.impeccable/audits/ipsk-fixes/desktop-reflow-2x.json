@@ -1,0 +1,39 @@
+{
+  "description": "720 CSS pixels at DPR 2: equivalent layout width for a 1440px desktop viewport at 200% zoom",
+  "cases": [
+    {
+      "path": "/ipsk",
+      "incomplete": [],
+      "overflow": 0,
+      "tableOverflow": [
+        0
+      ],
+      "violations": [],
+      "width": 720
+    },
+    {
+      "path": "/ipsk/create",
+      "incomplete": [],
+      "overflow": 0,
+      "tableOverflow": [],
+      "violations": [],
+      "width": 720
+    },
+    {
+      "path": "/ipsk/access",
+      "incomplete": [],
+      "overflow": 0,
+      "tableOverflow": [],
+      "violations": [],
+      "width": 720
+    },
+    {
+      "path": "/preview/success-current",
+      "incomplete": [],
+      "overflow": 0,
+      "tableOverflow": [],
+      "violations": [],
+      "width": 720
+    }
+  ]
+}

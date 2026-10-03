@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.2.49
+
+- Renamed the administration area to IPSK and split keys, devices, invitations,
+  join codes, access rules and creation into focused pages.
+- Added searchable, paginated inventories, direct device-to-key navigation and
+  invitation labels with an additive MariaDB schema upgrade.
+- Preserved non-secret form details after errors, clarified expiry choices and
+  disclosed Duo settings only when the selected access rules need them.
+- Improved mobile tables, control contrast and keyboard/accessibility behavior.
+  Current-device success puts the password and Finish setup before the QR.
+- Added regression coverage and completed the interface audit across light/dark
+  themes and phone, tablet and desktop layouts.
+
 ## 0.30.2.48
 
 - Fixed every iPSK WebSocket command schema to accept the portal's operation

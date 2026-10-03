@@ -187,7 +187,7 @@ STYLE = """
   --focus-color: var(--accent-ink);
   --danger-fill: color-mix(in srgb, var(--error-color) 86%, #000);
   --hover: color-mix(in srgb, var(--primary-text-color) 5%, transparent);
-  --outline: color-mix(in srgb, var(--primary-text-color) 28%, transparent);
+  --outline: color-mix(in srgb, var(--primary-text-color) 54%, transparent);
   --radius: var(--ha-card-border-radius, 12px);
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
@@ -388,7 +388,7 @@ input[type=file]::file-selector-button {
   font: 500 14px inherit; height: 36px; padding: 0 16px; margin-right: 12px; border-radius: 18px; cursor: pointer;
   border: 1px solid var(--outline); background: transparent; color: var(--accent-ink);
 }
-input[type=radio], input[type=checkbox] { accent-color: var(--primary-color); width: 18px; height: 18px; margin: 0; flex: none; }
+input[type=radio], input[type=checkbox] { accent-color: var(--accent-fill); width: 18px; height: 18px; margin: 0; flex: none; }
 .hint { color: var(--secondary-text-color); font-size: 12px; line-height: 16px; margin-top: 6px; }
 .check { display: flex; gap: 12px; align-items: center; font-weight: 400; margin: 0; }
 /* A text input with a button beside it, e.g. a challenge and Generate. */
@@ -889,12 +889,17 @@ SCRIPT = r"""
 
   // Fields shown only for one choice of a menu (or a ticked checkbox): data-show-when="id=value".
   document.querySelectorAll("[data-show-when]").forEach(function (block) {
-    var rule = block.getAttribute("data-show-when").split("=");
-    var select = document.getElementById(rule[0]);
-    if (!select) return;
+    var rules = block.getAttribute("data-show-when").split(";").map(function (rule) {
+      var pair = rule.split("=");
+      return { control: document.getElementById(pair[0]), values: (pair[1] || "").split("|") };
+    }).filter(function (rule) { return rule.control; });
+    if (!rules.length) return;
     function apply() {
-      var value = select.type === "checkbox" ? (select.checked ? select.value : "") : select.value;
-      block.hidden = rule[1].split("|").indexOf(value) === -1;
+      block.hidden = !rules.some(function (rule) {
+        var select = rule.control;
+        var value = select.type === "checkbox" ? (select.checked ? select.value : "") : select.value;
+        return rule.values.indexOf(value) !== -1;
+      });
       if (block.hasAttribute("data-control-when-visible")) {
         block.querySelectorAll("input, select, textarea").forEach(function (control) {
           control.disabled = block.hidden;
@@ -903,7 +908,7 @@ SCRIPT = r"""
       }
     }
     apply();
-    select.addEventListener("change", apply);
+    rules.forEach(function (rule) { rule.control.addEventListener("change", apply); });
   });
 
   // Search only the already permitted resident choices; no directory requests.

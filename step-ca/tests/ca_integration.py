@@ -30,7 +30,9 @@ key,cert,chain=pkcs12.load_key_and_certificates(bundle,password.encode())
 assert key and cert.serial_number==leaf.serial_number and len(chain)>=2
 checks=['full startup with one MariaDB-backed CA','real CSR signing and decryptable PKCS#12 chain']
 with tempfile.TemporaryDirectory() as directory:
-    path=Path(directory);certfile=path/'cert.pem';keyfile=path/'key.pem'
+    path=Path(directory)
+    certfile=path/'cert.pem'
+    keyfile=path/'key.pem'
     certfile.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
     keyfile.write_bytes(key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,
                                         serialization.NoEncryption()))

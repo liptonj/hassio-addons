@@ -1,0 +1,35 @@
+[
+  {
+    "check": "Duo expanded on narrow phone",
+    "incomplete": [],
+    "overflow": 0,
+    "violations": []
+  },
+  {
+    "check": "One-week expiry maps to submitted hours",
+    "domContentLoadedMs": 18.5,
+    "duration": "168",
+    "hidden": true,
+    "pattern": "[\\x20-\\x7E]{8,63}|[0-9A-Fa-f]{64}",
+    "patternInvalid": false,
+    "resources": []
+  },
+  {
+    "check": "No-script expiry fallback",
+    "hoursVisible": true,
+    "overflow": 0,
+    "presetHidden": true,
+    "submitEnabled": true
+  },
+  {
+    "check": "Other-device address becomes editable and required",
+    "disabled": false,
+    "required": true,
+    "visible": true
+  },
+  {
+    "check": "Exact key handoff survives reveal",
+    "url": "http://127.0.0.1:8769/ipsk/key/action",
+    "backLink": "/ipsk/devices?q=Alex&record_sort=name&record_page=1"
+  }
+]

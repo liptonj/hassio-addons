@@ -65,6 +65,7 @@ def main():
             UNIQUE KEY `uq_stepca_invites_hash` (`code_hash`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""")
         cur.execute(f"ALTER TABLE `{database}`.`stepca_invites` ADD COLUMN IF NOT EXISTS `expires_at` DATETIME NULL")
+        cur.execute(f"ALTER TABLE `{database}`.`stepca_invites` ADD COLUMN IF NOT EXISTS `label` VARCHAR(100) NOT NULL DEFAULT ''")
         cur.execute(f"""CREATE TABLE IF NOT EXISTS `{database}`.`stepca_resident_accounts` (
             `owner_key` VARCHAR(260) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
             `name` VARCHAR(100) NOT NULL,

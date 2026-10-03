@@ -1,0 +1,18 @@
+{
+  "raw_count": 59,
+  "counts": {
+    "cramped-padding": 1,
+    "overused-font": 21,
+    "flat-type-hierarchy": 13,
+    "dark-glow": 21,
+    "wide-tracking": 3
+  },
+  "actionable_count": 0,
+  "resolutions": {
+    "overused-font": "Pinned Home Assistant Roboto/system typography; changing it would violate DESIGN.md.",
+    "flat-type-hierarchy": "Pinned HA 12/14/16/20px roles; browser headings, labels and spacing establish the intended hierarchy.",
+    "dark-glow": "False positive: sharp keyboard focus indicators, not decorative blurred shadows; ui.py:499.",
+    "wide-tracking": "False positive: literal Wi-Fi password in a monospace copy field, not body prose.",
+    "cramped-padding": "False positive: nested disclosure summary provides computed 12px vertical/16px horizontal inset."
+  }
+}
