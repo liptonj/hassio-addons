@@ -20,6 +20,6 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - name: Portal tests and real Home Assistant companion compatibility
         run: |
-          runtime=(uv run --no-project --python 3.14 --with homeassistant==2026.9.4 --with duo-universal==2.3.1 --with duo-client==5.7.0 --with meraki==4.5.0b4 --with pymysql --with qrcode --with cryptography)
+          runtime=(uv run --no-project --python 3.14 --with homeassistant==2026.9.4 --with aiohasupervisor==0.6.0 --with duo-universal==2.3.1 --with duo-client==5.7.0 --with meraki==4.5.0b4 --with pymysql --with qrcode --with cryptography)
           "${runtime[@]}" python -m unittest discover -s step-ca/tests -p 'test_*.py'
           "${runtime[@]}" python step-ca/tests/homeassistant_integration.py
