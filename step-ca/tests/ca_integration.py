@@ -53,8 +53,8 @@ caps=subprocess.run(['curl','--silent','--fail','http://127.0.0.1:9080/scep/scep
 assert b'POSTPKIOperation' in caps and b'SHA-256' in caps
 checks.append('running SCEP provisioner advertises supported capabilities')
 manifest=json.loads(Path('/homeassistant/custom_components/step_ca_scep/manifest.json').read_text())
-assert manifest['version']=='1.5.0'
+assert manifest['version']=='1.5.1'
 assert Path('/homeassistant/custom_components/step_ca_scep/ipsk_websocket.py').is_file()
-checks.append('companion integration 1.5.0 installed with iPSK bridge')
+checks.append('companion integration 1.5.1 installed with iPSK bridge')
 print(json.dumps({'status':'passed','checks':checks,'count':len(checks),
                   'certificate_material':'disposable fixture only'},indent=2))

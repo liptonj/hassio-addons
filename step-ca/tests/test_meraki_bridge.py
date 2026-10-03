@@ -207,16 +207,16 @@ class WebsocketPermissionTests(unittest.IsolatedAsyncioTestCase):
         api.async_response = response
         components = types.ModuleType("homeassistant.components")
         components.websocket_api = api
-        const = types.ModuleType("homeassistant.components.http.const")
-        const.DATA_SUPERVISOR_USER = "fixture_supervisor_user"
+        const = types.ModuleType("homeassistant.components.hassio.const")
+        const.DATA_HASSIO_SUPERVISOR_USER = "fixture_supervisor_user"
         core = types.ModuleType("homeassistant.core")
         core.callback = lambda fn: fn
         modules = {package_name: package, package_name + ".meraki_ipsk": service,
                    "homeassistant": types.ModuleType("homeassistant"),
                    "homeassistant.components": components,
                    "homeassistant.components.websocket_api": api,
-                   "homeassistant.components.http": types.ModuleType("homeassistant.components.http"),
-                   "homeassistant.components.http.const": const, "homeassistant.core": core}
+                   "homeassistant.components.hassio": types.ModuleType("homeassistant.components.hassio"),
+                   "homeassistant.components.hassio.const": const, "homeassistant.core": core}
         spec = importlib.util.spec_from_file_location(package_name + ".ipsk_websocket", directory / "ipsk_websocket.py")
         self.bridge = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, modules):

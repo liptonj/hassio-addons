@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.47
+
+- Fixed the bundled companion's Supervisor-user import for Home Assistant
+  2026.9; kept authorization restricted to admins and the authenticated
+  Supervisor service user. Companion version is now 1.5.1.
+- Added compatibility checks that import and register the companion against
+  the real Home Assistant package instead of fixture-only module stubs.
+
 ## 0.30.2.46
 
 - Fixed a guidance variable collision that interrupted successful resident

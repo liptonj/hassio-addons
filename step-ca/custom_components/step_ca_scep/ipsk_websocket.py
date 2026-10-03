@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from homeassistant.components import websocket_api
-from homeassistant.components.http.const import DATA_SUPERVISOR_USER
+from homeassistant.components.hassio.const import DATA_HASSIO_SUPERVISOR_USER
 from homeassistant.core import callback
 
 from .meraki_ipsk import MerakiIpsk
@@ -15,7 +15,7 @@ COMMANDS = ("options", "list", "create", "get", "reveal_passphrase", "revoke", "
 
 async def dispatch(hass, connection, msg):
     user = connection.user
-    supervisor = hass.data.get(DATA_SUPERVISOR_USER)
+    supervisor = hass.data.get(DATA_HASSIO_SUPERVISOR_USER)
     if user is None or not (user.is_admin or supervisor is not None and user.id == supervisor.id):
         connection.send_error(msg["id"], "unauthorized", "Administrator access is required.")
         return
