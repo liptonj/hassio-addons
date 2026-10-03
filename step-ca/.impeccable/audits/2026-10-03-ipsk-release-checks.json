@@ -1,6 +1,6 @@
 {
   "version": "0.30.2.49",
-  "status": "all local release checks passed; publication/deployment pending",
+  "status": "all local release checks and Linux CI passed; installed deployment verified",
   "unit_tests": {
     "passed": 153,
     "python": "3.14",
@@ -153,7 +153,8 @@
     "bash syntax",
     "JavaScript syntax",
     "YAML/JSON parse",
-    "git diff --check"
+    "git diff --check",
+    "ruff format for new regression test"
   ],
   "ui_audit": "2026-10-02-ipsk-clean-audit.md; 84 rendered checks, zero axe violations; subsequent cleanup changes imports, unused locals and lambda spelling only",
   "scope": "Step CA; unrelated WPN code and secret excluded",
@@ -161,5 +162,32 @@
     "status": "passed",
     "healthy": true,
     "root_unchanged": true
+  },
+  "publication": {
+    "commit": "62c1564fe96c632d8d6821940e1cbde158bcf193",
+    "branch": "master",
+    "compatibility_ci": "https://github.com/liptonj/hassio-addons/actions/runs/37092428768",
+    "status": "passed"
+  },
+  "cleanup": {
+    "temporary_containers_removed": true,
+    "dedicated_colima_profile_and_data_removed": true,
+    "docker_context_restored": "default",
+    "existing_default_colima_profile": "stopped and unchanged"
+  },
+  "deployment": {
+    "backup_and_update_run": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37092498710",
+    "backup": "completed before update",
+    "initial_workflow": "failed while polling update job; success not inferred from dispatch",
+    "read_only_inspection": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37092712236",
+    "observed_version": "0.30.2.49",
+    "observed_state": "started",
+    "next_step": null,
+    "final_verification": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37092758924",
+    "verified_at_utc": "2026-10-03T03:20:39Z",
+    "core_restart": "completed",
+    "companion": "loaded",
+    "live_ipsk_options_network_count": 5,
+    "status": "passed"
   }
 }
