@@ -1,0 +1,25 @@
+{
+  "version": "0.30.2.52",
+  "status": "deployed-and-verified",
+  "source_commit": "1a6229b0c6c8e63cf3164d171f812232022f84f9",
+  "source_ci": "https://github.com/liptonj/hassio-addons/actions/runs/37143141110",
+  "deployment_workflow_ref": "liptonj/meraki-homeassistant@beta (81dd8b7c45b29aa6f97c509f226cd190a60f19ef)",
+  "backup_update_run": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37143205063",
+  "backup_completed_at": "2026-10-03T18:13:23Z",
+  "backup_scope": [
+    "Step CA",
+    "local MariaDB",
+    "Core configuration"
+  ],
+  "update_reporting_error": "Supervisor update job status returned unknown_error after update submission; installed state checked before any retry.",
+  "read_only_inspection": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37143490026",
+  "inspected_installed_version": "0.30.2.52",
+  "inspected_state": "started",
+  "final_verification": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37143574924",
+  "verified_at": "2026-10-03T18:18:41Z",
+  "companion_loaded": true,
+  "core_check_and_restart": "passed",
+  "live_ipsk_options_network_count": 5,
+  "local_preview_branding_applied_to_live_instance": false,
+  "temporary_resources": "Fixture server stopped, browser tab closed, dedicated Colima profile and data removed; original default Docker context restored."
+}

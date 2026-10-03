@@ -19,3 +19,20 @@ preview persistence, save and immediate public rendering were verified.
 
 `browser-round1.json` and `browser-confirmation.json` contain the recorded
 checks. Release and deployment evidence is recorded separately.
+
+Finish verdict: shipped and verified in Step CA 0.30.2.52. All 189 tests, seven
+real Home Assistant compatibility checks, Ruff, shell syntax and whitespace
+checks passed. Container builds and non-root runtime probes passed for amd64,
+aarch64 and armv7, including all three image codecs and storage. GitHub source
+CI passed before the backed-up update.
+
+Supervisor reported an update-job error after submitting the update. A read-only
+inspection confirmed 0.30.2.52 started; final verification skipped reinstallation,
+checked stability, checked/restarted Core and confirmed the companion loaded and
+the live IPSK options request returned five networks. See `deployment.json`.
+
+Scope limit: branding interactions and visual checks used a local source
+fixture. Deployment verification checks installed/running version and real
+companion behavior; fictional logos and copy were never applied to live settings.
+Duo-hosted prompt branding is managed by Duo. No new independent critique score
+is claimed.
