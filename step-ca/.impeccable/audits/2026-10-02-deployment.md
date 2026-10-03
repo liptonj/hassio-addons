@@ -1,6 +1,39 @@
 # Deployment — 2026-10-02
 
-Final live inspection at **2026-10-03 00:23:12 UTC** (October 2 locally)
+## Latest correction: iPSK request schemas
+
+The options request reported after the initial deployment exposed another
+regression: the type-only WebSocket schemas rejected all additional operation
+fields. The earlier registration test incorrectly treated HA's `False` schema
+optimization as accepting extra fields; it did not exercise `ActiveConnection`.
+
+Commit `b66b05d` publishes **Step CA 0.30.2.48**, bundled companion **1.5.2**,
+with explicit field schemas for every iPSK command. The strengthened real HA
+test reproduces the original rejection, dispatches full portal payloads for all
+seven commands, checks unknown-field rejection, and retains authorization tests.
+All 140 portal tests and seven real HA checks passed locally and in
+[Linux compatibility CI](https://github.com/liptonj/hassio-addons/actions/runs/37082299142).
+Provider responses in the seven-command compatibility test are fixtures.
+
+The first 0.30.2.48 deployment completed the Step CA/MariaDB/Core settings backup
+and installed the add-on, then failed to fetch the Supervisor update job record.
+A read-only follow-up confirmed 0.30.2.48 installed and started. The second run
+rechecked that state, restarted Core and sent the exact live request
+`{"type":"step_ca_scep/ipsk/options","network_id":""}`. At
+**2026-10-03 00:38:29 UTC**, it successfully returned **five wireless networks**,
+with the companion loaded. No live key creation, revocation or deletion was
+performed by that verification.
+
+- [Backup and installation run](https://github.com/liptonj/meraki-homeassistant/actions/runs/37082402226): installation completed; job-record polling failed.
+- [Installed-version inspection](https://github.com/liptonj/meraki-homeassistant/actions/runs/37082694812): 0.30.2.48 started; HACS reported Meraki 3.2.9 at that point.
+- [Live options request and companion verification](https://github.com/liptonj/meraki-homeassistant/actions/runs/37082770457): passed.
+- Deployment helper commit `81dd8b7c` requires a successful live options request,
+  rather than accepting the loaded integration state alone. Full local quality
+  checks passed: **1,183 tests**, seven existing skips.
+
+## Earlier publication inspection
+
+Live inspection at **2026-10-03 00:23:12 UTC** (October 2 locally)
 confirmed Home Assistant **2026.9.4** online, with:
 
 - Step CA add-on **0.30.2.47**, started.
