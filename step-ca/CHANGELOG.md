@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.48
+
+- Fixed every iPSK WebSocket command schema to accept the portal's operation
+  fields, including the empty network selection used by the options request.
+  Companion version is now 1.5.2.
+- Replaced the incomplete schema compatibility check with full portal payloads
+  dispatched through Home Assistant's real ActiveConnection request handler.
+  Unknown request fields still fail before provider calls.
+
 ## 0.30.2.47
 
 - Fixed the bundled companion's Supervisor-user import for Home Assistant

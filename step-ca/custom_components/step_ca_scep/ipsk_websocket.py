@@ -2,6 +2,8 @@
 import asyncio
 import logging
 
+import voluptuous as vol
+
 from homeassistant.components import websocket_api
 from homeassistant.components.hassio.const import DATA_HASSIO_SUPERVISOR_USER
 from homeassistant.core import callback
@@ -11,6 +13,25 @@ from .meraki_ipsk import MerakiIpsk
 _LOGGER = logging.getLogger(__name__)
 PREFIX = "step_ca_scep/ipsk/"
 COMMANDS = ("options", "list", "create", "get", "reveal_passphrase", "revoke", "delete")
+
+
+def command_schema(command):
+    """Declare the fields actually sent by the portal for each operation."""
+    schema = {"type": PREFIX + command}
+    if command == "options":
+        schema[vol.Optional("network_id")] = str
+    elif command == "list":
+        schema[vol.Optional("scopes")] = [{vol.Required("network_id"): str,
+                                          vol.Required("ssid_number"): int}]
+    elif command == "create":
+        schema.update({vol.Required("network_id"): str, vol.Required("ssid_number"): int,
+                       vol.Required("name"): str, vol.Optional("group_policy_id"): str,
+                       vol.Optional("duration_hours"): int, vol.Optional("passphrase"): str,
+                       vol.Optional("associated_user"): str, vol.Optional("associated_unit"): str})
+    else:
+        schema.update({vol.Required("ipsk_id"): str, vol.Optional("network_id"): str,
+                       vol.Optional("ssid_number"): int})
+    return schema
 
 
 async def dispatch(hass, connection, msg):
@@ -56,9 +77,9 @@ def async_register(hass):
     if hass.data.get(marker):
         return
     for command in COMMANDS:
-        # A type-only schema also works across HA's schema-library versions.
-        # All operation fields are checked by the stateless service.
-        handler = websocket_api.websocket_command({"type": PREFIX + command})(
+        # HA's type-only optimization rejects every additional request field.
+        # Declare operation fields here; the service validates scope and values.
+        handler = websocket_api.websocket_command(command_schema(command))(
             websocket_api.async_response(dispatch))
         websocket_api.async_register_command(hass, handler)
     hass.data[marker] = True
