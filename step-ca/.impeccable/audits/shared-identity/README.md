@@ -42,4 +42,37 @@ credentials, user records, provider writes or identity rules were changed by
 these checks. Screenshots are local fixture previews. Live iframe rendering,
 physical Wi-Fi/Duo acceptance and new application consumers were not exercised.
 No new independent critique score is claimed. Raw results and hashes are saved
-alongside this record; deployment evidence follows after live verification.
+alongside this record; live deployment evidence is below.
+
+## Publication and cleanup
+
+Source commit `2a49e31cdf802dfc77d9f9dc5b8d7e68c4751153` was pushed to master.
+[Linux CI](https://github.com/liptonj/hassio-addons/actions/runs/37141058054)
+passed all 175 portal tests and seven real Home Assistant compatibility checks.
+The fixture browser and server were closed, and the dedicated Colima profile
+and its container data were removed. Docker's original default context was
+restored. Unrelated files and the WPN signing key were excluded from commits.
+
+## Live deployment
+
+**Step CA 0.30.2.51 is deployed and running.** Final verification at
+**2026-10-03 17:44:01 UTC** confirmed the add-on stayed started, Core
+configuration checked successfully, Home Assistant restarted, the companion
+loaded, and the live iPSK options request returned five wireless networks.
+
+- [Backup and update](https://github.com/liptonj/meraki-homeassistant/actions/runs/37141124848)
+  completed the Step CA/MariaDB/Core settings backup and submitted the update.
+  The workflow then failed reading the Supervisor update job (`unknown_error`);
+  this failure was not treated as deployment success.
+- [Read-only inspection](https://github.com/liptonj/meraki-homeassistant/actions/runs/37141419219)
+  independently confirmed Step CA 0.30.2.51 installed and started, MariaDB
+  started, and both relevant integrations loaded.
+- [Final verification](https://github.com/liptonj/meraki-homeassistant/actions/runs/37141461850)
+  passed stability, Core configuration/restart and live companion checks.
+  Backup/update were skipped because the requested version was installed.
+
+The live read-only request was
+`{"type":"step_ca_scep/ipsk/options","network_id":""}`. This update moves
+configuration ownership in the interface without migrating option keys or
+changing the deployment's existing credentials and identity rules. Live HA
+iframe rendering and actual Duo/physical Wi-Fi flows were not captured.

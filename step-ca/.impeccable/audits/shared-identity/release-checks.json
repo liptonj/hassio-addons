@@ -72,5 +72,43 @@
     "YAML/JSON parsing",
     "git diff --check"
   ],
-  "native_build_retry": "Initial Alpine package download returned I/O error; retry succeeded."
+  "native_build_retry": "Initial Alpine package download returned I/O error; retry succeeded.",
+  "source_commit": "2a49e31cdf802dfc77d9f9dc5b8d7e68c4751153",
+  "linux_ci": {
+    "status": "success",
+    "url": "https://github.com/liptonj/hassio-addons/actions/runs/37141058054",
+    "tests": 175,
+    "ha_checks": 7
+  },
+  "deployment": {
+    "backup_update": {
+      "url": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37141124848",
+      "backup": "completed",
+      "update": "submitted",
+      "workflow": "failed reading Supervisor update job status (unknown_error)"
+    },
+    "inspection": {
+      "url": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37141419219",
+      "status": "success",
+      "installed_step_ca": "0.30.2.51",
+      "step_ca_state": "started",
+      "mariadb": "3.0.1 started",
+      "homeassistant": "2026.9.4",
+      "companion": "loaded"
+    },
+    "final": {
+      "url": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37141461850",
+      "status": "success",
+      "verified_at_utc": "2026-10-03 17:44:01 UTC",
+      "installed_step_ca": "0.30.2.51",
+      "step_ca_state": "started",
+      "core_restarted": true,
+      "companion": "loaded",
+      "live_ipsk_options_wireless_networks": 5,
+      "request": {
+        "type": "step_ca_scep/ipsk/options",
+        "network_id": ""
+      }
+    }
+  }
 }
