@@ -6,14 +6,14 @@ ARG BUILD_VERSION
 
 USER root
 
-RUN apk add --no-cache jq su-exec python3 py3-pip py3-pymysql py3-cryptography py3-aiohttp py3-qrcode
+RUN apk add --no-cache jq su-exec python3 py3-pip py3-pymysql py3-cryptography py3-aiohttp py3-qrcode py3-pillow
 
 COPY admin/requirements.txt /opt/step-ca-admin/requirements.txt
 RUN python3 -m venv --system-site-packages /opt/step-ca-runtime \
     && /opt/step-ca-runtime/bin/pip install --no-cache-dir -r /opt/step-ca-admin/requirements.txt
 
 COPY custom_components/step_ca_scep /opt/step_ca_scep
-COPY admin/app.py admin/captive.py admin/db_setup.py admin/enroll.py admin/guidance.py admin/identity_settings.py admin/ipsk.py admin/resident_access.py admin/settings_menu.py admin/ui.py /opt/step-ca-admin/
+COPY admin/app.py admin/captive.py admin/db_setup.py admin/enroll.py admin/guidance.py admin/identity_settings.py admin/portal_skin.py admin/ipsk.py admin/resident_access.py admin/settings_menu.py admin/ui.py /opt/step-ca-admin/
 COPY run.sh /usr/bin/run-step-ca
 RUN chmod 0755 /usr/bin/run-step-ca
 

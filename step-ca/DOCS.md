@@ -206,6 +206,38 @@ captive portal** follows only a validated HTTPS `*.network-auth.com`
 click-through grant URL and requests a five-minute setup access window.
 No grant link is offered on a rejected or failed registration.
 
+### Captive portal appearance and content
+
+Open **Settings → Captive portal** to skin the public Wi-Fi portal. Its settings
+are independent of IPSK policy and the shared identity provider.
+
+- **Appearance:** upload a logo, set the accent and optional background colors,
+  and choose light, dark or device-controlled appearance. Colors use six-digit
+  hex values such as `#006b84`. Leave the background blank for theme defaults.
+  Button labels and links adjust automatically for contrast.
+- **Content:** set the portal name, optional welcome heading/message and footer.
+  Welcome copy appears on entry screens. Connection results, errors and account
+  screens retain their functional headings and instructions. Text is plain text;
+  HTML is displayed literally.
+
+Each page includes a sample welcome screen. **Preview changes** shows an unsaved
+draft, including a newly uploaded logo. **Save appearance** or **Save content**
+saves only that section and applies changes immediately to new portal page loads.
+The editors and preview also work without JavaScript.
+
+Logos accept PNG, JPEG or WebP up to 256 KB and 2048 × 2048 pixels. They are resized
+to fit 512 × 160 pixels, converted to PNG and stripped of image metadata. The
+normalized image must fit 64 KB. Logos are embedded into portal pages, so captive
+clients need no external asset host or additional walled-garden rule. Remove the
+logo to restore the Wi-Fi icon. A missing logo also falls back to that icon.
+
+The `captive_portal` add-on option stores the theme, colors, content and logo
+reference. Image files live under `/data/step/portal/` and are included in add-on
+backups; previous image files are retained for configuration rollback. Changes
+made directly in the Home Assistant Configuration tab apply after restarting the
+add-on. These settings style the Step CA portal, including its Duo handoff; Duo's
+hosted Universal Prompt retains the branding configured in Duo.
+
 ### Guest, registration and device QR codes
 
 The **IPSK** section opens on **Wi-Fi keys**, with search, status filtering,

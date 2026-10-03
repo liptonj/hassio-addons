@@ -310,7 +310,7 @@ def handle_get(engine, handler, action, query, captive_token=""):
             body = account_form(engine, config, session)
         else:
             body = identity_form(engine, config, session)
-        engine._public_page(handler, "Resident device access", body, set_cookie=cookie(token, engine.PUBLIC_BASE))
+        engine._public_page(handler, "Resident device access", body, set_cookie=cookie(token, engine.PUBLIC_BASE), welcome=not session["identity"])
     except ValueError as err:
         engine._public_page(handler, "Check resident access", ui.alert("error", engine.esc(err))
                             + f'<p><a href="{engine.esc(url(engine.PUBLIC_BASE, "account"))}">Return to resident access</a></p>', 403)

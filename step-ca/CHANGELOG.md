@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.2.52
+
+- Added Captive portal Settings with separate Appearance and Content pages,
+  unsaved previews, logo uploads, colors, device/light/dark themes and welcome copy.
+- Applied shared branding across public onboarding, authentication handoff and
+  connection results, retaining functional error and result instructions.
+- Added contrast-aware colors, bounded local images with metadata removed,
+  scoped immediate saves and persistent skin settings included in add-on backups.
+- Added portal skin, upload, preview, persistence and request-guard tests.
+
 ## 0.30.2.51
 
 - Moved authentication and the user directory into a separate Identity & access

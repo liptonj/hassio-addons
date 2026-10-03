@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2.51"
+version: "0.30.2.52"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -72,6 +72,15 @@ options:
     radius_server: "custom"
     radius_server_names: []
   wifi_networks: []
+  captive_portal:
+    theme: auto
+    accent_color: "#03a9f4"
+    background_color: ""
+    logo_file: ""
+    portal_name: "Resident Wi-Fi"
+    welcome_heading: ""
+    welcome_message: ""
+    footer_text: ""
   resident_onboarding:
     enabled: false
     invite_required: true
@@ -199,6 +208,15 @@ schema:
         - str?
       passpoint_hessid: str?
       passpoint_roaming: bool?
+  captive_portal:
+    theme: list(auto|light|dark)?
+    accent_color: match(^#[0-9a-fA-F]{6}$)?
+    background_color: match(^(#[0-9a-fA-F]{6})?$)?
+    logo_file: match(^([0-9a-f]{64}\.png)?$)?
+    portal_name: str(1,64)?
+    welcome_heading: str(0,80)?
+    welcome_message: str(0,600)?
+    footer_text: str(0,200)?
   resident_onboarding:
     enabled: bool
     invite_required: bool

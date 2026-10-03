@@ -26,6 +26,7 @@ import pymysql
 import qrcode
 import qrcode.image.svg
 import ui
+import portal_skin
 import guidance
 import captive
 import resident_access
@@ -518,18 +519,17 @@ def register_resident(name, email, unit, invite_code, client_ip, client_mac):
         conn.close()
 
 
-def _public_page(handler, title, body, status=200, set_cookie="", include_private_help=True):
+def _public_page(handler, title, body, status=200, set_cookie="", include_private_help=True, welcome=False):
+    config = portal_skin.settings()
     nonce = secrets.token_urlsafe(24)
     markup = (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width, initial-scale=1">'
-        '<meta name=referrer content=no-referrer><title>' + esc(title) + " · Resident Wi-Fi</title>"
-        + "<style>" + ui.STYLE + PORTAL_STYLE + "</style></head><body>" + ui.DIRECTION
+        '<meta name=referrer content=no-referrer><title>' + esc(title) + " · " + esc(config["portal_name"]) + "</title>"
+        + "<style>" + ui.STYLE + PORTAL_STYLE + portal_skin.css(config) + f'</style></head><body class="portal-skin" data-portal-theme="{config["theme"]}">' + ui.DIRECTION
         + '<a class="skip-link" href="#main-content">Skip to content</a>'
-        + '<main id="main-content" tabindex="-1" class="public resident-portal"><div class="brand">'
-        + f'<span class="brand-mark">{ui.icon("wifi")}</span><span>Resident Wi-Fi</span></div>'
-        + '<div class="card"><div class="card-header"><h1>' + esc(title) + "</h1></div>"
-        + '<div class="card-content">' + body + guidance.resident_help(include_private_help) + "</div></div></main>"
+        + '<main id="main-content" tabindex="-1" class="public resident-portal">'
+        + portal_skin.content(config, title, body + guidance.resident_help(include_private_help), welcome=welcome) + "</main>"
         + f'<script nonce="{nonce}">{ui.SCRIPT}</script></body></html>'
     )
     data = markup.encode()
@@ -590,7 +590,7 @@ def _connect_page(handler, message="", status=200, title="Connect to setup Wi-Fi
     )
     _public_page(handler, title, body, status,
                  f"portal_csrf=; Path={PUBLIC_BASE}; Max-Age=0; HttpOnly; Secure; SameSite=Strict",
-                 include_private_help=False)
+                 include_private_help=False, welcome=status == 200 and not message)
 
 
 def registration_form(context, csrf, draft=None, error=None):
@@ -682,7 +682,7 @@ class PublicPortalHandler(BaseHTTPRequestHandler):
             return
         body = registration_form(context, csrf)
         cookie = f"portal_csrf={csrf}; Path={PUBLIC_BASE}; Max-Age=900; HttpOnly; Secure; SameSite=Strict"
-        _public_page(self, "Connect to resident Wi-Fi", body, set_cookie=cookie)
+        _public_page(self, "Connect to resident Wi-Fi", body, set_cookie=cookie, welcome=True)
 
     def do_POST(self):
         if not self._allowed():

@@ -1,0 +1,100 @@
+{
+  "version": "0.30.2.52",
+  "status": "passed",
+  "unit_tests": 189,
+  "home_assistant_compatibility": {
+    "version": "2026.9.4",
+    "checks": 7
+  },
+  "ruff": "passed",
+  "shell_syntax": "passed",
+  "diff_whitespace": "passed",
+  "browser": {
+    "initial_views": 52,
+    "confirmation_views": 5,
+    "axe_violations": 0,
+    "horizontal_overflow": false,
+    "no_javascript_save": "passed",
+    "source_fixture": true
+  },
+  "builds": {
+    "aarch64": {
+      "status": "passed",
+      "machine": "aarch64",
+      "portal_imports": true,
+      "nonroot_logo_storage": true,
+      "image_codecs": [
+        "PNG",
+        "JPEG",
+        "WEBP"
+      ],
+      "companion_parse": true,
+      "settings_routes": 11,
+      "source_sha256": {
+        "app.py": "969e5421de80adba04d81b5f27568e2757b55fecff5e0ba395c13e405d99533e",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "7ba7ead2a528f85415ababc434fc8cc12903f6a29d2e665496599e1ffbd71e0d",
+        "resident_access.py": "43ed303f83228d8144e1f22cda3a6c9cdcef5c6120ee88e1a5f2302ffcc9b290",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "762f13765b7ba452dc4b346ee52a298160b31c1a229f7a5ace9cd83d8932eba5",
+        "portal_skin.py": "41db387d5d6cd307c0bfdd5fd0bd37fa85ec387a32b32086930eefcf05a2d615",
+        "ui.py": "db64a9cfce64989d3e41586260dcf12869e5263af6dd1d1d94eb3041b5c6299b"
+      }
+    },
+    "amd64": {
+      "status": "passed",
+      "machine": "x86_64",
+      "portal_imports": true,
+      "nonroot_logo_storage": true,
+      "image_codecs": [
+        "PNG",
+        "JPEG",
+        "WEBP"
+      ],
+      "companion_parse": true,
+      "settings_routes": 11,
+      "source_sha256": {
+        "app.py": "969e5421de80adba04d81b5f27568e2757b55fecff5e0ba395c13e405d99533e",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "7ba7ead2a528f85415ababc434fc8cc12903f6a29d2e665496599e1ffbd71e0d",
+        "resident_access.py": "43ed303f83228d8144e1f22cda3a6c9cdcef5c6120ee88e1a5f2302ffcc9b290",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "762f13765b7ba452dc4b346ee52a298160b31c1a229f7a5ace9cd83d8932eba5",
+        "portal_skin.py": "41db387d5d6cd307c0bfdd5fd0bd37fa85ec387a32b32086930eefcf05a2d615",
+        "ui.py": "db64a9cfce64989d3e41586260dcf12869e5263af6dd1d1d94eb3041b5c6299b"
+      }
+    },
+    "armv7": {
+      "status": "passed",
+      "machine": "armv7l",
+      "portal_imports": true,
+      "nonroot_logo_storage": true,
+      "image_codecs": [
+        "PNG",
+        "JPEG",
+        "WEBP"
+      ],
+      "companion_parse": true,
+      "settings_routes": 11,
+      "source_sha256": {
+        "app.py": "969e5421de80adba04d81b5f27568e2757b55fecff5e0ba395c13e405d99533e",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "7ba7ead2a528f85415ababc434fc8cc12903f6a29d2e665496599e1ffbd71e0d",
+        "resident_access.py": "43ed303f83228d8144e1f22cda3a6c9cdcef5c6120ee88e1a5f2302ffcc9b290",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "762f13765b7ba452dc4b346ee52a298160b31c1a229f7a5ace9cd83d8932eba5",
+        "portal_skin.py": "41db387d5d6cd307c0bfdd5fd0bd37fa85ec387a32b32086930eefcf05a2d615",
+        "ui.py": "db64a9cfce64989d3e41586260dcf12869e5263af6dd1d1d94eb3041b5c6299b"
+      }
+    }
+  }
+}

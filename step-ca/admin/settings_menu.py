@@ -98,6 +98,12 @@ GROUPS = (
         ),
     ),
     (
+        "captive-portal", "Captive portal", "wifi-lock",
+        "Branding, appearance and welcome content",
+        (("appearance", "Appearance", "Logo, colors and light or dark appearance"),
+         ("content", "Content", "Portal name, welcome message and footer")),
+    ),
+    (
         "system",
         "System",
         "cog",
@@ -176,6 +182,7 @@ OPTION_PAGES = {
     "ipsk/join-codes": (("resident_onboarding", "Guest and setup networks"),),
     "identity/authentication": (("resident_onboarding", "Authentication"),),
     "identity/directory": (("resident_onboarding", "User directory"),),
+    "captive-portal/appearance": (("captive_portal", "Captive portal skin"),),
     "system/storage": (
         ("database", "Database backend"),
         ("mariadb_database", "MariaDB database name"),
@@ -493,6 +500,8 @@ class SettingsMixin:
             "/settings/identity/directory": lambda: self.identity_page(
                 "directory", query
             ),
+            "/settings/captive-portal/appearance": lambda: self.portal_skin_page("appearance", query),
+            "/settings/captive-portal/content": lambda: self.portal_skin_page("content", query),
             "/settings/system/checks": lambda: self.setup_page(query),
             "/settings/system/help": lambda: self.help_page(query),
             "/settings/system/tools": self.tools_page,

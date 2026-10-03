@@ -1,0 +1,338 @@
+[
+  {
+    "name": "appearance-default-desktop",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "appearance-draft-desktop",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "appearance-saved-desktop",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "content-saved-desktop",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-1280-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-1280-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-appearance-1280-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-content-1280-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-1280-light",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-duo-1280-light",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-ready-1280-light",
+    "heading": "Your device key is ready",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-error-1280-light",
+    "heading": "Check your details",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-settings-1280-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-1280-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-appearance-1280-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-content-1280-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-1280-dark",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-duo-1280-dark",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-ready-1280-dark",
+    "heading": "Your device key is ready",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-error-1280-dark",
+    "heading": "Check your details",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-settings-390-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-390-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-appearance-390-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-content-390-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-390-light",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-duo-390-light",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-ready-390-light",
+    "heading": "Your device key is ready",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-error-390-light",
+    "heading": "Check your details",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-settings-390-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-390-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-appearance-390-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-content-390-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-390-dark",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-duo-390-dark",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-ready-390-dark",
+    "heading": "Your device key is ready",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-error-390-dark",
+    "heading": "Check your details",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-settings-320-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-320-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-appearance-320-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-content-320-light",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-320-light",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-duo-320-light",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-ready-320-light",
+    "heading": "Your device key is ready",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-error-320-light",
+    "heading": "Check your details",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-settings-320-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-320-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-appearance-320-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-settings-captive-portal-content-320-dark",
+    "heading": "Settings",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-320-dark",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-duo-320-dark",
+    "heading": "Welcome home",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-ready-320-dark",
+    "heading": "Your device key is ready",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  },
+  {
+    "name": "-fixture-portal-error-320-dark",
+    "heading": "Check your details",
+    "overflow": false,
+    "theme": "dark",
+    "violations": []
+  }
+]

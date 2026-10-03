@@ -36,13 +36,13 @@ class SettingsMenuTests(unittest.TestCase):
     def markup(self, handler):
         return handler.send.call_args.args[1]
 
-    def test_hub_has_five_categories_and_no_eager_service_requests(self):
+    def test_hub_has_six_categories_and_no_eager_service_requests(self):
         handler = self.handler()
         with patch.object(app, "supervisor") as remote:
             handler.do_GET()
         remote.assert_not_called()
         markup = self.markup(handler)
-        self.assertEqual(markup.count('class="row settings-row"'), 5)
+        self.assertEqual(markup.count('class="row settings-row"'), 6)
         self.assertIn('href="/api/hassio_ingress/fixture/settings/ipsk"', markup)
         self.assertIn("aria-current=page", markup)
         self.assertIn("<span>Settings</span>", markup)

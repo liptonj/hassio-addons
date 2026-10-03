@@ -503,3 +503,28 @@ page holds application policy and device limits, with explicit links to the
 shared configuration. Provider validation is extracted into identity_settings
 and can run without an IPSK network or enabled portal. Existing saved option
 keys and current Duo authentication semantics are retained for compatibility.
+
+## Captive portal skin settings (2026-10-03)
+
+Captive portal is a peer Settings category with Appearance and Content pages.
+The existing Home Assistant typography, tokens, outlined controls and navigation
+remain the admin visual world. Branding is scoped to the public portal and its
+sample preview, independent of IPSK and Identity & access. No raster asset is
+shipped in the product; administrators can supply their own logo. Preview
+screenshots use a generated, explicitly fictional Example Wi-Fi logo.
+
+The shared renderer applies the brand name, logo, colors and footer to public
+flows. Welcome copy appears only at entry; result and error headings remain
+action-specific. Light/dark/device appearance uses fixed readable card surfaces.
+Brand-colored buttons select black or white text, and links retain the hue while
+meeting 4.5:1 contrast. Background text adapts independently. Uploads are bounded,
+reencoded without metadata and embedded locally under the existing CSP.
+
+Preview posts keep validated logo drafts without writing files or add-on options.
+Scoped saves preserve the other section and unrelated settings; runtime changes
+apply immediately and persisted options survive restart. The forms work without
+JavaScript. The bounded inspection covered 52 initial desktop/phone/state views
+and five confirmation views, with zero axe violations or horizontal overflow.
+Screenshot clipping was corrected for the browser's device scale; final images
+show complete CSS viewports. Evidence is under
+`.impeccable/audits/captive-portal-skin/`.

@@ -45,6 +45,7 @@ import ipsk
 import guidance
 import ui
 import identity_settings
+import portal_skin
 from settings_menu import SettingsMixin, canonical_url, legacy_path
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
@@ -1456,7 +1457,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         if length < 0:
             self.send(400, "Invalid request size", "text/plain")
             return
-        if length > (UPLOAD_LIMIT if path in ("/ca/extra", "/ca/sign") else 16384 if path == "/tools/wifi/save"
+        if length > (portal_skin.UPLOAD_LIMIT if path.startswith("/settings/captive-portal/") else UPLOAD_LIMIT if path in ("/ca/extra", "/ca/sign") else 16384 if path == "/tools/wifi/save"
                      else 4096):
             self.send(413, "Request too large", "text/plain")
             return
@@ -1465,12 +1466,15 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         if content_type.startswith("multipart/form-data"):
             form = parse_multipart(content_type, body)
         else:
-            form = urllib.parse.parse_qs(body.decode(errors="replace"), keep_blank_values=path.startswith("/settings/identity/"))
+            form = urllib.parse.parse_qs(body.decode(errors="replace"), keep_blank_values=path.startswith(("/settings/identity/", "/settings/captive-portal/")))
         if any(len(values) != 1 for values in form.values()):
             self.send(400, "Submit each form field once.", "text/plain")
             return
         if not secrets.compare_digest(str(form.get("csrf", [""])[0]), CSRF_TOKEN):
             self.send(403, "Invalid form token; reload the page and try again.", "text/plain")
+            return
+        if path in ("/settings/captive-portal/appearance/save", "/settings/captive-portal/content/save"):
+            self.portal_skin_save(path.split("/")[3], form)
             return
         if path in ("/settings/identity/authentication/save", "/settings/identity/directory/save"):
             self.identity_save(path.split("/")[3], form)
@@ -2794,6 +2798,45 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         if not articles:
             articles = '<div class="card"><div class="empty"><h2>No matching guides</h2><p>Try Wi-Fi, invitation, private MAC, password or certificate; or clear the search.</p></div></div>'
         self.page("Help and troubleshooting", controls + articles, narrow=True)
+
+    def portal_skin_page(self, kind, query=None, error=None, draft=None, logo=None, preview=False):
+        title = "Appearance" if kind == "appearance" else "Content"
+        try:
+            config = portal_skin.normalize(saved_options().get("captive_portal") or {})
+        except (RuntimeError, ValueError):
+            self.page(title, ui.alert("warning", "Saved portal settings could not be read. Check the Home Assistant connection and try again.", "Settings unavailable"))
+            return
+        config.update(draft or {})
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        body = portal_skin.form(config, kind, csrf, self.url(f"/settings/captive-portal/{kind}/save"), logo)
+        if error:
+            body = ui.alert("error", esc(error), "Could not apply settings") + guidance.form_error(body, error)
+        elif preview:
+            body = ui.alert("info", "The preview shows your draft. Save to apply it to the public portal.", "Preview only") + body
+        elif (query or {}).get("saved"):
+            body = ui.alert("success", "Changes are live on new portal page loads.", "Portal settings saved") + body
+        self.page(title, body)
+
+    def portal_skin_save(self, kind, form):
+        config, logo = None, None
+        try:
+            options = saved_options()
+            config, logo = portal_skin.draft(options.get("captive_portal") or portal_skin.DEFAULTS, kind, form)
+            if form.get("intent", ["save"])[0] == "preview":
+                self.portal_skin_page(kind, draft=config, logo=logo, preview=True)
+                return
+            if logo:
+                portal_skin.store_logo(logo)
+            options["captive_portal"] = config
+            supervisor("POST", "/addons/self/options", {"options": options})
+            portal_skin.SETTINGS_OVERRIDE = config
+            self.portal_skin_page(kind, {"saved": ["1"]})
+        except Exception as err:
+            # Preserve bounded text and a validated draft logo on validation or storage failure.
+            if config is None:
+                config = {key: str(form[key][0])[:portal_skin.LIMITS.get(key, 7)] for key in portal_skin.FIELDS[kind] if key != "logo_file" and key in form}
+            error = err if isinstance(err, ValueError) else RuntimeError("Could not save portal settings. Check the Home Assistant connection and try again.")
+            self.portal_skin_page(kind, error=error, draft=config, logo=logo)
 
     def identity_page(self, kind, query=None, error=None, draft=None):
         title = "Authentication" if kind == "authentication" else "User directory"
