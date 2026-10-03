@@ -44,6 +44,7 @@ import enroll
 import ipsk
 import guidance
 import ui
+from settings_menu import SettingsMixin, canonical_url, legacy_path
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
 ROOT_CERT = f"{STEP_PATH}/certs/root_ca.crt"
@@ -615,7 +616,7 @@ def check_wifi_option(wifi, others=()):
     if clash:
         raise ValueError(f"The network {clash} has the same SSID and is also in every profile. A profile can set "
                          "up an SSID only once: turn off In every profile for one of them and download it on "
-                         "its own from Tools > MDM profiles.")
+                         "its own from Settings → Enrollment & Wi-Fi → MDM profiles.")
     if not wifi["ssid"] and not wifi["passpoint"]:
         raise ValueError("Enter the network name (SSID), or enable Passpoint and enter its domain.")
     if len(wifi["ssid"].encode()) > 32:
@@ -949,7 +950,7 @@ def mdm_profile(platform, contents, cn, base_url, email="", group=""):
     elif contents == "wifi":
         networks = default_networks()
         if not networks:
-            raise ValueError("Wi-Fi is not configured; add a network under Tools > Wi-Fi networks.")
+            raise ValueError("Wi-Fi is not configured; add a network under Settings → Enrollment & Wi-Fi → Wi-Fi profiles.")
     if platform not in MDM_PLATFORMS or contents not in MDM_CONTENTS:
         raise ValueError("Unknown platform or profile contents.")
     group = parse_group(group)
@@ -1226,7 +1227,7 @@ class DeletedCerts:
 DELETED = DeletedCerts()
 
 
-class Handler(BaseHTTPRequestHandler):
+class Handler(SettingsMixin, BaseHTTPRequestHandler):
     server_version = "step-ca-admin"
     sys_version = ""
 
@@ -1240,7 +1241,7 @@ class Handler(BaseHTTPRequestHandler):
         return prefix if INGRESS_PATH_RE.match(prefix) else ""
 
     def url(self, path):
-        return f"{self.base()}/{path.lstrip('/')}"
+        return f"{self.base()}/{canonical_url(path).lstrip('/')}"
 
     def send(self, status, body, content_type="text/html; charset=utf-8", headers=None, nonce=None):
         data = body.encode() if isinstance(body, str) else body
@@ -1270,10 +1271,12 @@ class Handler(BaseHTTPRequestHandler):
 
     TABS = (("/", "Certificates", "certificate"), ("/enroll", "Enroll", "qrcode"),
             ("/ipsk", "IPSK", "wifi"),
-            ("/ca", "Authority", "shield-check"), ("/tools", "Tools", "wrench"))
+            ("/ca", "Authority", "shield-check"), ("/settings", "Settings", "cog"))
 
     def current_tab(self):
-        path = urllib.parse.urlsplit(self.path).path
+        path = canonical_url(urllib.parse.urlsplit(self.path).path)
+        if path.startswith("/settings"):
+            return "/settings"
         if path.startswith(("/enroll", "/issue")):
             return "/enroll"
         if path.startswith(("/ipsk", "/residents")):
@@ -1304,17 +1307,18 @@ class Handler(BaseHTTPRequestHandler):
         else:
             current = self.current_tab()
             tabs = "".join(
-                self.tools_menu(current) if path == "/tools" else
                 f'<a class="tab" href="{esc(self.url(path))}"'
                 f'{" aria-current=page" if path == current else ""}>{ui.icon(icon)}<span>{label}</span></a>'
                 for path, label, icon in self.TABS
             )
-            bar = f'<h1 class="toolbar-title">{esc(heading or ("IPSK" if current == "/ipsk" else "Certificates"))}</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
+            bar = f'<h1 class="toolbar-title">{esc(heading or ("Settings" if current == "/settings" else "IPSK" if current == "/ipsk" else "Certificates"))}</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
+        if not back and self.current_tab() == "/settings":
+            body = self.settings_shell(title, body)
+            narrow = False
         self.document(
             title,
             f'<header class="toolbar">{bar}</header>'
             f'<main id="main-content" tabindex="-1" class="content{" narrow" if narrow else ""}">'
-            + (self.tool_navigation(title) if self.current_tab() == "/tools" and not back else "")
             + body + '</main>',
             status, head=head, body_class="" if back else "has-tabs",
         )
@@ -1349,7 +1353,12 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         query = urllib.parse.parse_qs(parsed.query)
         try:
-            if path == "/":
+            canonical = canonical_url(path)
+            if canonical != path:
+                self.redirect(canonical + ("?" + parsed.query if parsed.query else ""))
+            elif path.startswith("/settings") and self.settings_get(path, query, lambda: supervisor("GET", "/addons/self/info")):
+                pass
+            elif path == "/":
                 self.list_page(query)
             elif path == "/ca":
                 self.ca_page()
@@ -1432,7 +1441,7 @@ class Handler(BaseHTTPRequestHandler):
             self.error_page(err)
 
     def handle_post(self):
-        path = urllib.parse.urlsplit(self.path).path
+        path = legacy_path(urllib.parse.urlsplit(self.path).path)
         # Keep older form URLs working while the panel uses the IPSK routes.
         path = {"/ipsk/create": "/residents/ipsk/create",
                 "/ipsk/key/action": "/residents/ipsk/action"}.get(path, path)
@@ -2636,38 +2645,9 @@ class Handler(BaseHTTPRequestHandler):
         self.page("Authority", body)
 
     TOOLS_MENU = (
-        ("/tools/setup", "Setup and checks", "cog", "Installation steps and connection readiness"),
-        ("/tools/help", "Help and troubleshooting", "certificate", "Connection guides and recovery steps"),
-        ("/tools/groups", "Groups", "account-group", "OUs, SCEP URLs, and challenges"),
-        ("/tools/wifi", "Wi-Fi networks", "wifi", "SSIDs, security, proxy, and Passpoint"),
-        ("/tools/mdm", "MDM profiles", "cellphone", "SCEP values and ready-made profiles"),
-        ("/tools/sign", "Sign a request", "file-sign", "CSRs from servers or another CA"),
-        ("/tools/cas", "Other trusted CAs", "server-security", "CAs enrolled devices also trust"),
-        ("/tools/options", "Add-on options", "cog", "The running configuration"),
+        ("/tools/sign", "Sign a request", "file-sign", "Sign a server, client or subordinate CA request"),
+        ("/tools/mdm", "MDM profiles", "cellphone", "Download profiles or copy SCEP values for your MDM"),
     )
-
-    def tool_navigation(self, title):
-        here = urllib.parse.urlsplit(self.path).path.rstrip("/")
-        links = "".join(
-            f'<a href="{esc(self.url(path))}"{" aria-current=page" if here == path else ""}>'
-            f'{esc(label)}</a>' for path, label, _, _ in self.TOOLS_MENU)
-        return (f'<nav class="tool-nav desktop-tool-navigation" aria-label="Certificate tools">{links}</nav>'
-                + f'<details class="mobile-tool-navigation"><summary>Other tools</summary><nav class="tool-nav" aria-label="Certificate tools">{links}</nav></details>'
-                + (f'<div class="page-head"><h2>{esc(title)}</h2></div>' if here != "/tools" else ""))
-
-    def tools_menu(self, current):
-        """The Tools tab: a menu of the tool pages (a <details>, so it works without the script)."""
-        here = urllib.parse.urlsplit(self.path).path.rstrip("/")
-        links = "".join(
-            f'<a href="{esc(self.url(path))}"{" aria-current=page" if path == here else ""}>{ui.icon(glyph)}'
-            f'<span class="menu-text"><span>{label}</span><span class="menu-sub">{sub}</span></span></a>'
-            for path, label, glyph, sub in self.TOOLS_MENU
-        )
-        return (
-            f'<details class="tab-menu"><summary class="tab{" current" if current == "/tools" else ""}">'
-            f'{ui.icon("wrench")}<span>Tools</span>{ui.icon("menu-down", "caret")}</summary>'
-            f'<nav class="menu" aria-label="Tools">{links}</nav></details>'
-        )
 
     def tools_page(self):
         rows = "".join(
@@ -2676,7 +2656,7 @@ class Handler(BaseHTTPRequestHandler):
             f'{ui.icon("chevron-right", "row-icon")}</a>'
             for path, label, glyph, sub in self.TOOLS_MENU
         )
-        self.page("Tools", f'<div class="card"><div class="card-header"><h2>Tools</h2></div>'
+        self.page("Certificate tools", f'<div class="card"><div class="card-header"><h2>Certificate tools</h2></div>'
                   f'<div class="rows">{rows}</div></div>', narrow=True)
 
     def setup_page(self, query=None):
@@ -2708,7 +2688,7 @@ class Handler(BaseHTTPRequestHandler):
         provider_state = "Not connected" if not SUPERVISOR_TOKEN else "Not checked"
         provider_detail = "Install the Step CA companion and Meraki HA integration, then restart Home Assistant."
         network_state = "Not configured"
-        network_detail = "Set resident_onboarding.network_id, ssid_number and group_policy_id in the add-on Configuration tab."
+        network_detail = "Choose the network, SSID and policy under Settings → IPSK → Network and onboarding."
         selected = config.get("network_id") and config.get("group_policy_id")
         if selected:
             network_state = "Configured; not checked"
@@ -2759,7 +2739,7 @@ class Handler(BaseHTTPRequestHandler):
                 identity_state = "Needs attention"
                 identity_detail = "Complete the permitted Duo group and required Admin API settings; verification also needs Universal SDK credentials and the exact public callback URL."
         qr_state = "Configured; not verified" if all(config.get(key) for key in ("guest_ssid", "guest_psk", "setup_ssid", "setup_psk")) else "Not fully configured"
-        qr_detail = "Save guest/setup network credentials under IPSK → Join codes. Guest policy must bypass splash; setup policy must open the captive portal. Physical QR scans remain a deployment check."
+        qr_detail = "Save guest/setup network credentials under Settings → IPSK → Guest and setup networks. Guest policy must bypass splash; setup policy must open the captive portal. Physical QR scans remain a deployment check."
         rows = (("MariaDB", database_state, database_detail), ("Meraki connection", provider_state, provider_detail),
                 ("Resident network and policy", network_state, network_detail), ("Public HTTPS", https_state, https_detail),
                 ("Resident identity", identity_state, identity_detail), ("Guest and setup QR codes", qr_state, qr_detail))
@@ -2809,7 +2789,7 @@ class Handler(BaseHTTPRequestHandler):
                  ("devices", "/ipsk/devices", "Registered devices"),
                  ("invitations", "/ipsk/invitations", "Invitations"),
                  ("join-codes", "/ipsk/join-codes", "Join codes"),
-                 ("access", "/ipsk/access", "Access settings"))
+                 ("settings", "/settings/ipsk", "IPSK settings"))
         page_path = "/ipsk" if section == "keys" else "/ipsk/" + section
         query = query or {}
         draft = draft or {}
@@ -2973,6 +2953,8 @@ class Handler(BaseHTTPRequestHandler):
                 (name == "keys" and section == "create") or
                 (name == "join-codes" and section == "join-codes/settings") else '') + f'>{label}</a>'
             for name, path, label in pages) + '</nav>'
+        if section in ("access", "join-codes/settings"):
+            navigation = ""
         is_devices = section == "devices"
         sort_field = "record_sort" if is_devices else "key_sort"
         sort_value = record_sort if is_devices else key_sort

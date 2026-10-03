@@ -274,7 +274,7 @@ A neutral HA canvas with one theme accent (HA light blue by default) and four st
 
 ## Layout
 
-Content sits in a centered column below a sticky 56px toolbar: 1120px wide for list, Authority, and Tools pages, 760px for narrow forms, 520px for public enrollment pages. Page padding is 24px sides and 48px bottom on desktop, 16px/12px/32px on mobile. Cards stack with 16px between them.
+Content sits in a centered column below a sticky 56px toolbar: 1120px wide for list, Authority, and Settings pages, 760px for narrow forms, 520px for public enrollment pages. Page padding is 24px sides and 48px bottom on desktop, 16px/12px/32px on mobile. Cards stack with 16px between them.
 
 Two-column pages use a 3fr/2fr grid with a 16px gap, the primary task on the left and reference on the right. At 860px and below the grid becomes one column and the four-tile health card becomes a 2×2 grid. At 640px and below the tabs leave the toolbar and become a fixed 56px bottom bar (icon over a 12px label, active indicator on top), the body reserves 64px at the bottom, form rows and the revoke form go single-column, and key-value rows stack the key above the value. Cards are also container-query hosts: a key-value row stacks below 520px of card width on any screen.
 
@@ -335,9 +335,9 @@ Quiet pills that follow ha-button.
 
 ### Navigation
 - **Toolbar:** sticky, 56px, page-gray background with a bottom divider, 20px title, then tabs at full height.
-- **Tabs:** Certificates, Enroll, Authority, and Tools; icon (20px) plus label, secondary ink, 0 20px padding. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners.
+- **Tabs:** Certificates, Enroll, IPSK, Authority, and Settings; icon (20px) plus label, secondary ink, 0 20px padding. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners.
 - **Mobile:** tabs become a fixed bottom bar; each tab is an equal column with the icon above a 12px label, and the indicator moves to the top edge, inset 25%.
-- **Tools navigation:** Groups, Wi-Fi networks, MDM profiles, Sign a request, Other trusted CAs, and Add-on options. A wrapping navigation row sits above each tool page, with 44px minimum targets, 8px corners, secondary ink at rest, and accent ink plus a 10% primary tint for `aria-current=page`. The Tools tab also exposes these routes in a native disclosure menu.
+- **Settings navigation:** a four-row hub leads to Certificates, Enrollment & Wi-Fi, IPSK, and System. Each category has focused subpages. Desktop subpages use a 240px sticky sidebar with 44px navigation targets and breadcrumbs; at 900px and below, a native disclosure replaces the sidebar. The menu stays usable without JavaScript. Home Assistant-managed options show a redacted saved summary and an explicit configuration link.
 - **Detail pages:** a back icon button replaces the tabs.
 - **Skip link:** admin and public pages expose “Skip to content” on keyboard focus and link to the main content landmark.
 
@@ -399,7 +399,8 @@ For device owners: a list where each step has a 28px circular counter in a 16% p
 The resident portal shares the public enrollment brand, card header, card content inset, alerts and field styling. It starts with the default-PSK captive redirect and a device-address check. Recovery precedes personal-data collection. Mobile resident inputs use 16px text and actions have a 44px minimum height. Successful registration on the current device displays the password and completion action before a collapsed QR; it does not navigate away automatically. The admin resident table adds the hardware MAC as data, with a dash when unavailable.
 
 IPSK opens on a focused Wi-Fi key inventory. Five local page links keep Wi-Fi
-keys, registered devices, invitations, join codes and access settings separate.
+keys, registered devices, invitations and join codes separate, with the fifth
+link opening central IPSK settings.
 Key creation and QR network settings have their own URLs and explicit return
 links. Each inventory owns its search, sorting, pagination and empty recovery;
 key status belongs only to the key inventory. Counts stay alongside their list,
@@ -474,3 +475,20 @@ Control outlines mix primary text at 54% opacity to exceed 3:1 against the
 default light/dark card surfaces. Native checked controls use accent fill,
 which contrasts with both surfaces and their check mark. Decorative card
 dividers retain the quiet HA divider token.
+
+## Central settings navigation (2026-10-03)
+
+Configuration is grouped by purpose under Settings rather than distributed
+across Tools and operational IPSK inventories. Existing editors retain their
+validation, ingress URLs and CSRF handling. Saved add-on options have focused
+category summaries and a Home Assistant configuration link; all top-level
+options are accounted for, with an advanced complete reference under System.
+Passwords and secrets never appear in the summaries. Native disclosure menus,
+HA theme tokens and the five-tab mobile bar remain the visual contract.
+
+Verification covered 22 routes at desktop, tablet, 390px and 320px widths, with
+light and dark themes. All 88 confirmation views passed axe with zero incomplete
+results or horizontal overflow. Keyboard and no-script navigation passed.
+The dark error-chip ink was lightened after the first inspection found a 4.42:1
+contrast ratio on the MDM “Not set” state. Evidence is under
+`.impeccable/audits/settings-menu/`. No new independent critique score is claimed.

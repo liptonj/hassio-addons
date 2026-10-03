@@ -212,3 +212,18 @@ suite, container rebuild, live provider check or independent rescore was run for
 this addition. The earlier 32/40 critique and 17/20 audit remain historical
 assessment results, not a new score for this revision. See the pre-install
 change record under ../audits/.
+
+### Central Settings (2026-10-03)
+
+The current navigation is Certificates, Enroll, IPSK, Authority and Settings.
+Settings supersedes historical Tools navigation: a four-category hub and
+focused subpages provide a desktop sidebar, breadcrumbs and a mobile native
+disclosure. Existing forms are moved without changing their validation or
+CSRF protection; Home Assistant-managed configuration has redacted saved
+summaries and a direct edit link. Operational inventories stay under IPSK.
+All add-on option keys are covered by the grouping test.
+
+The bounded inspection and one confirmation covered 88 final views, with zero
+axe findings, incomplete checks or horizontal overflow; keyboard and no-script
+menus passed. This is scoped verification, not a new independent audit score.
+See `../audits/settings-menu/`.

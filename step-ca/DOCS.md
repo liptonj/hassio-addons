@@ -65,9 +65,22 @@ It lets you:
 - add, edit, and remove [certificate groups](#certificate-groups) and
   download MDM profiles.
 
-The **Tools** tab is a menu: **Groups**, **MDM profiles**, **Sign a
-request**, **Other trusted CAs**, and **Add-on options** (a read-only
-summary of the running configuration).
+The **Settings** tab groups configuration into four submenus:
+
+- **Certificates:** authority and SCEP defaults, certificate groups, and device
+  trust certificates.
+- **Enrollment & Wi-Fi:** enrollment defaults, Wi-Fi profiles, profile signing,
+  and downloadable MDM profiles.
+- **IPSK:** network and onboarding, self-service and Duo, and guest/setup networks.
+- **System:** database, companion integration, setup checks, troubleshooting,
+  certificate tools, and the complete saved options reference.
+
+Each submenu opens a dedicated page. Desktop pages show a settings sidebar and
+breadcrumbs; phones use a collapsible Settings menu. Configuration managed by
+Home Assistant has an **Edit in Home Assistant** link. Its changes apply after
+restarting Step CA; existing certificates are retained. Saved passwords and
+secrets are redacted in configuration summaries. Old Tools and IPSK settings
+bookmarks redirect to their new pages, and older form URLs remain supported.
 
 The certificate list is read from step-ca's database, so it needs the
 `database` option set to `mariadb` (the default).
@@ -196,9 +209,10 @@ No grant link is offered on a rejected or failed registration.
 
 The **IPSK** section opens on **Wi-Fi keys**, with search, status filtering,
 sorting, and key actions. **Create a key** opens a separate form. **Registered
-devices**, **Invitations**, **Join codes**, and **Access settings** each have their
-own page. QR network settings open from Join codes; captive setup guidance is
-under Access settings. Search and pagination stay on the current inventory
+devices**, **Invitations**, and **Join codes** each have their own page.
+**IPSK settings** opens the central Settings submenu. QR network settings open
+under **Settings → IPSK → Guest and setup networks**; captive setup guidance is
+under **Settings → IPSK → Self-service and Duo**. Search and pagination stay on the current inventory
 page. Older `/residents` bookmarks redirect to IPSK, and older forms remain
 supported.
 
@@ -236,8 +250,8 @@ The QR carries Wi-Fi credentials and does not bind the key to a hardware MAC.
 
 ### Resident self-service and Duo
 
-Enable the public resident portal and select MariaDB, then open **IPSK →
-Access settings**. The same controls appear under
+Enable the public resident portal and select MariaDB, then open **Settings → IPSK →
+Self-service and Duo**. The same controls appear under
 `resident_onboarding` in the add-on options:
 
 | Setting | Behavior |
@@ -344,7 +358,7 @@ remains the implemented source of resident choices. See Cisco's
 
 ## Setup guidance and connection checks
 
-Open **Tools → Setup and checks** for installation steps and a readiness view
+Open **Settings → System → Setup and checks** for installation steps and a readiness view
 of MariaDB, the existing Meraki connection, the selected resident network/SSID/
 policy, public HTTPS, resident identity policy, and guest/setup QR settings.
 Before configuration, the page explains what is missing. **Check connections**
@@ -360,7 +374,7 @@ After editing add-on options, restart Step CA; the readiness view checks the
 running configuration. Service timeouts produce recovery guidance without
 showing credentials or provider response bodies.
 
-**Tools → Help and troubleshooting** includes searchable guides for initial
+**Settings → System → Help and troubleshooting** includes searchable guides for initial
 setup, resident Wi-Fi, the three QR use cases, private MAC recovery, expired
 sessions/lost credentials and certificate installation. Public resident pages
 also include a collapsed **Need help connecting?** guide and numbered progress.
@@ -441,7 +455,7 @@ RADIUS server or firewall can treat them differently. Each group has:
 - optionally `require_email`: certificates must carry an email subject
   alternative name (see [Requiring an email address](#requiring-an-email-address)).
 
-Manage groups under **Certificates → Tools → Groups**: add a group, edit or
+Manage groups under **Settings → Certificates → Certificate groups**: add a group, edit or
 remove one, and click **Generate** for a random challenge. Saving writes the
 add-on options and applies the change at once: step-ca reloads its
 provisioners without a restart, and enrollments in progress are not
@@ -464,7 +478,7 @@ groups:
 ```
 
 - **MDM**: make one SCEP profile per group, with the group's SCEP URL and
-  challenge (or download it under **Tools → MDM profiles** with the group
+  challenge (or download it under **Settings → Enrollment & Wi-Fi → MDM profiles** with the group
   selected). Assign each profile to that group of devices or users.
 - **Without an MDM**: choose the group when you create an enrollment link,
   enroll this device, or issue a .p12. A group without a `challenge` (like
@@ -613,10 +627,10 @@ the user. For updates without a tap, use an MDM (see
 
 ### Wi-Fi in the profile
 
-Add networks under **Tools → Wi-Fi networks** (or `wifi_networks`) to add a
+Add networks under **Settings → Enrollment & Wi-Fi → Wi-Fi profiles** (or `wifi_networks`) to add a
 Wi-Fi payload for each to Apple profiles. An EAP-TLS network uses the
 certificate from the profile's SCEP payload and trusts the root and
-intermediate CA, and any CAs added under **Tools → Other trusted CAs**, for the RADIUS
+intermediate CA, and any CAs added under **Settings → Certificates → Device trust certificates**, for the RADIUS
 server's certificate. For .p12 devices the page shows the
 settings to enter by hand (EAP method TLS, CA certificate, identity, and
 domain).
@@ -626,7 +640,7 @@ once, for example *Office iPhone* with a proxy and *Office Mac* that connects
 at the login window. Turn off **Include in every profile** for the extra ones:
 enrollment links, **Enroll this device**, and the MDM profile with every
 network set up only the networks that have it on (a profile can set up an SSID
-only once), and each network can be downloaded on its own under **Tools → MDM
+only once), and each network can be downloaded on its own under **Settings → Enrollment & Wi-Fi → MDM
 profiles**.
 
 The Wi-Fi editor separates network details, authentication, server trust,
@@ -664,7 +678,7 @@ certificates get all three.
 If your RADIUS server's certificate comes from another CA (for example a
 public CA or your network's own CA), add that CA so devices trust the server:
 
-1. Open **Certificates → Tools → Other trusted CAs**.
+1. Open **Settings → Certificates → Device trust certificates**.
 2. Choose the certificate file (PEM or DER,
    `.pem`, `.crt`, `.cer`) or paste the PEM, and click **Add**. A PEM file may
    hold several certificates. Only CA certificates are accepted.
@@ -686,7 +700,7 @@ files created afterwards; devices already enrolled keep what they got.
 
 Systems that create their own key, such as a RADIUS, web, or VPN server,
 give you a certificate signing request (CSR). To sign it, open
-**Certificates → Tools → Sign a request**, choose the
+**Settings → System → Certificate tools → Sign a request**, choose the
 file (PEM or DER) or paste the PEM, pick the type, and click **Sign and
 download**:
 
@@ -736,7 +750,7 @@ why.
 
 An MDM can deploy the same SCEP enrollment that enrollment links do. The
 values for your installation, and each certificate as a separate download,
-are on **Certificates → Tools → MDM profiles**.
+are on **Settings → Enrollment & Wi-Fi → MDM profiles**.
 
 Before you start:
 
@@ -749,7 +763,7 @@ Before you start:
 ### Download a ready-made profile (Apple devices)
 
 Instead of entering the values by hand, download a profile under
-**Certificates → Tools → MDM profiles → Download a profile for your
+**Settings → Enrollment & Wi-Fi → MDM profiles → Download a profile for your
 MDM** and upload it to your MDM as a custom profile. There is a separate
 download for each device type: **iPhone and iPad profile** and **Mac
 profile**. Upload both and assign each to those devices. **Download all
@@ -855,7 +869,7 @@ with these payloads.
   with this CA:
   1. In Meraki, go to **Organization → MDM** and download the SCEP CA
      certificate request (or the current SCEP CA certificate).
-  2. On **Certificates → Tools → Sign a request**,
+  2. On **Settings → System → Certificate tools → Sign a request**,
      choose that file, pick **Subordinate CA**, and select **Sign and
      download**. The root CA signs it with the extensions Meraki
      requires (`basicConstraints = critical,CA:true,pathlen:0` and
@@ -930,7 +944,7 @@ Certificate groups, each with `name`, `organizational_unit`, an optional
 `challenge`, an optional `cert_duration` (for example `720h`) that sets
 both the default and maximum lifetime, and an optional `require_email`. See
 [Certificate groups](#certificate-groups); edit them under
-**Certificates → Tools → Groups**.
+**Settings → Certificates → Certificate groups**.
 
 ### `encryption_algorithm`
 
@@ -991,7 +1005,7 @@ Publicly trusted certificate for signing Apple profiles. See
 ### `wifi_networks`
 
 Wi-Fi networks added to Apple profiles, one payload each. Edit them in the
-panel under **Tools > Wi-Fi networks**: changes are saved here and used by new
+panel under **Settings → Enrollment & Wi-Fi → Wi-Fi profiles**: changes are saved here and used by new
 profiles right away, without a restart. Profiles already on devices or
 uploaded to an MDM keep the old settings until you replace them.
 
@@ -1002,7 +1016,7 @@ Each network:
 - `include_by_default`: set up this network in enrollment links, **Enroll
   this device**, and the MDM profile with every network (default `true`).
   Networks with it on must have different SSIDs; download the others on their
-  own under **Tools → MDM profiles**.
+  own under **Settings → Enrollment & Wi-Fi → MDM profiles**.
 - `ssid`: network name. Optional for a Passpoint network.
 - `authentication`: `eap_tls` (default), `peap`, `eap_ttls`, `eap_fast`,
   `eap_sim`, `eap_aka`, `leap` (legacy), or `psk`. Match your RADIUS server.
@@ -1047,7 +1061,7 @@ Each network:
   reservations or MAC-based rules). iOS and iPadOS 14, macOS 15, and later;
   the device shows a privacy warning for the network.
 - `radius_server`: `custom` (default) for your own RADIUS server, whose CA
-  you add under **Tools > Other trusted CAs**; or `meraki_access_manager`,
+  you add under **Settings → Certificates → Device trust certificates**; or `meraki_access_manager`,
   which makes devices trust Meraki Access Manager's RADIUS certificate. See
   [Cisco Meraki Access Manager](#cisco-meraki-access-manager).
 - `radius_server_names`: optional. Pins the names in the RADIUS server's
@@ -1123,7 +1137,7 @@ Access Manager matches a certificate field, ideally the email address, to the
 user's Entra ID UPN; see [Requiring an email address](#requiring-an-email-address).
 
 With Meraki Systems Manager, download the profile with **Certificates, SCEP,
-and Wi-Fi** under **Tools > MDM**, so the Wi-Fi payload uses this CA's
+and Wi-Fi** under **Settings → Enrollment & Wi-Fi → MDM profiles**, so the Wi-Fi payload uses this CA's
 certificate and trusts Meraki's server. A Wi-Fi payload configured separately
 in Systems Manager cannot use the certificate from a custom profile. If the
 device joined the SSID by hand before, forget the network first.

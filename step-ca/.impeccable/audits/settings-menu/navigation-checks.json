@@ -1,0 +1,16 @@
+{
+  "keyboardMenuOpens": true,
+  "noJs": {
+    "links": [
+      "Certificates",
+      "Enrollment & Wi-Fi",
+      "IPSK",
+      "System",
+      "Network and onboarding",
+      "Self-service and Duo",
+      "Guest and setup networks"
+    ],
+    "open": true,
+    "overflow": 0
+  }
+}

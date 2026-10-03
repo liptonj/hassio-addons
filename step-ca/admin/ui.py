@@ -192,9 +192,15 @@ STYLE = """
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
 }
-:root[data-theme="dark"] { --warn-ink: color-mix(in srgb, var(--warning-color) 90%, #fff); }
+:root[data-theme="dark"] {
+  --warn-ink: color-mix(in srgb, var(--warning-color) 90%, #fff);
+  --bad-ink: color-mix(in srgb, var(--error-color) 70%, #fff);
+}
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --warn-ink: color-mix(in srgb, var(--warning-color) 90%, #fff); }
+  :root:not([data-theme="light"]) {
+    --warn-ink: color-mix(in srgb, var(--warning-color) 90%, #fff);
+    --bad-ink: color-mix(in srgb, var(--error-color) 70%, #fff);
+  }
 }
 * { box-sizing: border-box; }
 html { scrollbar-color: var(--scrollbar-thumb-color, var(--outline)) transparent; }
@@ -311,6 +317,36 @@ html:not(.js) .js-only { display: none !important; }
 a.icon-btn:hover { text-decoration: none; }
 
 /* Shared navigation and task forms */
+.settings-intro { max-width:72ch; margin-bottom:24px; }
+.settings-layout { display:grid; grid-template-columns:240px minmax(0,1fr); gap:32px; align-items:start; }
+.settings-content { min-width:0; }
+.settings-menu { position:sticky; top:80px; }
+.settings-menu > summary { display:none; }
+.settings-menu nav { display:flex; flex-direction:column; }
+.settings-menu nav a { display:flex; align-items:center; min-height:44px; padding:10px 12px;
+  color:var(--primary-text-color); overflow-wrap:anywhere; border-radius:8px; }
+.settings-menu nav a:hover { background:var(--hover); text-decoration:none; }
+.settings-menu nav a[aria-current=page], .settings-menu .selected-category {
+  color:var(--accent-ink); background:color-mix(in srgb,var(--primary-color) 10%,transparent); }
+.settings-menu .settings-submenu { margin-top:16px; padding-top:16px; border-top:1px solid var(--divider-color); }
+.settings-breadcrumb { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; font-size:14px; }
+.settings-breadcrumb a { min-height:44px; display:inline-flex; align-items:center; }
+.settings-breadcrumb > span { overflow-wrap:anywhere; min-width:0; }
+.settings-title { font-size:24px; line-height:32px; margin-bottom:24px; font-weight:400; }
+.settings-row .row-text { overflow-wrap:anywhere; }
+.settings-row .row-sub { line-height:20px; }
+.settings-value { overflow-wrap:anywhere; }
+.settings-content > .btn { min-height:44px; height:auto; padding-block:10px; white-space:normal; }
+.settings-content > .hint { margin-block:16px 24px; max-width:72ch; }
+@media (max-width:900px) {
+  .settings-layout { grid-template-columns:minmax(0,1fr); gap:24px; }
+  .settings-menu { position:static; border-bottom:1px solid var(--divider-color); }
+  .settings-menu > summary { display:flex; align-items:center; justify-content:space-between; gap:12px;
+    min-height:48px; padding:12px 0; cursor:pointer; list-style:none; }
+  .settings-menu > summary::-webkit-details-marker { display:none; }
+  .settings-menu nav { padding-block:8px 16px; }
+  .settings-title { font-size:22px; line-height:28px; margin-bottom:20px; }
+}
 [hidden] { display: none !important; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 20; padding: 12px 16px;
   background: var(--card-background-color); color: var(--accent-ink); border-radius: 8px; }
@@ -711,6 +747,14 @@ SCRIPT = r"""
 (function () {
   var root = document.documentElement;
   root.classList.add("js");
+  // Keep the settings hierarchy available without JavaScript; fold it on phones.
+  var settingsMenu = document.querySelector(".settings-menu");
+  if (settingsMenu) {
+    var settingsNarrow = window.matchMedia("(max-width:900px)");
+    function settingsLayout() { settingsMenu.open = !settingsNarrow.matches; }
+    settingsLayout();
+    settingsNarrow.addEventListener("change", settingsLayout);
+  }
   // iPadOS Safari says it is a Mac; touch tells them apart.
   document.querySelectorAll("input[data-touch]").forEach(function (input) {
     input.value = navigator.maxTouchPoints > 1 ? "1" : "";

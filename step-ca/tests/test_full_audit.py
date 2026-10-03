@@ -227,7 +227,8 @@ class ResidentManagementRegression(unittest.TestCase):
             with self.subTest(section=section):
                 markup = self.render(section=section)
                 self.assertIn(expected, markup)
-                self.assertEqual(markup.count('aria-current="page"'), 1)
+                self.assertEqual(markup.count('aria-current="page"'),
+                             0 if section in ("access", "join-codes/settings") else 1)
                 self.assertNotIn('id="device-keys"', markup)
                 self.assertNotIn('id="registered-devices"', markup)
                 if section != "access":
@@ -256,7 +257,7 @@ class ResidentManagementRegression(unittest.TestCase):
     def test_all_ipsk_get_routes_dispatch_to_the_matching_page(self):
         routes = {"/ipsk": "keys", "/ipsk/devices": "devices", "/ipsk/create": "create",
                   "/ipsk/invitations": "invitations", "/ipsk/join-codes": "join-codes",
-                  "/ipsk/join-codes/settings": "join-codes/settings", "/ipsk/access": "access"}
+                  "/settings/ipsk/join-codes": "join-codes/settings", "/settings/ipsk/access": "access"}
         for path, section in routes.items():
             with self.subTest(path=path):
                 handler = app.Handler.__new__(app.Handler)
@@ -265,7 +266,7 @@ class ResidentManagementRegression(unittest.TestCase):
                 handler.residents_page = MagicMock()
                 handler.do_GET()
                 handler.residents_page.assert_called_once_with({"q": ["fixture"]}, section=section)
-                self.assertEqual(handler.current_tab(), "/ipsk")
+                self.assertEqual(handler.current_tab(), "/settings" if path.startswith("/settings") else "/ipsk")
 
     def test_legacy_bookmark_redirects_and_preserves_filters(self):
         handler = app.Handler.__new__(app.Handler)

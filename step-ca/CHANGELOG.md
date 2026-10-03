@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.2.50
+
+- Added a central Settings menu with Certificates, Enrollment & Wi-Fi, IPSK,
+  and System submenus, focused pages, breadcrumbs and mobile navigation.
+- Moved existing configuration editors into their categories and added grouped,
+  redacted summaries with direct links for Home Assistant-managed options.
+- Preserved old bookmarks, form routes, ingress paths and CSRF protection.
+- Improved dark-theme error-state contrast and added settings routing,
+  configuration coverage and credential-redaction tests.
+
 ## 0.30.2.49
 
 - Renamed the administration area to IPSK and split keys, devices, invitations,
