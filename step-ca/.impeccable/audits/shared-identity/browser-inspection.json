@@ -1,0 +1,902 @@
+[
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/issuance",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/groups",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/trust",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/defaults",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/networks",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/signing",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/mdm",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/network",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/access",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/join-codes",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/storage",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/integration",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/checks",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/help",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/tools",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/options",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/sign",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/authentication",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "desktop-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/directory",
+    "violations": [],
+    "width": 1440
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/issuance",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/groups",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/trust",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/defaults",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/networks",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/signing",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/mdm",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/network",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/access",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/join-codes",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/storage",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/integration",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/checks",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/help",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/tools",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/options",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/sign",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/authentication",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "mobile-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/directory",
+    "violations": [],
+    "width": 390
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/issuance",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/groups",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/trust",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/defaults",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/networks",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/signing",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/mdm",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/network",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/access",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/join-codes",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/storage",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/integration",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/checks",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/help",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/tools",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/options",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/sign",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/authentication",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "small-phone-light",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/directory",
+    "violations": [],
+    "width": 320
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/issuance",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/groups",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/certificates/trust",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/defaults",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/networks",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/signing",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/enrollment/mdm",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/network",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/access",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/ipsk/join-codes",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/storage",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/integration",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/checks",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/help",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/tools",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/options",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/system/sign",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/authentication",
+    "violations": [],
+    "width": 768
+  },
+  {
+    "profile": "tablet-dark",
+    "error": false,
+    "incomplete": 0,
+    "overflow": 0,
+    "url": "/settings/identity/directory",
+    "violations": [],
+    "width": 768
+  }
+]

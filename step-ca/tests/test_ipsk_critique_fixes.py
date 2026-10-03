@@ -182,7 +182,7 @@ class CritiqueFixes(unittest.TestCase):
         self.assertFalse(settings["sign_in_required"])
         self.assertFalse(settings["no_sign_in_user_list"])
 
-    def test_access_error_keeps_mode_and_non_secret_fields(self):
+    def test_legacy_access_error_hands_off_to_shared_directory_with_safe_draft(self):
         handler = self.handler(
             "/ipsk/access/settings",
             {
@@ -192,6 +192,7 @@ class CritiqueFixes(unittest.TestCase):
                 "max_devices_per_resident": "7",
             },
         )
+        handler.identity_page = MagicMock()
         with (
             patch.object(
                 app,
@@ -202,10 +203,13 @@ class CritiqueFixes(unittest.TestCase):
         ):
             handler.handle_post()
         save.assert_not_called()
-        kwargs = handler.residents_page.call_args.kwargs
-        self.assertTrue(kwargs["draft"]["sign_in_required"])
+        self.assertEqual(handler.identity_page.call_args.args, ("directory",))
+        kwargs = handler.identity_page.call_args.kwargs
+        self.assertEqual(kwargs["draft"]["duo_group_id"], "invalid-group")
         self.assertNotIn("duo_client_secret", kwargs["draft"])
-        page = self.render("access", draft=kwargs["draft"], error=kwargs["error"])
+        with patch.object(app, "saved_options", return_value={"resident_onboarding": {}}):
+            app.Handler.identity_page(handler, "directory", draft=kwargs["draft"], error=kwargs["error"])
+        page = handler.send.call_args.args[1]
         self.assertIn('value="invalid-group"', page)
         self.assertIn('id="duo_group_id-error"', page)
         self.assertNotIn("new-secret", page)

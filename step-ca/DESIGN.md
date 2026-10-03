@@ -337,7 +337,7 @@ Quiet pills that follow ha-button.
 - **Toolbar:** sticky, 56px, page-gray background with a bottom divider, 20px title, then tabs at full height.
 - **Tabs:** Certificates, Enroll, IPSK, Authority, and Settings; icon (20px) plus label, secondary ink, 0 20px padding. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners.
 - **Mobile:** tabs become a fixed bottom bar; each tab is an equal column with the icon above a 12px label, and the indicator moves to the top edge, inset 25%.
-- **Settings navigation:** a four-row hub leads to Certificates, Enrollment & Wi-Fi, IPSK, and System. Each category has focused subpages. Desktop subpages use a 240px sticky sidebar with 44px navigation targets and breadcrumbs; at 900px and below, a native disclosure replaces the sidebar. The menu stays usable without JavaScript. Home Assistant-managed options show a redacted saved summary and an explicit configuration link.
+- **Settings navigation:** a five-row hub leads to Certificates, Enrollment & Wi-Fi, IPSK, Identity & access, and System. Each category has focused subpages. Desktop subpages use a 240px sticky sidebar with 44px navigation targets and breadcrumbs; at 900px and below, a native disclosure replaces the sidebar. The menu stays usable without JavaScript. Home Assistant-managed options show a redacted saved summary and an explicit configuration link.
 - **Detail pages:** a back icon button replaces the tabs.
 - **Skip link:** admin and public pages expose “Skip to content” on keyboard focus and link to the main content landmark.
 
@@ -404,8 +404,9 @@ link opening central IPSK settings.
 Key creation and QR network settings have their own URLs and explicit return
 links. Each inventory owns its search, sorting, pagination and empty recovery;
 key status belongs only to the key inventory. Counts stay alongside their list,
-and only Create a key leads the inventory's actions. Access settings retain
-self-service and Duo controls, with captive setup guidance disclosed below.
+and only Create a key leads the inventory's actions. Device access retains
+Wi-Fi self-service policy and limits, linking to shared authentication and the
+user directory, with captive setup guidance disclosed below.
 The main section label is IPSK; resident remains the name for the person using
 Wi-Fi. Dates follow the existing readable UTC format.
 
@@ -492,3 +493,13 @@ results or horizontal overflow. Keyboard and no-script navigation passed.
 The dark error-chip ink was lightened after the first inspection found a 4.42:1
 contrast ratio on the MDM “Not set” state. Evidence is under
 `.impeccable/audits/settings-menu/`. No new independent critique score is claimed.
+
+## Shared identity settings (2026-10-03)
+
+Authentication and the user directory belong to Identity & access, independently
+of the Wi-Fi feature. Each has a dedicated provider form with scoped saves,
+masked retained secrets and focused validation recovery. The IPSK Device access
+page holds application policy and device limits, with explicit links to the
+shared configuration. Provider validation is extracted into identity_settings
+and can run without an IPSK network or enabled portal. Existing saved option
+keys and current Duo authentication semantics are retained for compatibility.

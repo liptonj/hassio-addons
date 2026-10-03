@@ -5,6 +5,7 @@ import re
 from urllib.parse import urlsplit, urlunsplit
 
 import ui
+import identity_settings
 
 
 GROUPS = (
@@ -59,7 +60,7 @@ GROUPS = (
         "ipsk",
         "IPSK",
         "wifi",
-        "Onboarding, identity rules and guest/setup networks",
+        "Wi-Fi onboarding, device access and guest/setup networks",
         (
             (
                 "network",
@@ -68,13 +69,31 @@ GROUPS = (
             ),
             (
                 "access",
-                "Self-service and Duo",
-                "Device limits, account selection and identity verification",
+                "Device access",
+                "Self-service, device limits and use of shared identity services",
             ),
             (
                 "join-codes",
                 "Guest and setup networks",
                 "Network credentials used by the shared join codes",
+            ),
+        ),
+    ),
+    (
+        "identity",
+        "Identity & access",
+        "account-group",
+        "Shared authentication and user directory",
+        (
+            (
+                "authentication",
+                "Authentication",
+                "Duo verification provider and callback",
+            ),
+            (
+                "directory",
+                "User directory",
+                "Permitted user group and directory connection",
             ),
         ),
     ),
@@ -153,6 +172,10 @@ OPTION_PAGES = {
     ),
     "enrollment/signing": (("profile_signing", "Profile signing"),),
     "ipsk/network": (("resident_onboarding", "IPSK onboarding"),),
+    "ipsk/access": (("resident_onboarding", "IPSK device access"),),
+    "ipsk/join-codes": (("resident_onboarding", "Guest and setup networks"),),
+    "identity/authentication": (("resident_onboarding", "Authentication"),),
+    "identity/directory": (("resident_onboarding", "User directory"),),
     "system/storage": (
         ("database", "Database backend"),
         ("mariadb_database", "MariaDB database name"),
@@ -200,6 +223,18 @@ IPSK_NETWORK_FIELDS = {
     "ssid_number",
     "group_policy_id",
     "duration_hours",
+}
+ONBOARDING_SECTIONS = {
+    "ipsk/network": IPSK_NETWORK_FIELDS,
+    "ipsk/access": {
+        "self_service_enabled",
+        "sign_in_required",
+        "no_sign_in_user_list",
+        "max_devices_per_resident",
+    },
+    "ipsk/join-codes": {"guest_ssid", "guest_psk", "setup_ssid", "setup_psk"},
+    "identity/authentication": set(identity_settings.FIELDS["authentication"]),
+    "identity/directory": set(identity_settings.FIELDS["directory"]),
 }
 
 
@@ -300,7 +335,7 @@ class SettingsMixin:
             )
             title, description = (
                 "Settings",
-                "Choose a category to configure certificates, enrollment, IPSK or the add-on.",
+                "Choose a category to configure certificates, enrollment, Wi-Fi, shared identity or the add-on.",
             )
         self.page(
             title,
@@ -383,13 +418,11 @@ class SettingsMixin:
                 rows = ""
                 for name, label in fields:
                     value = options.get(name)
-                    if (
-                        name == "resident_onboarding"
-                        and not all_options
-                        and isinstance(value, dict)
-                    ):
+                    if name == "resident_onboarding" and isinstance(value, dict):
                         value = {
-                            k: v for k, v in value.items() if k in IPSK_NETWORK_FIELDS
+                            k: v
+                            for k, v in value.items()
+                            if k in ONBOARDING_SECTIONS[key]
                         }
                     rows += option_rows(name, value, label)
                 label = next(
@@ -413,6 +446,13 @@ class SettingsMixin:
                     option_rows(key, value)
                     for key, value in options.items()
                     if key not in assigned
+                )
+                onboarding = options.get("resident_onboarding") or {}
+                known = set().union(*ONBOARDING_SECTIONS.values())
+                extra += "".join(
+                    option_rows(key, value)
+                    for key, value in onboarding.items()
+                    if key not in known
                 )
                 if extra:
                     body += (
@@ -446,6 +486,12 @@ class SettingsMixin:
             ),
             "/settings/ipsk/join-codes": lambda: self.residents_page(
                 query, section="join-codes/settings"
+            ),
+            "/settings/identity/authentication": lambda: self.identity_page(
+                "authentication", query
+            ),
+            "/settings/identity/directory": lambda: self.identity_page(
+                "directory", query
             ),
             "/settings/system/checks": lambda: self.setup_page(query),
             "/settings/system/help": lambda: self.help_page(query),

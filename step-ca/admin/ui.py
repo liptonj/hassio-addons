@@ -336,6 +336,9 @@ a.icon-btn:hover { text-decoration: none; }
 .settings-row .row-text { overflow-wrap:anywhere; }
 .settings-row .row-sub { line-height:20px; }
 .settings-value { overflow-wrap:anywhere; }
+.identity-settings .field-row + .field-row { margin-top:16px; }
+.identity-settings .btn { min-height:44px; }
+@media (max-width:640px) { .identity-settings input { font-size:16px; } }
 .settings-content > .btn { min-height:44px; height:auto; padding-block:10px; white-space:normal; }
 .settings-content > .hint { margin-block:16px 24px; max-width:72ch; }
 @media (max-width:900px) {

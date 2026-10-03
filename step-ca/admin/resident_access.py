@@ -12,16 +12,17 @@ import secrets
 import threading
 import time
 from http.cookies import SimpleCookie, CookieError
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode
 
 import ui
 import guidance
+import identity_settings
 
 SETTINGS_OVERRIDE = None
 SESSIONS = {}
 LOCK = threading.RLock()
 TTL = 1800
-SECRET_FIELDS = ("duo_client_secret", "duo_admin_secret")
+SECRET_FIELDS = identity_settings.SECRET_FIELDS
 TEXT_FIELDS = ("duo_client_id", "duo_api_hostname", "duo_redirect_uri",
                "duo_admin_integration_key", "duo_admin_hostname", "duo_group_id")
 BOOL_FIELDS = ("self_service_enabled", "sign_in_required", "no_sign_in_user_list")
@@ -46,32 +47,13 @@ def validate_settings(config):
         raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.")
     needs_directory = config.get("sign_in_required") or config.get("no_sign_in_user_list")
     if needs_directory:
-        if not re.fullmatch(r"DG[A-Z0-9]{18}", str(config.get("duo_group_id") or "")):
-            raise guidance.FieldError("duo_group_id", "Enter the permitted Duo group ID (DG followed by 18 letters or digits).")
-        if not all(config.get(k) for k in ("duo_admin_integration_key", "duo_admin_secret", "duo_admin_hostname")):
-            raise ValueError("Enter the Duo Admin API credentials to check permitted group members.")
-        try:
-            _host(config["duo_admin_hostname"])
-        except ValueError as err:
-            raise guidance.FieldError("duo_admin_hostname", str(err)) from err
+        identity_settings.validate(config, "directory", required=True)
     if config.get("sign_in_required"):
-        if not all(config.get(k) for k in ("duo_client_id", "duo_client_secret", "duo_api_hostname", "duo_redirect_uri")):
-            raise ValueError("Complete the Duo Universal SDK settings before requiring sign-in.")
-        try:
-            _host(config["duo_api_hostname"])
-        except ValueError as err:
-            raise guidance.FieldError("duo_api_hostname", str(err)) from err
-        callback = urlsplit(config["duo_redirect_uri"])
-        if (callback.scheme != "https" or not callback.hostname or callback.username or callback.password
-                or callback.path != "/api/step_ca_scep/portal" or callback.query != "action=duo_callback"
-                or callback.fragment or any(ord(c) < 33 for c in config["duo_redirect_uri"])):
-            raise guidance.FieldError("duo_redirect_uri", "Use your public HTTPS Home Assistant URL followed by /api/step_ca_scep/portal?action=duo_callback.")
+        identity_settings.validate(config, "authentication", required=True)
 
 
 def _host(value):
-    if not re.fullmatch(r"api-[A-Za-z0-9]+\.duosecurity\.com", str(value or "")):
-        raise ValueError("Enter a Duo API hostname such as api-xxxxxxxx.duosecurity.com, without https://.")
-    return value
+    return identity_settings.duo_hostname(value)
 
 
 def admin_client(config):
@@ -520,15 +502,28 @@ def create_device(engine, config, identity, name, mac, unit, invitation, ip):
         conn.close()
 
 
-def admin_settings_card(engine, config, csrf, action_url, standalone=False):
+def admin_settings_card(engine, config, csrf, action_url, standalone=False, identity_urls=None):
     toggles = ""
     for key, label, help_text in (
         ("self_service_enabled", "Allow residents to add other devices", "Residents can issue a device key and download its join QR."),
         ("sign_in_required", "Require Duo verification", "Residents enter a username and verify with Duo. The SDK verifies a factor; it does not provide primary password SSO."),
         ("no_sign_in_user_list", "Show a resident list when sign-in is off", "Only members of the permitted Duo group are listed. Selecting a name does not verify identity or reveal existing keys."),
     ):
+        if identity_urls and key == "sign_in_required":
+            label, help_text = "Require authentication for IPSK", "Use the shared authentication provider and permitted user group before issuing a Wi-Fi key."
+        elif identity_urls and key == "no_sign_in_user_list":
+            label, help_text = "Use the user directory when authentication is off", "Let users select their name from the permitted group. Selection does not verify identity or reveal existing keys."
         toggles += (f'<label class="check"><input id="{key}" type=checkbox name="{key}" value=1 aria-describedby="{key}-help"' + (' checked' if config.get(key) else '')
                     + f'>{label}</label><p class=hint id="{key}-help">{help_text}</p>')
+    if identity_urls:
+        links = ' · '.join(f'<a href="{engine.esc(url)}">{label}</a>' for label, url in identity_urls)
+        return ('<section class="card" id="resident-access-settings"><div class="card-content">'
+                '<p>Choose how residents create Wi-Fi keys. Configure shared identity services under Identity &amp; access.</p>'
+                f'<form method="post" action="{engine.esc(action_url)}">{csrf}{toggles}'
+                '<label for="max_devices_per_resident">Device limit per resident</label>'
+                '<input id="max_devices_per_resident" type="number" name="max_devices_per_resident" min="1" max="50" '
+                f'value="{engine.esc(config.get("max_devices_per_resident", 5))}" required>'
+                f'<p class="hint">{links}</p><button class="btn" type="submit">Save device access</button></form></div></section>')
     def field(key, label, hint=""):
         secret = key in SECRET_FIELDS
         return (f'<div class="field"><label>{label}<input id="{key}" name="{key}" maxlength="512" aria-describedby="{key}-help" type="{"password" if secret else "text"}" '

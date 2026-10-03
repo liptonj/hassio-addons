@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.30.2.51
+
+- Moved authentication and the user directory into a separate Identity & access
+  Settings category, with independent provider forms available without IPSK.
+- Kept Wi-Fi device rules and limits under IPSK, linking to shared identity
+  services instead of embedding their credentials.
+- Added scoped saves that preserve other settings and blank saved secrets,
+  reusable provider validation, and legacy-form recovery to the right page.
+- Grouped the complete configuration reference by identity and Wi-Fi purpose
+  while preserving existing add-on option keys and authentication behavior.
+
 ## 0.30.2.50
 
 - Added a central Settings menu with Certificates, Enrollment & Wi-Fi, IPSK,

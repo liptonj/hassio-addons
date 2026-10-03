@@ -44,6 +44,7 @@ import enroll
 import ipsk
 import guidance
 import ui
+import identity_settings
 from settings_menu import SettingsMixin, canonical_url, legacy_path
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
@@ -1464,12 +1465,18 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         if content_type.startswith("multipart/form-data"):
             form = parse_multipart(content_type, body)
         else:
-            form = urllib.parse.parse_qs(body.decode(errors="replace"))
+            form = urllib.parse.parse_qs(body.decode(errors="replace"), keep_blank_values=path.startswith("/settings/identity/"))
         if any(len(values) != 1 for values in form.values()):
             self.send(400, "Submit each form field once.", "text/plain")
             return
         if not secrets.compare_digest(str(form.get("csrf", [""])[0]), CSRF_TOKEN):
             self.send(403, "Invalid form token; reload the page and try again.", "text/plain")
+            return
+        if path in ("/settings/identity/authentication/save", "/settings/identity/directory/save"):
+            self.identity_save(path.split("/")[3], form)
+            return
+        if urllib.parse.urlsplit(self.path).path == "/settings/ipsk/access/save":
+            self.access_policy_save(form)
             return
         if path == "/ca/extra":
             self.extra_ca_add(form)
@@ -1551,7 +1558,12 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                 draft = {key: str(form[key][0])[:512] for key in access.TEXT_FIELDS if key in form}
                 draft.update({key: form.get(key, [""])[0] == "1" for key in access.BOOL_FIELDS})
                 draft["max_devices_per_resident"] = str(form.get("max_devices_per_resident", ["5"])[0])[:8]
-                self.residents_page({}, error=err, section="access", draft=draft)
+                kind = next((kind for kind, fields in identity_settings.FIELDS.items() if getattr(err, "field", "") in fields), None)
+                if kind:
+                    self.path = "/settings/identity/" + kind
+                    self.identity_page(kind, error=err, draft={key: value for key, value in draft.items() if key in identity_settings.FIELDS[kind]})
+                else:
+                    self.residents_page({}, error=err, section="access", draft=draft)
             return
         if path == "/residents/ipsk/create":
             values = {key: str(items[0]).strip() for key, items in form.items() if items}
@@ -2783,6 +2795,60 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             articles = '<div class="card"><div class="empty"><h2>No matching guides</h2><p>Try Wi-Fi, invitation, private MAC, password or certificate; or clear the search.</p></div></div>'
         self.page("Help and troubleshooting", controls + articles, narrow=True)
 
+    def identity_page(self, kind, query=None, error=None, draft=None):
+        title = "Authentication" if kind == "authentication" else "User directory"
+        try:
+            config = dict(saved_options().get("resident_onboarding") or {})
+        except RuntimeError:
+            self.page(title, ui.alert("warning", "Saved identity settings could not be read. Check the Home Assistant connection and try again.", "Settings unavailable"))
+            return
+        config.update(draft or {})
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        other = "directory" if kind == "authentication" else "authentication"
+        body = identity_settings.form(config, kind, csrf, self.url(f"/settings/identity/{kind}/save"), self.url(f"/settings/identity/{other}"))
+        if error:
+            body = ui.alert("error", esc(error), "Could not save settings") + '<p class="hint">Your other details are kept. Re-enter any new secret before saving.</p>' + guidance.form_error(body, error)
+        elif (query or {}).get("saved"):
+            body = ui.alert("success", f"{title} settings were saved.", "Settings saved") + body
+        self.page(title, body)
+
+    def identity_save(self, kind, form):
+        access = ipsk.resident_access
+        try:
+            options = saved_options()
+            config = identity_settings.merge(options.get("resident_onboarding") or {}, kind, form)
+            required = bool(config.get("sign_in_required") or (kind == "directory" and config.get("no_sign_in_user_list")))
+            identity_settings.validate(config, kind, required=required)
+            options["resident_onboarding"] = config
+            supervisor("POST", "/addons/self/options", {"options": options})
+            access.SETTINGS_OVERRIDE = config
+            self.identity_page(kind, {"saved": ["1"]})
+        except Exception as err:
+            draft = {key: str(form[key][0])[:512] for key in identity_settings.FIELDS[kind] if key not in identity_settings.SECRET_FIELDS and key in form}
+            error = err if isinstance(err, ValueError) else RuntimeError("Could not save identity settings. Check the Home Assistant connection and try again.")
+            self.identity_page(kind, error=error, draft=draft)
+
+    def access_policy_save(self, form):
+        access = ipsk.resident_access
+        try:
+            options = saved_options()
+            config = dict(options.get("resident_onboarding") or {})
+            for key in access.BOOL_FIELDS:
+                config[key] = form.get(key, [""])[0] == "1"
+            try:
+                config["max_devices_per_resident"] = int(form.get("max_devices_per_resident", ["5"])[0])
+            except ValueError as err:
+                raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.") from err
+            access.validate_settings(config)
+            options["resident_onboarding"] = config
+            supervisor("POST", "/addons/self/options", {"options": options})
+            access.SETTINGS_OVERRIDE = config
+            self.residents_page({"access_saved": ["1"]}, section="access")
+        except Exception as err:
+            draft = {key: form.get(key, [""])[0] == "1" for key in access.BOOL_FIELDS}
+            draft["max_devices_per_resident"] = str(form.get("max_devices_per_resident", ["5"])[0])[:8]
+            self.residents_page({}, error=err, section="access", draft=draft)
+
     def residents_page(self, query=None, error="", invite_code="", revealed=None, created_key="", join_key=None, section="keys", draft=None):
         """Render one focused IPSK task; existing POST handlers share feedback here."""
         pages = (("keys", "/ipsk", "Wi-Fi keys"),
@@ -2828,7 +2894,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         elif query.get("qr_saved"):
             notice = ui.alert("success", "The guest and registration QR settings were saved.", "QR settings saved")
         elif query.get("access_saved"):
-            notice = ui.alert("success", "Self-service and Duo settings were saved.", "Access settings saved")
+            notice = ui.alert("success", "Wi-Fi device access settings were saved.", "Access settings saved")
         elif invite_code:
             notice = ui.alert(
                 "success",
@@ -2982,7 +3048,8 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         )
         qr_cards = []
         access_settings_card = ipsk.resident_access.admin_settings_card(
-            ipsk, qr_settings, csrf, self.url("/ipsk/access/settings"), standalone=True) if section == "access" else ""
+            ipsk, qr_settings, csrf, self.url("/ipsk/access/settings"), standalone=True,
+            identity_urls=(("Authentication", self.url("/settings/identity/authentication")), ("User directory", self.url("/settings/identity/directory")))) if section == "access" else ""
         for kind, title, description in (
             ("guest", "Guest access", "Scan to join with the guest password. No resident registration is required."),
             ("setup", "Join and create a key", "Scan to join the setup network, then open Wi-Fi sign-in to register and receive your individual key."),

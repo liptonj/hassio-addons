@@ -227,3 +227,14 @@ The bounded inspection and one confirmation covered 88 final views, with zero
 axe findings, incomplete checks or horizontal overflow; keyboard and no-script
 menus passed. This is scoped verification, not a new independent audit score.
 See `../audits/settings-menu/`.
+
+### Identity & access (2026-10-03)
+
+The Settings hub now has five categories. Authentication and User directory
+are independent forms under Identity & access; they are available with IPSK
+disabled and do not require its network/database configuration. IPSK Device
+access holds consumer policy and limits, linking to those shared services.
+The new module provides provider field groups, validation and rendering;
+scoped saves preserve unrelated options and retained secrets. Legacy option
+keys remain compatible. Current runtime remains Duo verification plus a
+group-scoped directory, not primary password SSO.

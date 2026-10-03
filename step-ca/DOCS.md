@@ -65,13 +65,14 @@ It lets you:
 - add, edit, and remove [certificate groups](#certificate-groups) and
   download MDM profiles.
 
-The **Settings** tab groups configuration into four submenus:
+The **Settings** tab groups configuration into five submenus:
 
 - **Certificates:** authority and SCEP defaults, certificate groups, and device
   trust certificates.
 - **Enrollment & Wi-Fi:** enrollment defaults, Wi-Fi profiles, profile signing,
   and downloadable MDM profiles.
-- **IPSK:** network and onboarding, self-service and Duo, and guest/setup networks.
+- **IPSK:** network and onboarding, device access, and guest/setup networks.
+- **Identity & access:** shared authentication and the user directory.
 - **System:** database, companion integration, setup checks, troubleshooting,
   certificate tools, and the complete saved options reference.
 
@@ -212,7 +213,7 @@ sorting, and key actions. **Create a key** opens a separate form. **Registered
 devices**, **Invitations**, and **Join codes** each have their own page.
 **IPSK settings** opens the central Settings submenu. QR network settings open
 under **Settings → IPSK → Guest and setup networks**; captive setup guidance is
-under **Settings → IPSK → Self-service and Duo**. Search and pagination stay on the current inventory
+under **Settings → IPSK → Device access**. Search and pagination stay on the current inventory
 page. Older `/residents` bookmarks redirect to IPSK, and older forms remain
 supported.
 
@@ -250,15 +251,22 @@ The QR carries Wi-Fi credentials and does not bind the key to a hardware MAC.
 
 ### Resident self-service and Duo
 
-Enable the public resident portal and select MariaDB, then open **Settings → IPSK →
-Self-service and Duo**. The same controls appear under
-`resident_onboarding` in the add-on options:
+Configure the Duo verification provider under **Settings → Identity & access →
+Authentication** and the permitted group/Admin API connection under **User
+directory**. These shared settings are available even when IPSK onboarding is
+disabled. Each page saves only its own fields; blank secrets keep their saved
+values. Directory selection does not authenticate a user.
+
+Enable the public resident portal and select MariaDB, then open **Settings →
+IPSK → Device access** to choose whether Wi-Fi uses authentication or the user
+directory and to set device limits. The existing option keys remain under
+`resident_onboarding` for configuration and runtime compatibility:
 
 | Setting | Behavior |
 | --- | --- |
 | Allow residents to add other devices | Residents can create a new iPSK and downloadable Wi-Fi QR for another device. |
-| Require Duo verification | A resident enters their Duo username, verifies through the Universal Prompt, and must belong to the configured group. |
-| Show a resident list when sign-in is off | Only usernames from the configured Duo group appear in the selector. Selected names attribute new keys; they are not authenticated identities. |
+| Require authentication for IPSK | A resident enters their Duo username, verifies through the Universal Prompt, and must belong to the configured group. |
+| Use the user directory when authentication is off | Only usernames from the configured Duo group appear in the selector. Selected names attribute new keys; they are not authenticated identities. |
 | Both verification and the resident list off | Residents enter their name and email. They must arrive through the setup captive portal. |
 | Device limit per resident | Limits recorded device keys. Revoke or delete a self-service key in this admin panel to release its slot. |
 

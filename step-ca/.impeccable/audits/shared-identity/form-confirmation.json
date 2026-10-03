@@ -1,0 +1,45 @@
+[
+  {
+    "state": "directory-error",
+    "violations": [],
+    "incomplete": 0,
+    "overflow": 0,
+    "invalid": "true",
+    "draft": "invalid-group",
+    "secretBlank": true
+  },
+  {
+    "incomplete": 0,
+    "overflow": 0,
+    "saved": true,
+    "secretBlank": true,
+    "state": "directory-saved",
+    "violations": []
+  },
+  {
+    "incomplete": 0,
+    "invalid": "true",
+    "overflow": 0,
+    "secretBlank": true,
+    "state": "authentication-error",
+    "violations": []
+  },
+  {
+    "incomplete": 0,
+    "overflow": 0,
+    "saved": true,
+    "secretBlank": true,
+    "state": "authentication-saved",
+    "violations": []
+  },
+  {
+    "authenticationRequired": true,
+    "incomplete": 0,
+    "limit": "7",
+    "overflow": 0,
+    "providerFields": 0,
+    "saved": true,
+    "state": "ipsk-policy-saved",
+    "violations": []
+  }
+]

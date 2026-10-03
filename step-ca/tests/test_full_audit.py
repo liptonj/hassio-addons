@@ -222,7 +222,7 @@ class ResidentManagementRegression(unittest.TestCase):
     def test_each_task_is_a_separate_page_with_current_navigation(self):
         checks = (("create", 'id="create-device-key"'), ("invitations", "Create invitation code"),
                   ("join-codes", 'id="join-codes"'), ("join-codes/settings", 'id="qr-settings"'),
-                  ("access", "Save access settings"))
+                  ("access", "Save device access"))
         for section, expected in checks:
             with self.subTest(section=section):
                 markup = self.render(section=section)
@@ -232,7 +232,7 @@ class ResidentManagementRegression(unittest.TestCase):
                 self.assertNotIn('id="device-keys"', markup)
                 self.assertNotIn('id="registered-devices"', markup)
                 if section != "access":
-                    self.assertNotIn("Save access settings", markup)
+                    self.assertNotIn("Save device access", markup)
                 if section != "invitations":
                     self.assertNotIn("Create invitation code", markup)
 

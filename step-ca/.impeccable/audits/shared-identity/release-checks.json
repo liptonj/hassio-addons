@@ -1,0 +1,76 @@
+{
+  "release": "0.30.2.51",
+  "unit_tests": 175,
+  "homeassistant": "2026.9.4",
+  "ha_checks": 7,
+  "browser_views": 100,
+  "browser_form_states": 5,
+  "browser_findings": 0,
+  "containers": {
+    "aarch64": {
+      "status": "passed",
+      "machine": "aarch64",
+      "portal_imports": true,
+      "companion_parse": true,
+      "settings_routes": 8,
+      "source_sha256": {
+        "app.py": "ff68deea0a80e34e7b6163cb7f38c32189a7b1d0b1d4d21ba62bd90366cecfda",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "666d42f8f49d486a8d0f5b735863c89331a5aacf3cddf8e8484f05a3f721f68b",
+        "resident_access.py": "324b066ddcb5bc8293331a14b98c1815b6d89014f626463494a2eae7be0417fb",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "afee48c76cbde2912d57db9b74b5aff6fa3022be965f7818953ec94a9ac1d4e1",
+        "ui.py": "db64a9cfce64989d3e41586260dcf12869e5263af6dd1d1d94eb3041b5c6299b"
+      }
+    },
+    "amd64": {
+      "status": "passed",
+      "machine": "x86_64",
+      "portal_imports": true,
+      "companion_parse": true,
+      "settings_routes": 8,
+      "source_sha256": {
+        "app.py": "ff68deea0a80e34e7b6163cb7f38c32189a7b1d0b1d4d21ba62bd90366cecfda",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "666d42f8f49d486a8d0f5b735863c89331a5aacf3cddf8e8484f05a3f721f68b",
+        "resident_access.py": "324b066ddcb5bc8293331a14b98c1815b6d89014f626463494a2eae7be0417fb",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "afee48c76cbde2912d57db9b74b5aff6fa3022be965f7818953ec94a9ac1d4e1",
+        "ui.py": "db64a9cfce64989d3e41586260dcf12869e5263af6dd1d1d94eb3041b5c6299b"
+      }
+    },
+    "armv7": {
+      "status": "passed",
+      "machine": "armv7l",
+      "portal_imports": true,
+      "companion_parse": true,
+      "settings_routes": 8,
+      "source_sha256": {
+        "app.py": "ff68deea0a80e34e7b6163cb7f38c32189a7b1d0b1d4d21ba62bd90366cecfda",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "666d42f8f49d486a8d0f5b735863c89331a5aacf3cddf8e8484f05a3f721f68b",
+        "resident_access.py": "324b066ddcb5bc8293331a14b98c1815b6d89014f626463494a2eae7be0417fb",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "afee48c76cbde2912d57db9b74b5aff6fa3022be965f7818953ec94a9ac1d4e1",
+        "ui.py": "db64a9cfce64989d3e41586260dcf12869e5263af6dd1d1d94eb3041b5c6299b"
+      }
+    }
+  },
+  "static_checks": [
+    "ruff",
+    "Python compilation",
+    "Bash/JavaScript syntax",
+    "YAML/JSON parsing",
+    "git diff --check"
+  ],
+  "native_build_retry": "Initial Alpine package download returned I/O error; retry succeeded."
+}
