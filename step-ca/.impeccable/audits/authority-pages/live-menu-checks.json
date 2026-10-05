@@ -1,0 +1,88 @@
+{
+  "version": "0.30.2.57",
+  "checkedAt": "2026-10-05T17:19:32.978Z",
+  "menuDestinations": [
+    "/ca",
+    "/ca/root",
+    "/ca/intermediate",
+    "/ca/downloads",
+    "/ca/endpoints",
+    "/settings/certificates/trust"
+  ],
+  "distinctMenuDestinations": 6,
+  "checks": [
+    {
+      "page": "overview",
+      "tasks": 4,
+      "forms": 0,
+      "dropdowns": 5,
+      "currentMenu": "Authority overview"
+    },
+    {
+      "page": "root",
+      "heading": 1,
+      "metadataLabels": [
+        "Subject",
+        "Issuer",
+        "Valid from",
+        "Valid until",
+        "Serial",
+        "SHA-256"
+      ],
+      "fingerprintMatchesDownloadedCertificate": true,
+      "subjectAndIssuerMatch": true,
+      "forms": 0,
+      "currentMenu": "Root CA"
+    },
+    {
+      "page": "intermediate",
+      "heading": 1,
+      "metadataLabels": [
+        "Subject",
+        "Issuer",
+        "Valid from",
+        "Valid until",
+        "Serial",
+        "SHA-256"
+      ],
+      "fingerprintMatchesDownloadedCertificate": true,
+      "distinctFromRoot": true,
+      "issuedByRoot": true,
+      "forms": 0,
+      "currentMenu": "Intermediate CA"
+    },
+    {
+      "page": "downloads",
+      "heading": 1,
+      "downloadChoices": 6,
+      "chainIntermediateThenRoot": true,
+      "crtAndBundleAndCrlBytesVerifiedByRegression": true,
+      "liveAdditionalDownloads": "CRT browser download event timed out; no successful byte comparison claimed",
+      "forms": 0,
+      "currentMenu": "Downloads"
+    },
+    {
+      "page": "endpoints",
+      "heading": 1,
+      "publicUrlCount": 8,
+      "exactCompanionPaths": true,
+      "challengePolicyRows": 5,
+      "baseSourceShown": true,
+      "forms": 0,
+      "currentMenu": "Endpoints",
+      "renewedIngressSession": true
+    },
+    {
+      "page": "device-trust",
+      "canonicalSettingsDestination": true,
+      "pageHeading": 1,
+      "additionalCaHeading": 1,
+      "uploadForms": 1,
+      "dropdowns": 5
+    }
+  ],
+  "temporaryIssues": [
+    "Home Assistant reconnect expired the old ingress session; refreshed session successfully opened Endpoints and trust Settings.",
+    "CRT optional live byte comparison timed out; regression byte checks passed and no live CRT comparison is claimed."
+  ]
+}

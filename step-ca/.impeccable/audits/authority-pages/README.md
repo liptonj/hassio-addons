@@ -53,7 +53,25 @@ the trust heading uses the Settings shell's class, and the runtime probe's
 cryptography import must not shadow its source-hash dictionary. No product defect
 was hidden by those harness repairs.
 
-Deployment and live menu verification pending.
+Source CI passed and version 0.30.2.57 was deployed. The backup completed before
+the update; its initial Supervisor job monitor returned `unknown_error`.
+Read-only inspection confirmed the requested version started. One verification
+attempt then encountered a connection failure before Core restart; a second
+inspection again confirmed the add-on started. The final workflow passed the
+Core configuration check, restart, companion-load check and live iPSK request
+(five wireless networks). See `deployment.json` for exact run identities.
+
+All six live Authority destinations were opened and their contents checked.
+Root and intermediate fingerprints match their downloaded production PEMs;
+the intermediate signature verifies with the root public key. The downloaded
+chain contains intermediate then root. Downloads lists six choices, Endpoints
+shows the eight expected companion URLs and five challenge-policy rows, and
+Device trust certificates opens one shared Settings page with one upload form.
+No ingress sessions, certificate values or challenge values are saved in
+`live-menu-checks.json`. A Home Assistant reconnect invalidated the initial
+ingress session; refreshing it restored navigation. An optional live `.crt`
+download byte comparison timed out; the regression checks prove its contents,
+and no successful live `.crt` comparison is claimed.
 
 A final backend-policy trace corrected the blanket SCEP authorization wording
 and added per-provisioner challenge policy. Regression tests and final source
