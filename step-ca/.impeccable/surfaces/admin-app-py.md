@@ -273,3 +273,16 @@ passed, including enterprise writes through the actual Meraki SDK to a loopback
 HTTP fixture. Evidence is in `../../../output/playwright/access-manager-*`.
 Resident self-service remains iPSK without RADIUS; deployment and live device
 authentication have not been tested.
+
+### Deployed Meraki and IPSK checks (2026-10-05)
+
+Version 0.30.2.60 is installed and running, with no update backup requested.
+Live checks confirmed Meraki network/SSID discovery, Duo connection health and
+the group directory read (zero members in the active configured group). Live
+verification corrected non-root options-file access and Duo Active status casing.
+Access Manager policy reads remain unavailable with the current connection;
+physical authentication and full Duo sign-in remain unverified. Existing working
+Access Manager client profiles require no replacement for this deployment.
+The local suite and final source CI passed all 260 tests and the real companion
+compatibility check. See
+`../audits/meraki-configuration/` for deployment evidence and limits.

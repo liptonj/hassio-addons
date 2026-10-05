@@ -1,0 +1,62 @@
+{
+  "final_version": "0.30.2.60",
+  "source_commit": "e80ff5228214642ae059b77304341478a5cacda2",
+  "initial_version": "0.30.2.58",
+  "initial_ci": {
+    "run_id": 37370643409,
+    "conclusion": "success"
+  },
+  "final_ci": {
+    "run_id": 37373613618,
+    "conclusion": "success",
+    "status": "completed",
+    "url": "https://github.com/liptonj/hassio-addons/actions/runs/37373613618"
+  },
+  "live_issue": "Meraki settings tried to read root-owned /data/options.json as the non-root add-on account.",
+  "correction": "Saved Meraki settings now read through the authenticated Supervisor API.",
+  "local_tests": 260,
+  "backup_requested": false,
+  "core_restart": {
+    "requested": true,
+    "returned_online": true
+  },
+  "live_meraki_writes": false,
+  "client_profiles_changed": false,
+  "manual_update": {
+    "requested": true,
+    "backup_switch": false
+  },
+  "installed_version": "0.30.2.60",
+  "ui_update_result": "Up-to-date",
+  "intermediate_fixed_version": "0.30.2.59",
+  "intermediate_ci": {
+    "run_id": 37371443464,
+    "conclusion": "success"
+  },
+  "live_meraki": {
+    "wireless_networks": 5,
+    "enabled_ssids_on_checked_network": 3,
+    "api_key_saved": false,
+    "meraki_ha_used": true
+  },
+  "live_duo": {
+    "authentication_connection": "passed",
+    "directory": "passed",
+    "configured_group_active_in_duo": true,
+    "permitted_users": 0,
+    "full_factor_and_callback": "not performed"
+  },
+  "browser_limitation": "Chrome blocked only the Meraki connection/test URL with ERR_BLOCKED_BY_CLIENT. SSID discovery and Duo POST checks worked.",
+  "live_access_manager": {
+    "checked_networks": 2,
+    "result": "unavailable",
+    "reason": "UI reports API permissions or beta availability; exact API response withheld",
+    "changes_made": false
+  },
+  "installed_state": "running",
+  "verified_at": "2026-10-05T21:14:06Z",
+  "proof": [
+    "step-ca-60-running.jpg",
+    "step-ca-60-update-no-backup.jpg"
+  ]
+}
