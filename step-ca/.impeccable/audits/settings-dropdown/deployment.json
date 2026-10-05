@@ -1,0 +1,21 @@
+{
+  "version": "0.30.2.53",
+  "status": "published-deployment-blocked",
+  "release_commit": "0ddcb80b2b13cebab768133ebca3a3873282f708",
+  "source_ci": "https://github.com/liptonj/hassio-addons/actions/runs/37328741189",
+  "source_ci_status": "success",
+  "deployment_workflow_ref": "liptonj/meraki-homeassistant@beta",
+  "deployment_attempt": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37328898121",
+  "deployment_attempt_created_at": "2026-10-05T14:57:16Z",
+  "deployment_failure": "Home Assistant connection failed; response details withheld",
+  "failure_stage": "first Supervisor connection for /store/reload",
+  "backup_started": false,
+  "addon_update_started": false,
+  "read_only_inspection": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37329101586",
+  "inspection_created_at": "2026-10-05T14:58:49Z",
+  "inspection_failure": "Home Assistant request failed (HTTP 522)",
+  "live_version_verified": false,
+  "last_verified_live_version": "0.30.2.52",
+  "last_successful_live_verification": "https://github.com/liptonj/meraki-homeassistant/actions/runs/37143574924",
+  "next_step": "Restore the Home Assistant deployment connection, then retry deployment and live verification."
+}

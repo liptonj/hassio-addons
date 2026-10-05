@@ -20,8 +20,16 @@ production provider settings or device records were edited during these checks.
 No new independent critique score is claimed. Release and deployment evidence
 are recorded alongside this document.
 
-Finish verdict: ready for release. All 191 tests, seven real Home Assistant
+Finish verdict: published; deployment blocked by the Home Assistant connection.
+All 191 tests, seven real Home Assistant
 compatibility checks, Ruff, JavaScript/Bash syntax and whitespace checks passed.
 All three architecture images built and passed non-root runtime probes; packaged
 source hashes match the release, and all 11 runtime settings routes render the
 new dropdown without the old sidebar. No unrelated files were staged.
+
+Source CI passed for release commit `0ddcb80b2b13cebab768133ebca3a3873282f708`.
+Deployment on 2026-10-05 failed at the first Supervisor connection, before any
+backup or update began. A separate read-only inspection returned HTTP 522.
+Version 0.30.2.53 is not verified live; the last successful live verification was
+0.30.2.52 on 2026-10-03. See `deployment.json` for workflow evidence. Restoring
+the Home Assistant deployment connection is required before retrying the release.
