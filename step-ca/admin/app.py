@@ -343,8 +343,10 @@ def qr_svg(text):
 
 
 def cert_chain():
-    root = x509.load_pem_x509_certificate(open(ROOT_CERT, "rb").read())
-    inter = x509.load_pem_x509_certificate(open(INTERMEDIATE_CERT, "rb").read())
+    with open(ROOT_CERT, "rb") as source:
+        root = x509.load_pem_x509_certificate(source.read())
+    with open(INTERMEDIATE_CERT, "rb") as source:
+        inter = x509.load_pem_x509_certificate(source.read())
     return root, inter
 
 
@@ -1295,11 +1297,11 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                   ("/ipsk/create", "Create a Wi-Fi key", "plus"),
                   ("/settings/ipsk", "IPSK settings", "cog")),
         "/ca": (("/ca", "Authority overview", "shield-check"),
-                ("/ca#root-ca", "Root CA", "shield-check"),
-                ("/ca#intermediate-ca", "Intermediate CA", "shield-check"),
-                ("/ca#authority-downloads", "Downloads", "download"),
-                ("/ca#authority-endpoints", "Endpoints", "link-variant"),
-                ("/settings/certificates/trust", "Trust certificates", "cog")),
+                ("/ca/root", "Root CA", "shield-check"),
+                ("/ca/intermediate", "Intermediate CA", "shield-check"),
+                ("/ca/downloads", "Downloads", "download"),
+                ("/ca/endpoints", "Endpoints", "link-variant"),
+                ("/settings/certificates/trust", "Device trust certificates", "cog")),
     }
 
     def section_dropdown(self, section, label, glyph, selected=False):
@@ -1417,6 +1419,12 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                 self.list_page(query)
             elif path == "/ca":
                 self.ca_page()
+            elif path in ("/ca/root", "/ca/intermediate"):
+                self.authority_certificate_page(path.rsplit("/", 1)[1])
+            elif path == "/ca/downloads":
+                self.authority_downloads_page()
+            elif path == "/ca/endpoints":
+                self.authority_endpoints_page()
             elif path == "/tools":
                 self.tools_page()
             elif path == "/tools/groups":
@@ -1460,10 +1468,11 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             elif m := re.fullmatch(r"/issue/file/([A-Za-z0-9_-]{20,64})", path):
                 self.admin_file(m.group(1))
             elif path == "/download/root_ca.pem":
-                self.download(open(ROOT_CERT, "rb").read(), "root_ca.pem", "application/x-pem-file")
+                with open(ROOT_CERT, "rb") as source:
+                    self.download(source.read(), "root_ca.pem", "application/x-pem-file")
             elif path == "/download/intermediate_ca.pem":
-                self.download(open(INTERMEDIATE_CERT, "rb").read(), "intermediate_ca.pem",
-                              "application/x-pem-file")
+                with open(INTERMEDIATE_CERT, "rb") as source:
+                    self.download(source.read(), "intermediate_ca.pem", "application/x-pem-file")
             elif m := re.fullmatch(r"/download/extra/([0-9a-f]{64})\.pem", path):
                 certs = [c for c in enroll.load_extra_cas() if enroll.fingerprint(c) == m.group(1)]
                 if not certs:
@@ -2682,89 +2691,138 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         self.download(b"".join(c.public_bytes(serialization.Encoding.PEM) for c in chain),
                       f"{safe_filename(enroll.common_name(cert))}-chain.crt", "application/x-pem-file")
 
+    @staticmethod
+    def authority_status(cert, now):
+        if cert.not_valid_before_utc > now:
+            return ui.chip("warn", "Not yet valid")
+        if cert.not_valid_after_utc <= now:
+            return ui.chip("bad", "Expired")
+        if cert.not_valid_after_utc - now < datetime.timedelta(days=180):
+            return ui.chip("warn", "Renew soon")
+        return ui.chip("ok", "Valid")
+
     def ca_page(self):
         root, inter = cert_chain()
-        extra = enroll.load_extra_cas()
         now = datetime.datetime.now(datetime.timezone.utc)
-
-        def kv(label, value, copy=None):
-            button = ui.copy_button(copy, label) if copy else "<span></span>"
-            return ui.kv_row(label, value, button if copy else "")
-
-        def details(cert):
-            fp = enroll.fingerprint(cert)
-            return (
-                kv("Subject", f'<span class="mono">{esc(cert.subject.rfc4514_string())}</span>')
-                + kv("Issuer", f'<span class="mono">{esc(cert.issuer.rfc4514_string())}</span>')
-                + kv("Valid until", ui.when(cert.not_valid_after_utc, now))
-                + kv("SHA-256", f'<span class="mono">{esc(fp)}</span>', fp)
+        tasks = (("root-ca", "/ca/root", "Root CA", "shield-check", root),
+                 ("intermediate-ca", "/ca/intermediate", "Intermediate CA", "shield-check", inter),
+                 ("authority-downloads", "/ca/downloads", "Downloads", "download", None),
+                 ("authority-endpoints", "/ca/endpoints", "Endpoints", "link-variant", None))
+        descriptions = {"Downloads": "Choose the certificate, chain, trust bundle or revocation list you need.",
+                        "Endpoints": "Copy public SCEP, root certificate and revocation list URLs."}
+        rows = ""
+        for anchor, path, title, glyph, cert in tasks:
+            description = (f"{enroll.common_name(cert)} · expires {cert.not_valid_after_utc:%Y-%m-%d}"
+                           if cert is not None else descriptions[title])
+            chip = self.authority_status(cert, now) if cert is not None else ""
+            rows += (
+                f'<a class="row settings-row" id="{anchor}" data-authority-task href="{esc(self.url(path))}">'
+                f'<span class="row-icon">{ui.icon(glyph)}</span><span class="row-text">'
+                f'<span class="row-title">{esc(title)}</span><span class="row-sub">{esc(description)}</span>'
+                f'</span><span class="row-actions">{chip}{ui.icon("chevron-right")}</span></a>'
             )
-
-        def download_row(glyph, title, sub, link, filename):
-            return (
-                f'<div class="row"><span class="row-icon">{ui.icon(glyph)}</span>'
-                f'<span class="row-text"><span class="row-title">{title}</span>'
-                f'<span class="row-sub">{sub}</span></span><span class="row-actions">'
-                f'<a class="icon-btn" href="{esc(self.url(link))}" aria-label="Download {esc(filename)}" '
-                f'title="Download {esc(filename)}">{ui.icon("download")}</a></span></div>'
-            )
-
-        def authority(title, cert, link, filename, opened, anchor):
-            left = cert.not_valid_after_utc - now
-            chip = (ui.chip("bad", "Expired") if left.days < 0 else
-                    ui.chip("warn", "Renew soon") if left.days < 180 else ui.chip("ok", "Valid"))
-            return (
-                f'<details class="expand" id="{anchor}"{" open" if opened else ""}><summary>'
-                f'<span class="row-icon">{ui.icon("shield-check")}</span><span class="summary-text">'
-                f'<span class="summary-title">{title}</span>'
-                f'<span class="summary-sub">{esc(enroll.common_name(cert))}</span></span>{chip}'
-                f'{ui.icon("chevron-down", "chev")}</summary>'
-                f'<dl class="expand-body flush rows">{details(cert)}'
-                '<div class="kv"><dt>File</dt><dd class="kv-value"><span class="kv-content">'
-                f'<a href="{esc(self.url(link))}" download>{esc(filename)}</a></span>'
-                f'<a class="icon-btn" href="{esc(self.url(link))}" aria-label="Download {esc(filename)}" '
-                f'title="Download {esc(filename)}">{ui.icon("download")}</a></dd></div></dl></details>'
-            )
-
-        base = default_base_url(self.headers) or "&lt;Home Assistant URL&gt;"
-        base = esc(base) if not base.startswith("&lt;") else base
-        scep_url = f"{base}/api/step_ca_scep/scep/{esc(SCEP_PROVISIONER)}"
-        copyable = not base.startswith("&lt;")
-
-        def url_row(label, url):
-            return kv(label, f'<span class="mono">{url}</span>', html.unescape(url) if copyable else None)
-
         body = (
-            '<div class="grid"><div>'
-            '<div class="card"><div class="card-header"><h2>' + esc(CA_NAME) + "</h2>"
-            '<p class="muted">The root signs the intermediate; the intermediate signs device certificates.</p></div>'
-            + authority("Root CA", root, "/download/root_ca.pem", "root_ca.pem", False, "root-ca")
-            + authority("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem", False, "intermediate-ca")
-            + '<h3 class="subhead" id="authority-downloads">Downloads</h3><div class="rows">'
-            + download_row("file-certificate-outline", "CA chain",
-                           "Intermediate and root, for MDMs and RADIUS servers",
-                           "/download/ca-chain.pem", "ca-chain.pem")
-            + download_row("file-certificate-outline", "Meraki Access Manager",
-                           "The CA chain as one .crt for Access Manager > Certificates. Upload it as a "
-                           "single entry, set Enabled and Trusted Anchor, and choose Subject Alternative "
-                           "Name RFC822 as the identity field",
-                           "/download/meraki-ca-chain.crt", f"{safe_filename(CA_NAME)}-ca-chain.crt")
-            + download_row("file-certificate-outline", "CA bundle",
-                           "Root, intermediate" + (", and the other trusted CAs" if extra else ""),
-                           "/download/ca-bundle.pem", "ca-bundle.pem")
-            + download_row("cancel", "Certificate revocation list", "Revoked certificates",
-                           "/download/crl.pem", "crl.pem")
-            + "</div></div>"
-            "</div><div>"
-            '<div class="card" id="authority-endpoints"><div class="card-header"><h2>Endpoints</h2>'
-            '<p class="muted">Served without login through Home Assistant.</p></div><dl class="rows">'
-            + url_row("SCEP URL", scep_url)
-            + "".join(url_row(f"SCEP URL, {esc(g)}", f"{base}/api/step_ca_scep/scep/{esc(g)}") for g in GROUPS)
-            + url_row("Root download", f"{base}/api/step_ca_scep/roots.pem")
-            + url_row("CRL (DER)", f"{base}/api/step_ca_scep/crl")
-            + "</dl></div></div></div>"
+            f'<div class="page-head"><h2>{esc(CA_NAME)}</h2></div>'
+            '<p class="settings-intro">The root is the trust anchor; the intermediate issues device, '
+            'server and client certificates. Choose a task to view its details.</p>'
+            f'<nav class="card" aria-label="Authority tasks">{rows}</nav>'
+            f'<p><a class="btn text" href="{esc(self.url("/settings/certificates/trust"))}">'
+            f'{ui.icon("cog")}Device trust certificates</a></p>'
         )
-        self.page("Authority", body)
+        self.page("Authority overview", body, narrow=True)
+
+    def authority_certificate_page(self, kind):
+        is_root = kind == "root"
+        title = "Root CA" if is_root else "Intermediate CA"
+        path = ROOT_CERT if is_root else INTERMEDIATE_CERT
+        with open(path, "rb") as source:
+            cert = x509.load_pem_x509_certificate(source.read())
+        now = datetime.datetime.now(datetime.timezone.utc)
+        fingerprint = enroll.fingerprint(cert)
+        serial = str(cert.serial_number)
+        rows = (
+            ui.kv_row("Subject", f'<span class="mono">{esc(cert.subject.rfc4514_string())}</span>')
+            + ui.kv_row("Issuer", f'<span class="mono">{esc(cert.issuer.rfc4514_string())}</span>')
+            + ui.kv_row("Valid from", ui.when(cert.not_valid_before_utc, now))
+            + ui.kv_row("Valid until", ui.when(cert.not_valid_after_utc, now))
+            + ui.kv_row("Serial", f'<span class="mono">{esc(serial)}</span>', ui.copy_button(serial, "Serial"))
+            + ui.kv_row("SHA-256", f'<span class="mono">{esc(fingerprint)}</span>',
+                        ui.copy_button(fingerprint, "SHA-256 fingerprint"))
+        )
+        filename = "root_ca.pem" if is_root else "intermediate_ca.pem"
+        role = ("Trust anchor for this CA. Signs intermediate and subordinate CA certificates."
+                if is_root else "Signs device, server and client certificates. Its issuer is shown below.")
+        body = (
+            f'<div class="card"><div class="card-header"><h2>{title}</h2>'
+            f'<p class="muted">{role}</p>{self.authority_status(cert, now)}</div>'
+            f'<dl class="rows">{rows}</dl><div class="card-actions">'
+            f'<a class="btn" href="{esc(self.url("/download/" + filename))}">'
+            f'{ui.icon("download")}Download {filename}</a></div></div>'
+        )
+        self.page(title, body, narrow=True)
+
+    def authority_downloads_page(self):
+        files = (("Root CA", "Root certificate only, in PEM format. Install as the trust anchor for this CA.",
+                  "root_ca.pem", "root_ca.pem", "shield-check"),
+                 ("Intermediate CA", "Issuing CA certificate only, in PEM format. Use alongside the root where a chain is required.",
+                  "intermediate_ca.pem", "intermediate_ca.pem", "shield-check"),
+                 ("CA chain", "Intermediate followed by root, in PEM format. For systems that need this CA's complete chain.",
+                  "ca-chain.pem", "ca-chain.pem", "file-certificate-outline"),
+                 ("Meraki Access Manager", "The same CA chain in a .crt file for Access Manager. Enable the chain and choose a trusted anchor; for email identity, use SAN RFC822.",
+                  "meraki-ca-chain.crt", f"{safe_filename(CA_NAME)}-ca-chain.crt", "file-certificate-outline"),
+                 ("Device trust bundle", "Root, intermediate and any additional device trust certificates, in PEM format. Additional CAs are managed in Settings.",
+                  "ca-bundle.pem", "ca-bundle.pem", "file-certificate-outline"),
+                 ("Certificate revocation list", "Revoked certificates, in PEM format. The public CRL endpoint also provides DER.",
+                  "crl.pem", "crl.pem", "cancel"))
+        rows = "".join(
+            f'<div class="row"><span class="row-icon">{ui.icon(glyph)}</span>'
+            f'<span class="row-text"><span class="row-title">{esc(title)}</span>'
+            f'<span class="row-sub">{esc(description)}</span></span><span class="row-actions">'
+            f'<a class="icon-btn" href="{esc(self.url("/download/" + route))}" aria-label="Download {esc(filename)}" '
+            f'title="Download {esc(filename)}">{ui.icon("download")}</a></span></div>'
+            for title, description, route, filename, glyph in files
+        )
+        body = (
+            '<div class="card"><div class="card-header"><h2>Downloads</h2>'
+            '<p class="muted">These files contain public certificates or revocation information. '
+            'Choose the contents and format required by your device or service.</p></div>'
+            f'<div class="rows">{rows}</div></div>'
+            f'<p><a class="btn text" href="{esc(self.url("/settings/certificates/trust"))}">'
+            f'{ui.icon("cog")}Manage device trust certificates</a></p>'
+        )
+        self.page("Authority downloads", body, narrow=True)
+
+    def authority_endpoints_page(self):
+        base, source = detect_base_url(self.headers)
+        endpoints = [("Default SCEP", f"/api/step_ca_scep/scep/{urllib.parse.quote(SCEP_PROVISIONER, safe='')}")]
+        endpoints += [(f"SCEP, {group}", f"/api/step_ca_scep/scep/{urllib.parse.quote(group, safe='')}") for group in GROUPS]
+        endpoints += [("Root certificate (PEM)", "/api/step_ca_scep/roots.pem"),
+                      ("CRL (DER)", "/api/step_ca_scep/crl"),
+                      ("CRL (PEM)", "/api/step_ca_scep/crl?pem")]
+        rows = "".join(
+            ui.kv_row(esc(label), f'<span class="mono">{esc(base + path)}</span>', ui.copy_button(base + path, label))
+            if base else ui.kv_row(esc(label), '<span class="muted">Home Assistant URL not configured</span>')
+            for label, path in endpoints
+        )
+        policies = ui.kv_row("Default SCEP challenge", "Set; accepts the static challenge or one-time enrollment links."
+                             if SCEP_CHALLENGE else "Not set; default SCEP does not validate a challenge.")
+        policies += "".join(
+            ui.kv_row(esc(f"Challenge, {group}"), "Set; accepts the static challenge or one-time enrollment links."
+                      if settings.get("challenge") else "One-time enrollment links only.")
+            for group, settings in GROUPS.items()
+        )
+        hint = (base_url_hint(base, source) if base else
+                ui.alert("warning", 'Set the Home Assistant External URL or enrollment.public_url in the add-on options '
+                         'to display complete endpoint URLs.', "Home Assistant URL not configured"))
+        body = (
+            '<div class="card"><div class="card-header"><h2>Endpoints</h2>'
+            '<p class="muted">Public URLs served through Home Assistant. Devices and services must be able to reach '
+            'them. SCEP follows its configured enrollment challenge policy; root and CRL downloads do not require a Home Assistant login.</p>'
+            f'{hint}</div><dl class="rows">{rows}{policies}</dl></div>'
+            f'<p><a class="btn text" href="{esc(self.url("/settings/enrollment/mdm"))}">'
+            f'{ui.icon("cellphone")}MDM profiles and enrollment settings</a></p>'
+        )
+        self.page("Authority endpoints", body, narrow=True)
 
     TOOLS_MENU = (
         ("/tools/sign", "Sign a request", "file-sign", "Sign a server, client or subordinate CA request"),
@@ -4174,7 +4232,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         )
         body = (
             self.tools_notice(query, "New profiles and .p12 files include the certificate.")
-            + '<div class="card"><div class="card-header"><h2>Device trust certificates</h2>'
+            + '<div class="card"><div class="card-header"><h2>Additional CA certificates</h2>'
             '<p class="muted">CA certificates devices must also trust, such as the CA that issued your RADIUS '
             "server's certificate for enterprise Wi-Fi. They are added to Apple profiles (and trusted for the "
             "Wi-Fi network), to .p12 files, and to ca-bundle.pem.</p></div>"
@@ -4187,7 +4245,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             '<textarea id="pem" name="pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----"></textarea></div>'
             f'<button class="btn">{ui.icon("plus")}Add certificate</button></form></div>'
         )
-        self.page("Other trusted CAs", body, narrow=True)
+        self.page("Device trust certificates", body, narrow=True)
 
     def sign_page(self, query):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'

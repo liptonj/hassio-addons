@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.2.57
+
+- Split Authority into a compact overview and dedicated Root CA, Intermediate CA,
+  Downloads and Endpoints pages, with direct dropdown destinations.
+- Kept device trust management on its existing Settings page and preserved
+  legacy Authority fragment bookmarks and download URLs.
+- Added CA validity start dates, serials and accurate not-yet-valid status;
+  clarified download contents, PEM/DER formats and SCEP authorization.
+- Endpoints show the configured URL source and avoid copyable placeholder URLs.
+
 ## 0.30.2.56
 
 - Prevent Cloudflare email obfuscation from replacing certificate addresses

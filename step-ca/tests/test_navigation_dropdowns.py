@@ -53,7 +53,7 @@ class NavigationDropdownTests(unittest.TestCase):
         self.assertTrue(all("open" not in menu for menu in parsed.menus))
         for target in ("/?status=expiring", "/enroll/new", "/enroll/self", "/enroll/links", "/enroll/issue",
                        "/ipsk/devices", "/ipsk/invitations", "/ipsk/join-codes", "/ipsk/create",
-                       "/ca#root-ca", "/ca#authority-downloads", "/settings/identity",
+                       "/ca/root", "/ca/downloads", "/settings/identity",
                        "/settings/captive-portal"):
             with self.subTest(target=target):
                 self.assertIn("/api/hassio_ingress/fixture" + target, parsed.links)
@@ -74,7 +74,7 @@ class NavigationDropdownTests(unittest.TestCase):
         self.assertTrue({"new-link", "links", "issue-certificate"}.issubset(
             NavigationMarkup(handler.send.call_args.args[1]).ids))
 
-    def test_authority_menu_anchors_exist_in_the_real_page(self):
+    def test_authority_overview_keeps_legacy_fragment_targets(self):
         key = ec.generate_private_key(ec.SECP256R1())
         name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Fixture CA")])
         now = datetime.datetime.now(datetime.timezone.utc)

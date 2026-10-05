@@ -854,6 +854,10 @@ SCRIPT = r"""
       location.replace(target.href);
       return;
     }
+    if (target && target.matches("a[data-authority-task]") && /\/ca\/?$/.test(location.pathname)) {
+      location.replace(target.href);
+      return;
+    }
     if (target && target.tagName === "DETAILS") target.open = true;
     document.querySelectorAll(".tab-menu:has(summary.current) .menu a").forEach(function (link) {
       var url = new URL(link.href);

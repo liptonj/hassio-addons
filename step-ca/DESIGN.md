@@ -585,3 +585,24 @@ The bounded initial inspection covered 20 desktop/mobile views with menus
 closed and open, with zero axe violations, horizontal overflow or clipped
 menus. No visual repair round was needed. Fixture evidence is under
 `.impeccable/audits/enrollment-pages/`; screenshots use fictional local data.
+
+## Focused Authority pages (2026-10-05)
+
+Authority uses the same HA task rows as Enroll. Its narrow overview links to
+Root CA, Intermediate CA, Downloads and Endpoints; each menu option opens a
+separate narrow page with current selection and all five section dropdowns.
+Device trust certificates links to its existing Settings page. A repeated
+heading there is replaced with the specific card heading Additional CA certificates.
+
+Certificate pages show only their selected certificate's subject, issuer,
+validity start/end, serial, SHA-256 and individual PEM download. Status accounts
+for future start dates, expiry and renewal within 180 days. Downloads label
+the exact contents and PEM/.crt formats, including the intentional Meraki
+format variant of the same chain. Endpoints show the configured URL source,
+separate SCEP authorization from public downloads, and avoid copyable placeholders
+when the base URL is absent. Legacy fragment bookmarks remain usable.
+
+The bounded inspection covered 20 desktop/mobile views with Authority closed
+and open. One confirmation covers the shared trust-heading repair. Fixture
+evidence is under `.impeccable/audits/authority-pages/`; no raster assets ship
+in the application.

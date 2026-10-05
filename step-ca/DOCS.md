@@ -740,6 +740,33 @@ Apple profiles support email addresses and DNS names only, so IP addresses
 are left out of certificates requested by iPhones, iPads, and Macs. .p12
 certificates get all three.
 
+## Authority pages
+
+The **Authority** dropdown opens focused pages:
+
+- **Authority overview**: choose a task and see each CA's validity status.
+- **Root CA**: the root certificate's subject, issuer, validity start/end, serial
+  and SHA-256 fingerprint, with its individual PEM download.
+- **Intermediate CA**: the same fields for the issuing certificate and its own
+  PEM download.
+- **Downloads**: individual CA certificates, the intermediate-to-root chain,
+  the same chain named `.crt` for Meraki Access Manager, the device trust bundle
+  and a PEM revocation list. The bundle also includes additional device trust CAs.
+- **Endpoints**: the default/group SCEP URLs, public root certificate URL and
+  DER/PEM CRL URLs, based on the configured Home Assistant URL. The page shows
+  the default and group challenge policies without exposing challenge values.
+  An unset default challenge means default SCEP does not validate a challenge;
+  groups without a static challenge accept one-time links only. Root and CRL
+  downloads do not require Home Assistant login.
+- **Device trust certificates**: opens the existing **Settings → Certificates**
+  page for managing additional CAs; Authority does not duplicate that form.
+
+Validity uses both certificate dates: future certificates show **Not yet valid**,
+expired certificates show **Expired**, and those expiring within 180 days show
+**Renew soon**. Endpoints with no configured Home Assistant URL give setup
+guidance instead of copyable placeholder addresses. Old Authority fragment
+bookmarks continue to open the matching dedicated page.
+
 ### RADIUS server CA and other trusted CAs
 
 If your RADIUS server's certificate comes from another CA (for example a
@@ -756,7 +783,7 @@ Added CAs are included in:
   trusted for the Wi-Fi network's RADIUS server;
 - **.p12 files**, together with the root and intermediate;
 - **ca-bundle.pem**: root, intermediate, and the added CAs in one PEM file,
-  on the **Authority** page and on the .p12 page of enrollment links.
+  under **Authority → Downloads** and on the .p12 page of enrollment links.
   On Android, install it as a CA certificate and pick it as the Wi-Fi
   network's CA certificate.
 

@@ -1,0 +1,34 @@
+[
+  {
+    "check": "Legacy #root-ca opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Legacy #intermediate-ca opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Legacy #authority-downloads opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Legacy #authority-endpoints opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Keyboard opens Authority menu",
+    "pass": true
+  },
+  {
+    "check": "Escape closes and restores focus",
+    "pass": true
+  },
+  {
+    "check": "Trust menu uses canonical Settings page with one page heading and one form",
+    "pass": true
+  },
+  {
+    "check": "Native no-script dropdown opens dedicated Downloads page",
+    "pass": true
+  }
+]
