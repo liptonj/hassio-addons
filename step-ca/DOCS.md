@@ -591,19 +591,25 @@ this CA cannot issue. Groups apply to your own Wi-Fi.
 
 ## Enrolling devices
 
-Devices do not need an MDM. Open **Certificates → Enroll devices** in the
-sidebar. There are three ways to get a certificate onto a device:
+Devices do not need an MDM. Open the **Enroll** dropdown in the panel. Its
+overview is a task chooser, and each task opens a separate page:
 
-- **Enroll this device**: the Mac or Windows PC you have the panel open on.
+- **New one-time link**: create a link and QR code for another device.
+- **Enrollment links**: filter, cancel, and delete existing links.
+- **Enroll this computer**: install a certificate on the computer you are using.
+- **Issue a certificate**: download a .p12 directly.
+
+There are three ways to get a certificate onto a device:
+
+- **Enroll this computer**: the Mac or Windows PC you have the panel open on.
 - **Enrollment link**: phones, tablets, and other people's devices, with a
   one-time link and QR code.
-- **Issue a certificate now**: anything else; downloads a .p12 straight from
+- **Issue a certificate**: anything else; downloads a .p12 straight from
   the panel.
 
-### Enroll this device (Mac and Windows)
+### Enroll this computer (Mac and Windows)
 
-1. On the Mac or PC, open **Certificates → Enroll devices → Enroll this
-   device**.
+1. On the Mac or PC, open **Enroll → Enroll this computer**.
 2. Enter a **Certificate name**, such as `josh-macbook`. The device type is
    picked from the browser; change it if needed.
 3. **Mac**: choose *iPhone, iPad, or Mac*, click **Download profile**, then
@@ -624,7 +630,7 @@ enrollment shows up in the links table like any other.
 
 ### Enrollment links
 
-1. Under **New one-time link**, optionally enter a label, a fixed
+1. Open **Enroll → New one-time link**. Optionally enter a label, a fixed
    certificate name, and an **Email address**, and pick a **Group (OU)**,
    the same fields as **Enroll this device**. Under **More options**, add
    other alternative names, check the Home Assistant URL the device will
@@ -645,7 +651,7 @@ enrollment shows up in the links table like any other.
      and certificate and offers a password-protected .p12 for 10 minutes,
      plus the root CA certificate and `ca-bundle.pem`. The password is shown
      only once.
-4. Links are listed on the page under **Waiting**, **Used**, **Update
+4. Open **Enroll → Enrollment links** to manage links under **Waiting**, **Used**, **Update
    links**, **Expired or cancelled**, and **All**, 10 to a page. Cancel a waiting link to make it
    unusable. Delete used, expired, and cancelled links one at a time or all
    at once; this does not affect their certificates. Links are also removed
@@ -804,8 +810,8 @@ in this order:
 2. Otherwise profiles are signed by this CA and show as Not Verified. They
    still install and work.
 
-The **Enroll devices** page shows whether signing is **Verified** and, if not,
-why.
+The **New one-time link** page shows whether signing is **Verified** and, if
+not, why.
 
 ## Using an MDM
 

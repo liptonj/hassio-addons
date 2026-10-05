@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.55
+
+- Split Enroll into an overview, one-time link creation, enrollment link
+  management, this-computer enrollment and direct certificate issuance pages.
+- Updated the Enroll dropdown to open each task directly, preserving legacy
+  form endpoints, list bookmarks, link filters and pagination after actions.
+- Kept validation errors and entered details on the relevant form; results
+  return to the task that created them. Public device enrollment remains separate.
+
 ## 0.30.2.54
 
 - Added matching dropdowns to Certificates, Enroll, IPSK and Authority, with

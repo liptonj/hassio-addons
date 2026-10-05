@@ -850,6 +850,10 @@ SCRIPT = r"""
   // Open the panel a link or redirect points at, such as /ca#sign.
   function openTarget() {
     var target = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
+    if (target && target.matches("a[data-enroll-task]") && /\/enroll\/?$/.test(location.pathname)) {
+      location.replace(target.href);
+      return;
+    }
     if (target && target.tagName === "DETAILS") target.open = true;
     document.querySelectorAll(".tab-menu:has(summary.current) .menu a").forEach(function (link) {
       var url = new URL(link.href);

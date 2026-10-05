@@ -1,0 +1,39 @@
+[
+  {
+    "check": "Invalid new link stays on task with draft preserved",
+    "pass": true,
+    "note": "Browser masks label input values. Retention verified by the result heading after correcting only CN and resubmitting."
+  },
+  {
+    "check": "New link result has originating task back link and inventory link",
+    "pass": true
+  },
+  {
+    "check": "Cancel fixture link preserves filter and page",
+    "pass": true
+  },
+  {
+    "check": "Legacy #new-link opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Legacy #links opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Legacy #issue-certificate opens dedicated task",
+    "pass": true
+  },
+  {
+    "check": "Invalid direct issuance preserves draft on focused task",
+    "pass": true
+  },
+  {
+    "check": "Escape closes menu and restores trigger focus",
+    "pass": true
+  },
+  {
+    "check": "Native no-script dropdown opens focused self enrollment",
+    "pass": true
+  }
+]

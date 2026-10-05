@@ -51,7 +51,7 @@ class NavigationDropdownTests(unittest.TestCase):
         parsed = self.render("/ipsk")
         self.assertEqual(len(parsed.menus), 5)
         self.assertTrue(all("open" not in menu for menu in parsed.menus))
-        for target in ("/?status=expiring", "/enroll#new-link", "/enroll/self",
+        for target in ("/?status=expiring", "/enroll/new", "/enroll/self", "/enroll/links", "/enroll/issue",
                        "/ipsk/devices", "/ipsk/invitations", "/ipsk/join-codes", "/ipsk/create",
                        "/ca#root-ca", "/ca#authority-downloads", "/settings/identity",
                        "/settings/captive-portal"):
@@ -66,12 +66,11 @@ class NavigationDropdownTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.render(path).current, ["/api/hassio_ingress/fixture" + current])
 
-    def test_enrollment_menu_anchors_exist_in_the_real_page(self):
+    def test_enrollment_hub_has_task_links_and_legacy_fragment_targets(self):
         handler = self.handler("/enroll")
-        with patch.object(app, "detect_base_url", return_value=("https://ha.example.org", "fixture")), \
-                patch.object(app, "signer_status", return_value=(False, "Fixture signer unavailable")), \
-                patch.object(app.LINKS, "all", return_value=[]):
+        with patch.object(app.LINKS, "all") as inventory:
             handler.enroll_page()
+        inventory.assert_not_called()
         self.assertTrue({"new-link", "links", "issue-certificate"}.issubset(
             NavigationMarkup(handler.send.call_args.args[1]).ids))
 

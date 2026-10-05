@@ -1283,10 +1283,10 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
               ("/?status=revoked", "Revoked", "cancel"),
               ("/settings/certificates", "Certificate settings", "cog")),
         "/enroll": (("/enroll", "Enrollment overview", "qrcode"),
-                    ("/enroll#new-link", "New one-time link", "link-variant"),
-                    ("/enroll#links", "Enrollment links", "link-variant"),
+                    ("/enroll/new", "New one-time link", "link-variant"),
+                    ("/enroll/links", "Enrollment links", "link-variant"),
                     ("/enroll/self", "Enroll this computer", "laptop"),
-                    ("/enroll#issue-certificate", "Issue a certificate", "key-variant"),
+                    ("/enroll/issue", "Issue a certificate", "key-variant"),
                     ("/settings/enrollment", "Enrollment & Wi-Fi settings", "cog")),
         "/ipsk": (("/ipsk", "Wi-Fi keys", "key-variant"),
                   ("/ipsk/devices", "Registered devices", "laptop"),
@@ -1307,6 +1307,8 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             return self.settings_dropdown(selected)
         parsed = urllib.parse.urlsplit(self.path)
         path = canonical_url(parsed.path)
+        if path == "/issue":
+            path = "/enroll/issue"
         query = urllib.parse.parse_qs(parsed.query)
         status = query.get("status", ["active"])[0]
         if status not in ("all", "active", "expiring", "expired", "revoked"):
@@ -1433,7 +1435,18 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             elif path == "/tools/help":
                 self.help_page(query)
             elif path == "/enroll":
-                self.enroll_page(query=query)
+                if any(key in query for key in ("links", "page", "deleted")):
+                    self.redirect("/enroll/links?" + parsed.query)
+                else:
+                    self.enroll_page()
+            elif path == "/enroll/new":
+                self.enroll_new_page()
+            elif path == "/enroll/links":
+                self.enrollment_links_page(query)
+            elif path == "/enroll/issue":
+                self.enroll_issue_page()
+            elif path == "/issue":
+                self.redirect("/enroll/issue")
             elif path == "/residents":
                 self.redirect("/ipsk" + ("?" + parsed.query if parsed.query else ""))
             elif path in ("/ipsk", "/ipsk/devices", "/ipsk/create", "/ipsk/invitations",
@@ -1722,7 +1735,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         if path == "/enroll/new":
             self.enroll_create(form)
             return
-        if path == "/issue":
+        if path in ("/issue", "/enroll/issue"):
             self.issue_direct(form)
             return
         if m := re.fullmatch(r"/enroll/([0-9a-f]{64})/cancel", path):
@@ -1737,7 +1750,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             view = form.get("view", [""])[0]
             ids = [link["id"] for link in LINKS.all() if link["state"] in self.LINK_VIEWS.get(view, ())]
             n = LINKS.delete(ids)
-            self.redirect(f"/enroll?{urllib.parse.urlencode({'links': view, 'deleted': n})}")
+            self.redirect(f"/enroll/links?{urllib.parse.urlencode({'links': view, 'deleted': n})}")
             return
         if path == "/certs/delete":
             status = form.get("status", [""])[0]
@@ -2113,7 +2126,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         data, filename, content_type = entry
         self.download(data, filename, content_type)
 
-    def form_page(self, action, link, error="", cn="", hidden="", extra=""):
+    def form_page(self, action, link, error="", cn="", hidden="", extra="", panel=False):
         apple = bool(APPLE_UA_RE.search(self.headers.get("User-Agent", "")))
         cn = link["cn"] or cn
         if link["cn"]:
@@ -2133,8 +2146,8 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         body = (
             (ui.alert("error", esc(error)) if error else "")
             + f'<form class="card" method="post" action="{esc(action)}">'
-            f'<div class="card-header"><h1>Get a certificate</h1>'
-            f'<p class="muted">From {esc(CA_NAME)}. Pick the kind of device you are enrolling.</p></div>'
+            + ('<div class="card-header"><h2>Enroll this computer</h2>' if panel else '<div class="card-header"><h1>Get a certificate</h1>')
+            + f'<p class="muted">From {esc(CA_NAME)}. Pick the kind of device you are enrolling.</p></div>'
             '<div class="card-content">' + hidden + '<input type="hidden" name="touch" data-touch>' + name + extra
             + '<fieldset class="field"><legend class="label">Device</legend><div class="choices">'
             f'<label class="choice"><input type="radio" name="kind" value="apple"{" checked" if apple else ""}>'
@@ -2148,7 +2161,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             "</span></span></label></div></fieldset></div>"
             '<div class="card-actions"><button class="btn">Continue</button></div></form>'
         )
-        self.page("Enroll device", body, back="/enroll", narrow=True)
+        self.page("Enroll this computer" if panel else "Enroll device", body, back=None if panel else "/enroll", narrow=True)
 
     @staticmethod
     def update_note(update_url, ios):
@@ -2228,7 +2241,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                        "install fails, start the enrollment again to get a fresh profile.")
             + self.update_note(update_url, ios)
         )
-        self.page("Install the profile", body, back="/enroll", narrow=True)
+        self.page("Install the profile", body, back="/enroll/self", narrow=True)
 
     def p12_result(self, token, link_id, link, cn):
         if not LINKS.claim(link_id, cn, ".p12 download"):
@@ -2268,7 +2281,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             f"with all CA certificates{radius}.</li></ol></div></div>"
             + wifi_help()
         )
-        self.page(f"Certificate for {cn}", body, back="/enroll", narrow=True)
+        self.page(f"Certificate for {cn}", body, back="/enroll/self", narrow=True)
 
     # -- enrollment (admin) ------------------------------------------------------
 
@@ -2276,7 +2289,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         self.form_page(self.url("/enroll/self"), {"cn": "", "wifi": wifi_enabled()}, error, cn, csrf,
                        email_input("self-email", email) + group_select("self-group", group)
-                       + sans_input("self-sans", sans))
+                       + sans_input("self-sans", sans), panel=True)
 
     def self_enroll(self, form):
         """Enroll the computer the panel is open on (e.g. a Mac or Windows PC)."""
@@ -2296,7 +2309,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             return
         base_url = default_base_url(self.headers)
         if not base_url:
-            self.self_enroll_page("Set enrollment.public_url in the add-on options first.", cn)
+            self.self_enroll_page("Set enrollment.public_url in the add-on options first.", cn, sans_text, group_text, email_text)
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label="This device (panel)", cn=cn, base_url=base_url,
@@ -2318,18 +2331,88 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         params = {"links": view if view in self.LINK_VIEWS else "waiting"}
         if page.isdigit() and page != "1":
             params["page"] = page
-        return "/enroll?" + urllib.parse.urlencode(params)
+        return "/enroll/links?" + urllib.parse.urlencode(params)
 
-    def enroll_page(self, notice="", query=None):
-        query = query or {}
+    def enroll_page(self):
+        tasks = (("new-link", "/enroll/new", "New one-time link", "link-variant",
+                  "Create a link and QR code for a phone, tablet or someone else's device."),
+                 ("links", "/enroll/links", "Enrollment links", "link-variant",
+                  "Review, cancel and delete existing enrollment links."),
+                 ("self-enrollment", "/enroll/self", "Enroll this computer", "laptop",
+                  "Install a certificate on the Mac or Windows PC you are using."),
+                 ("issue-certificate", "/enroll/issue", "Issue a certificate", "key-variant",
+                  "Create a password-protected .p12 file to install on another device."))
+        rows = "".join(
+            f'<a class="row settings-row" id="{anchor}" data-enroll-task href="{esc(self.url(path))}">'
+            f'<span class="row-icon">{ui.icon(glyph)}</span><span class="row-text">'
+            f'<span class="row-title">{esc(title)}</span><span class="row-sub">{esc(description)}</span>'
+            f'</span>{ui.icon("chevron-right")}</a>'
+            for anchor, path, title, glyph, description in tasks
+        )
+        body = (
+            '<div class="page-head"><h2>Enrollment</h2></div>'
+            '<p class="settings-intro">Choose an enrollment task. Each opens its own page.</p>'
+            f'<nav class="card" aria-label="Enrollment tasks">{rows}</nav>'
+            f'<p><a class="btn text" href="{esc(self.url("/settings/enrollment"))}">'
+            f'{ui.icon("cog")}Enrollment &amp; Wi-Fi settings</a></p>'
+        )
+        self.page("Enrollment", body, narrow=True)
+
+    def enroll_new_page(self, error="", draft=None):
         base_url, base_source = detect_base_url(self.headers)
-        signer_ok, signer_html = signer_status()
+        _, signer_html = signer_status()
+        def value(name, default=""):
+            return str((draft or {}).get(name, [default])[0])[:2000]
+        base_url = value("base_url", base_url)
         wifi_opt = ""
         if wifi_enabled():
+            checked = draft is None or value("wifi") == "1"
             wifi_opt = (
-                '<div class="field"><label class="check"><input type="checkbox" name="wifi" value="1" checked>'
-                f"Apple profiles also configure Wi-Fi {wifi_names()}</label></div>"
+                '<div class="field"><label class="check"><input type="checkbox" name="wifi" value="1"'
+                + (' checked' if checked else '')
+                + f'>Apple profiles also configure Wi-Fi {wifi_names()}</label></div>'
             )
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        advanced_open = " open" if error or not base_url.startswith("https://") else ""
+        body = (
+            (ui.alert("error", esc(error), "The link was not created") if error else "")
+            +
+            f'<form class="card" id="new-link" method="post" action="{esc(self.url("/enroll/new"))}">{csrf}'
+            '<div class="card-header"><h2>New one-time link</h2>'
+            '<p class="muted">A link and QR code for one device. On an iPhone, iPad, or Mac it installs a signed '
+            "profile, so the device creates its own key and gets its certificate over SCEP. Other devices get a "
+            "password-protected .p12 file with the full CA chain. No MDM is needed.</p></div>"
+            f'<div class="inline-alert">{signer_html}</div>'
+            '<div class="card-content"><div class="field-row">'
+            f'<div class="field"><label for="label">Label</label><input id="label" name="label" maxlength="64" value="{esc(value("label"))}" '
+            'placeholder="e.g. Josh&#39;s iPhone"></div>'
+            '<div class="field"><label for="cn">Certificate name (CN)</label>'
+            '<input id="cn" name="cn" maxlength="64" '
+            f'autocapitalize="off" value="{esc(value("cn"))}" placeholder="Chosen on the device"></div></div>'
+            + email_input("email", value("email"))
+            + group_select("group", value("group"), hint="The certificate gets this group&#39;s OU and lifetime.")
+            + "</div>"
+            f'<details class="expand"{advanced_open}><summary><span class="summary-text">'
+            '<span class="summary-title">More options</span>'
+            f'<span class="summary-sub">Other alternative names, Home Assistant URL, validity'
+            f'{", Wi-Fi" if wifi_enabled() else ""}</span></span>{ui.icon("chevron-down", "chev")}</summary>'
+            '<div class="expand-body">'
+            + sans_input("sans", value("sans"))
+            + '<div class="field"><label for="base">Home Assistant URL the device will use</label>'
+            f'<input id="base" name="base_url" type="url" required value="{esc(base_url)}" '
+            'placeholder="https://home.example.com">'
+            + base_url_hint(base_url, base_source) + "</div>"
+            '<div class="field"><label for="hours">Valid for (hours)</label>'
+            f'<input id="hours" name="hours" type="number" min="1" max="168" value="{esc(value("hours", str(ENROLL_LINK_HOURS)))}" '
+            'class="input-short"></div>'
+            + wifi_opt + "</div></details>"
+            f'<div class="card-actions"><button class="btn">{ui.icon("qrcode")}Create link</button></div></form>'
+        )
+        self.page("New one-time link", body, narrow=True)
+
+    def enrollment_links_page(self, query=None):
+        query = query or {}
+        notice = ""
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         now = datetime.datetime.now(datetime.timezone.utc)
         links = LINKS.all()
@@ -2385,7 +2468,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         labels = {"waiting": "Waiting", "used": "Used", "updates": "Update links",
                   "ended": "Expired or cancelled", "all": "All"}
         link_filters = "".join(
-            f'<a class="filter" href="{esc(self.url("/enroll") + "?" + urllib.parse.urlencode({"links": v}))}"'
+            f'<a class="filter" href="{esc(self.url("/enroll/links") + "?" + urllib.parse.urlencode({"links": v}))}"'
             f'{" aria-current=true" if v == view else ""}>'
             f'{ui.icon("check") if v == view else ""}{labels[v]} <span class="count">{counts[v]}</span></a>'
             for v in labels
@@ -2413,7 +2496,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             def page_link(n, icon, label):
                 if n < 1 or n > pages:
                     return f'<span class="icon-btn" aria-disabled="true">{ui.icon(icon)}</span>'
-                href = self.url("/enroll") + "?" + urllib.parse.urlencode({"links": view, "page": n})
+                href = self.url("/enroll/links") + "?" + urllib.parse.urlencode({"links": view, "page": n})
                 return f'<a class="icon-btn" href="{esc(href)}" aria-label="{label}" title="{label}">{ui.icon(icon)}</a>'
             pager = (
                 '<nav class="pager" aria-label="Pages">'
@@ -2421,69 +2504,40 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                 + f"<span>Page {page} of {pages}</span>"
                 + page_link(page + 1, "chevron-right", "Next page") + "</nav>"
             )
-        advanced_open = " open" if not base_url.startswith("https://") else ""
         body = (
-            notice
-            + '<div class="grid"><div>'
-            f'<form class="card" id="new-link" method="post" action="{esc(self.url("/enroll/new"))}">{csrf}'
-            '<div class="card-header"><h2>New one-time link</h2>'
-            '<p class="muted">A link and QR code for one device. On an iPhone, iPad, or Mac it installs a signed '
-            "profile, so the device creates its own key and gets its certificate over SCEP. Other devices get a "
-            "password-protected .p12 file with the full CA chain. No MDM is needed.</p></div>"
-            f'<div class="inline-alert">{signer_html}</div>'
-            '<div class="card-content"><div class="field-row">'
-            '<div class="field"><label for="label">Label</label><input id="label" name="label" maxlength="64" '
-            'placeholder="e.g. Josh&#39;s iPhone"></div>'
-            '<div class="field"><label for="cn">Certificate name (CN)</label>'
-            '<input id="cn" name="cn" maxlength="64" '
-            'autocapitalize="off" placeholder="Chosen on the device"></div></div>'
-            + email_input("email")
-            + group_select("group", hint="The certificate gets this group&#39;s OU and lifetime.")
-            + "</div>"
-            f'<details class="expand"{advanced_open}><summary><span class="summary-text">'
-            '<span class="summary-title">More options</span>'
-            f'<span class="summary-sub">Other alternative names, Home Assistant URL, validity'
-            f'{", Wi-Fi" if wifi_enabled() else ""}</span></span>{ui.icon("chevron-down", "chev")}</summary>'
-            '<div class="expand-body">'
-            + sans_input("sans")
-            + '<div class="field"><label for="base">Home Assistant URL the device will use</label>'
-            f'<input id="base" name="base_url" type="url" required value="{esc(base_url)}" '
-            'placeholder="https://home.example.com">'
-            + base_url_hint(base_url, base_source) + "</div>"
-            '<div class="field"><label for="hours">Valid for (hours)</label>'
-            f'<input id="hours" name="hours" type="number" min="1" max="168" value="{ENROLL_LINK_HOURS}" '
-            'class="input-short"></div>'
-            + wifi_opt + "</div></details>"
-            f'<div class="card-actions"><button class="btn">{ui.icon("qrcode")}Create link</button></div></form>'
-            '<div class="card" id="links"><div class="card-header"><h2>Links</h2></div>'
+            notice + '<div class="card" id="links"><div class="card-header">'
+            '<h2>Enrollment links</h2><p class="muted">Manage waiting, used and update links. '
+            'Cancelling a link prevents its use; deleting a link leaves its certificate unchanged.</p>'
+            f'<a class="btn" href="{esc(self.url("/enroll/new"))}">{ui.icon("plus")}New one-time link</a></div>'
             f'<nav class="filters" aria-label="Link status">{link_filters}</nav>'
-            + bar
-            + '<div class="table-wrap"><table><thead><tr>'
+            + bar + '<div class="table-wrap"><table><thead><tr>'
             '<th>Label</th><th>Certificate</th><th>Status</th><th class="hide-mobile">Expires</th>'
             '<th><span class="visually-hidden">Actions</span></th></tr></thead>'
-            f"<tbody>{rows}</tbody></table></div>{pager}</div>"
+            f'<tbody>{rows}</tbody></table></div>{pager}</div>'
             '<dialog id="delete-link-dialog" aria-labelledby="delete-link-title">'
             '<h2 id="delete-link-title">Delete <span data-confirm-name></span>?</h2>'
-            "<p>The link is removed from the list. Its certificate is not affected.</p>"
+            '<p>The link is removed from the list. Its certificate is not affected.</p>'
             '<div class="dialog-actions"><button type="button" class="btn text" data-confirm-no>Cancel</button>'
             '<button type="button" class="btn danger" data-confirm-yes>Delete</button></div></dialog>'
-            "</div><div>"
-            '<div class="card"><div class="row">'
-            f'<span class="row-icon">{ui.icon("laptop")}</span><span class="row-text">'
-            '<span class="row-title">This computer</span>'
-            '<span class="row-sub">A certificate for the Mac or Windows PC you are using now</span></span>'
-            f'<span class="row-actions"><a class="btn text" href="{esc(self.url("/enroll/self"))}">Enroll</a>'
-            "</span></div></div>"
-            f'<form class="card" id="issue-certificate" method="post" action="{esc(self.url("/issue"))}">{csrf}'
+        )
+        self.page("Enrollment links", body)
+
+    def enroll_issue_page(self, error="", draft=None):
+        def value(name):
+            return str((draft or {}).get(name, [""])[0])[:2000]
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        body = (
+            (ui.alert("error", esc(error), "Nothing was issued") if error else "")
+            +
+            f'<form class="card" id="issue-certificate" method="post" action="{esc(self.url("/enroll/issue"))}">{csrf}'
             '<div class="card-header"><h2>Issue a certificate now</h2>'
             '<p class="muted">Creates the key here and gives you a .p12 file to hand over.</p></div>'
             '<div class="card-content"><div class="field"><label for="issue-cn">Certificate name (CN)</label>'
-            '<input id="issue-cn" name="cn" maxlength="64" required autocapitalize="off" placeholder="e.g. printer"></div>'
-            + email_input("issue-email") + group_select("issue-group") + sans_input("issue-sans") + "</div>"
+            f'<input id="issue-cn" name="cn" maxlength="64" required value="{esc(value("cn"))}" autocapitalize="off" placeholder="e.g. printer"></div>'
+            + email_input("issue-email", value("email")) + group_select("issue-group", value("group")) + sans_input("issue-sans", value("sans")) + "</div>"
             + f'<div class="card-actions"><button class="btn text">{ui.icon("key-variant")}Issue .p12</button></div></form>'
-            "</div></div>"
         )
-        self.page("Enroll devices", body)
+        self.page("Issue a certificate", body, narrow=True)
 
     def enroll_create(self, form):
         def field(name):
@@ -2511,7 +2565,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             except ValueError as err:
                 error = str(err)
         if error:
-            self.enroll_page(ui.alert("error", esc(error), "The link was not created"))
+            self.enroll_new_page(error, form)
             return
         who = self.headers.get("X-Remote-User-Display-Name") or self.headers.get("X-Remote-User-Name") or ""
         token = LINKS.create(label=label, cn=cn, base_url=base_url, wifi=field("wifi") == "1" and wifi_enabled(),
@@ -2530,27 +2584,28 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             + ui.alert("warning", "Anyone with this link can enroll a device, so share it only with the device "
                        "owner. It is not shown again.", "Shown only once")
         )
-        self.page("Enrollment link", body, back="/enroll", narrow=True)
+        body += (f'<p><a class="btn text" href="{esc(self.url("/enroll/links"))}">Manage enrollment links</a></p>')
+        self.page("Enrollment link", body, back="/enroll/new", narrow=True)
 
     def issue_direct(self, form):
         cn = form.get("cn", [""])[0].strip()
         if not enroll.valid_cn(cn):
-            self.enroll_page(ui.alert("error", "The certificate name may use letters, digits, "
-                                      "spaces, and . _ @ - (up to 64).", "Nothing was issued"))
+            self.enroll_issue_page("The certificate name may use letters, digits, "
+                                   "spaces, and . _ @ - (up to 64).", form)
             return
         try:
             sans = form_sans(form)
             group = parse_group(form.get("group", [""])[0])
             check_group_email(group, sans)
         except ValueError as err:
-            self.enroll_page(ui.alert("error", esc(err), "Nothing was issued"))
+            self.enroll_issue_page(str(err), form)
             return
         try:
             data, password, cert = enroll.issue_p12(cn, ca_url=CA_URL, root_cert=ROOT_CERT,
                                                     extra_cas=enroll.load_extra_cas(), sans=sans,
                                                     **group_issue_args(group))
         except (RuntimeError, OSError, subprocess.SubprocessError) as err:
-            self.enroll_page(ui.alert("error", esc(err), "Could not issue the certificate"))
+            self.enroll_issue_page(str(err), form)
             return
         download = DOWNLOADS.add("admin", data, f"{safe_filename(cn)}.p12", "application/x-pkcs12")
         serial = str(cert.serial_number)
@@ -2569,7 +2624,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             + f'<a class="btn" href="{esc(self.url("/issue/file/" + download))}">{ui.icon("download")}'
             f"Download {esc(safe_filename(cn))}.p12</a></div></div>"
         )
-        self.page(f"Certificate for {cn}", body, back="/enroll", narrow=True)
+        self.page(f"Certificate for {cn}", body, back="/enroll/issue", narrow=True)
 
     def admin_file(self, download_id):
         entry = DOWNLOADS.get("admin", download_id)

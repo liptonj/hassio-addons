@@ -1,0 +1,111 @@
+{
+  "version": "0.30.2.55",
+  "unit_tests": {
+    "passed": 203
+  },
+  "homeassistant": {
+    "version": "2026.9.4",
+    "checks_passed": 7
+  },
+  "browser_views": 20,
+  "interaction_checks": 9,
+  "container_builds": [
+    "aarch64",
+    "amd64",
+    "armv7"
+  ],
+  "nonroot_runtimes": {
+    "aarch64": {
+      "status": "passed",
+      "machine": "aarch64",
+      "portal_imports": true,
+      "nonroot_logo_storage": true,
+      "image_codecs": [
+        "PNG",
+        "JPEG",
+        "WEBP"
+      ],
+      "companion_parse": true,
+      "settings_routes": 11,
+      "global_dropdowns": 5,
+      "enrollment_routes": 5,
+      "source_sha256": {
+        "app.py": "f05acbaf82e3964a9a5c48cd16c66e0aeb485793f4f75c007208e059b11e20be",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "7ba7ead2a528f85415ababc434fc8cc12903f6a29d2e665496599e1ffbd71e0d",
+        "resident_access.py": "43ed303f83228d8144e1f22cda3a6c9cdcef5c6120ee88e1a5f2302ffcc9b290",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "4bcdd48185ee0eac9543f5cbc32238d5e37c970bb13b6f39cebc88f92494bb4e",
+        "portal_skin.py": "41db387d5d6cd307c0bfdd5fd0bd37fa85ec387a32b32086930eefcf05a2d615",
+        "ui.py": "d2bdcde8896d4b3601329429efc943cfcce1779121c8024ff582716f59a88984"
+      }
+    },
+    "amd64": {
+      "status": "passed",
+      "machine": "x86_64",
+      "portal_imports": true,
+      "nonroot_logo_storage": true,
+      "image_codecs": [
+        "PNG",
+        "JPEG",
+        "WEBP"
+      ],
+      "companion_parse": true,
+      "settings_routes": 11,
+      "global_dropdowns": 5,
+      "enrollment_routes": 5,
+      "source_sha256": {
+        "app.py": "f05acbaf82e3964a9a5c48cd16c66e0aeb485793f4f75c007208e059b11e20be",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "7ba7ead2a528f85415ababc434fc8cc12903f6a29d2e665496599e1ffbd71e0d",
+        "resident_access.py": "43ed303f83228d8144e1f22cda3a6c9cdcef5c6120ee88e1a5f2302ffcc9b290",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "4bcdd48185ee0eac9543f5cbc32238d5e37c970bb13b6f39cebc88f92494bb4e",
+        "portal_skin.py": "41db387d5d6cd307c0bfdd5fd0bd37fa85ec387a32b32086930eefcf05a2d615",
+        "ui.py": "d2bdcde8896d4b3601329429efc943cfcce1779121c8024ff582716f59a88984"
+      }
+    },
+    "armv7": {
+      "status": "passed",
+      "machine": "armv7l",
+      "portal_imports": true,
+      "nonroot_logo_storage": true,
+      "image_codecs": [
+        "PNG",
+        "JPEG",
+        "WEBP"
+      ],
+      "companion_parse": true,
+      "settings_routes": 11,
+      "global_dropdowns": 5,
+      "enrollment_routes": 5,
+      "source_sha256": {
+        "app.py": "f05acbaf82e3964a9a5c48cd16c66e0aeb485793f4f75c007208e059b11e20be",
+        "captive.py": "93f15bb4774a655b92e03528224897f5d4c27be310e5f15b28fefd8e4dd4eba0",
+        "db_setup.py": "28771105446432c2794bda09d12edf7f745436c17e2004ab82acd2aa75f7a60a",
+        "enroll.py": "499568678d0426568f22e58ec0ad04c389fb466a7a6657b9a7be593d503e55cf",
+        "guidance.py": "cde16e3d47e0d1ac7d5bbf7cc9b7f73f2c1c6da31d688f78915d71ba380550cb",
+        "ipsk.py": "7ba7ead2a528f85415ababc434fc8cc12903f6a29d2e665496599e1ffbd71e0d",
+        "resident_access.py": "43ed303f83228d8144e1f22cda3a6c9cdcef5c6120ee88e1a5f2302ffcc9b290",
+        "identity_settings.py": "b93a3be9f3d1811f7a29ffae4fcd330a645bfad31e7de11ad4120b09ecee8010",
+        "settings_menu.py": "4bcdd48185ee0eac9543f5cbc32238d5e37c970bb13b6f39cebc88f92494bb4e",
+        "portal_skin.py": "41db387d5d6cd307c0bfdd5fd0bd37fa85ec387a32b32086930eefcf05a2d615",
+        "ui.py": "d2bdcde8896d4b3601329429efc943cfcce1779121c8024ff582716f59a88984"
+      }
+    }
+  },
+  "source_hashes_match": true,
+  "static_checks": [
+    "ruff",
+    "Python compile",
+    "JavaScript syntax",
+    "shell syntax",
+    "git diff --check"
+  ]
+}

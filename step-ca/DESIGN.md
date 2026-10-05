@@ -566,3 +566,22 @@ local fixture. Left-edge clipping was corrected using the recorded geometry;
 the final 1px Enroll correction did not trigger a third visual inspection.
 Native no-script navigation, keyboard closing/focus and authority hash selection
 passed. Evidence is under `.impeccable/audits/all-menus/`.
+
+## Focused enrollment pages (2026-10-05)
+
+Enroll uses a compact task chooser and four dedicated pages: New one-time link,
+Enrollment links, Enroll this computer, and Issue a certificate. The dropdown
+opens each task directly and highlights the current page. Existing HA tokens,
+MDI icons, navigation rows and form cards remain the visual language. Forms use
+the narrow 760px layout; inventory uses the 1120px panel layout.
+
+Only the current task's controls and supporting service reads appear on its
+page. Validation keeps entered details and opens advanced options when needed;
+results return to the originating task. Inventory actions retain the filter
+and page. Old enrollment query bookmarks, fragment links and direct issue
+POSTs remain compatible. Public device enrollment keeps its existing layout.
+
+The bounded initial inspection covered 20 desktop/mobile views with menus
+closed and open, with zero axe violations, horizontal overflow or clipped
+menus. No visual repair round was needed. Fixture evidence is under
+`.impeccable/audits/enrollment-pages/`; screenshots use fictional local data.
