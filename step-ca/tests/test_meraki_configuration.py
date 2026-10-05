@@ -25,6 +25,37 @@ GROUPS = {"meta": {"filteredCount": 1}, "items": [{"id": "10", "name": "Resident
 
 
 class ProviderTests(unittest.IsolatedAsyncioTestCase):
+    def test_saved_settings_use_supervisor_without_opening_root_owned_options(self):
+        config = {"source": "api_key", "api_key": "saved-key"}
+        response = MagicMock()
+        response.__enter__.return_value = io.StringIO(json.dumps({"result": "ok", "data": {"options": {"meraki": config}}}))
+        with patch.object(provider, "SETTINGS_OVERRIDE", None), \
+                patch.dict(provider.os.environ, {"SUPERVISOR_TOKEN": "supervisor-token", "SUPERVISOR_URL": "http://supervisor"}), \
+                patch("builtins.open", side_effect=PermissionError("root-owned")) as opened, \
+                patch.object(provider.urllib.request, "urlopen", return_value=response) as fetch:
+            self.assertEqual(provider.settings(), config)
+        opened.assert_not_called()
+        request = fetch.call_args.args[0]
+        self.assertEqual(request.full_url, "http://supervisor/addons/self/info")
+        self.assertEqual(request.get_header("Authorization"), "Bearer supervisor-token")
+        self.assertEqual(fetch.call_args.kwargs["timeout"], 30)
+
+    def test_supervisor_read_failure_does_not_fall_back_to_stale_credentials(self):
+        with patch.object(provider, "SETTINGS_OVERRIDE", None), \
+                patch.dict(provider.os.environ, {"SUPERVISOR_TOKEN": "supervisor-token", "MERAKI_SETTINGS_JSON": '{"api_key":"stale-key"}'}), \
+                patch.object(provider.urllib.request, "urlopen", side_effect=OSError("private-key-response")):
+            with self.assertRaisesRegex(RuntimeError, "Supervisor") as error:
+                provider.settings()
+        self.assertNotIn("private-key-response", str(error.exception))
+        self.assertNotIn("stale-key", str(error.exception))
+
+    def test_standalone_settings_use_explicit_environment_without_options_file(self):
+        with patch.object(provider, "SETTINGS_OVERRIDE", None), \
+                patch.dict(provider.os.environ, {"SUPERVISOR_TOKEN": "", "MERAKI_SETTINGS_JSON": '{"source":"auto"}'}), \
+                patch("builtins.open", side_effect=PermissionError("root-owned")) as opened:
+            self.assertEqual(provider.settings(), {"source": "auto"})
+        opened.assert_not_called()
+
     async def test_auto_reuses_integration_and_never_sends_api_key_to_core(self):
         core = AsyncMock(return_value=[{"provider": "meraki_ha"}])
         message = {"type": "step_ca_scep/ipsk/delete", "ipsk_id": "N_fixture:0:key"}

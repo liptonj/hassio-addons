@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
+import urllib.request
 
 SETTINGS_OVERRIDE = None
 SERVICE = None
@@ -17,11 +18,23 @@ class ProviderUnavailable(RuntimeError):
 def settings():
     if SETTINGS_OVERRIDE is not None:
         return dict(SETTINGS_OVERRIDE)
-    try:
-        with open("/data/options.json", encoding="utf-8") as source:
-            return json.load(source).get("meraki") or {}
-    except FileNotFoundError:
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
         return json.loads(os.environ.get("MERAKI_SETTINGS_JSON", "{}"))
+    # Supervisor owns options.json; the non-root admin and portal processes
+    # must use its authenticated API to read current, saved options.
+    request = urllib.request.Request(
+        os.environ.get("SUPERVISOR_URL", "http://supervisor").rstrip("/") + "/addons/self/info",
+        headers={"Authorization": "Bearer " + token},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = json.load(response)
+        if body.get("result") != "ok":
+            raise ValueError("Supervisor refused the request")
+        return dict((body.get("data", {}).get("options") or {}).get("meraki") or {})
+    except (OSError, ValueError, TypeError, AttributeError):
+        raise RuntimeError("Could not read the saved Meraki connection from Supervisor. Check the add-on's Supervisor connection.") from None
 
 
 def validate(config):

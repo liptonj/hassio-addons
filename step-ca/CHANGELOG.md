@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.59
+
+- Read saved Meraki connection options through the authenticated Supervisor API,
+  so settings and resident access work under the add-on's non-root account.
+  Avoid opening Supervisor's root-owned `/data/options.json` from Python.
+
 ## 0.30.2.58
 
 - Default new certificate Wi-Fi profiles to Cisco Access Manager, pin its server
