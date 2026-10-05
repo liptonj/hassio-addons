@@ -67,6 +67,32 @@ class SettingsMenuTests(unittest.TestCase):
                         markup,
                     )
 
+    def test_settings_dropdown_is_available_from_operational_pages_and_closed_by_default(self):
+        handler = self.handler("/ipsk")
+        handler.page("Fixture inventory", "<p>Fixture</p>")
+        markup = self.markup(handler)
+        self.assertIn('<details class="tab-menu settings-dropdown">', markup)
+        self.assertNotIn('<details class="tab-menu settings-dropdown" open', markup)
+        for slug, label, _, _, _ in menu.GROUPS:
+            self.assertIn(f'/api/hassio_ingress/fixture/settings/{slug}', markup)
+            self.assertIn(menu.esc(label), markup)
+        self.assertIn("All settings", markup)
+        self.assertNotIn('class="settings-layout"', markup)
+
+    def test_leaf_uses_scoped_page_dropdown_and_category_selection(self):
+        handler = self.handler("/settings/captive-portal/appearance/save")
+        handler.page("Appearance", "<p>Fixture form</p>")
+        markup = self.markup(handler)
+        self.assertIn('settings/captive-portal" aria-current="true"', markup)
+        self.assertIn('nav class="menu" aria-label="Captive portal pages"', markup)
+        self.assertIn('settings/captive-portal/appearance" aria-current="page"', markup)
+        self.assertIn("In this category", markup)
+        self.assertNotIn('class="settings-layout"', markup)
+        self.assertNotIn('class="settings-menu"', markup)
+        local = markup.split('aria-label="Captive portal pages"')[1].split('</nav>')[0]
+        self.assertIn('/settings/captive-portal/content', local)
+        self.assertNotIn('/settings/identity/', local)
+
     def test_old_bookmarks_preserve_query_when_redirecting(self):
         for old, new in menu.ALIASES.items():
             with self.subTest(old=old):

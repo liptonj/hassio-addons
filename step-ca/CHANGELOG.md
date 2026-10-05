@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.30.2.53
+
+- Changed the Settings tab into a category dropdown on desktop and mobile.
+- Replaced the permanent category sidebar with a compact dropdown for pages
+  in the current category, keeping focused settings and breadcrumbs.
+- Preserved native keyboard and no-script navigation, ingress links and
+  existing form routes; added dropdown routing and selection checks.
+
 ## 0.30.2.52
 
 - Added Captive portal Settings with separate Appearance and Content pages,

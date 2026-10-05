@@ -1309,6 +1309,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         else:
             current = self.current_tab()
             tabs = "".join(
+                self.settings_dropdown(current == "/settings") if path == "/settings" else
                 f'<a class="tab" href="{esc(self.url(path))}"'
                 f'{" aria-current=page" if path == current else ""}>{ui.icon(icon)}<span>{label}</span></a>'
                 for path, label, icon in self.TABS

@@ -1,0 +1,10 @@
+{
+  "keyboardOpen": true,
+  "escapeClosesAndRestoresFocus": true,
+  "categoryLinkNavigates": true,
+  "noJavaScriptCategoryNavigation": true,
+  "recordedAxeViews": 17,
+  "violations": 0,
+  "overflow": false,
+  "automationNote": "Initial desktop sweep reached System tools before tool timeout; unsaved batch metrics were discarded. Remaining desktop pages and mobile categories/submenus were recorded incrementally."
+}

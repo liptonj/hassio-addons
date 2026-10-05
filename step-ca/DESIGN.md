@@ -528,3 +528,24 @@ and five confirmation views, with zero axe violations or horizontal overflow.
 Screenshot clipping was corrected for the browser's device scale; final images
 show complete CSS viewports. Evidence is under
 `.impeccable/audits/captive-portal-skin/`.
+
+## Settings category dropdown (2026-10-05)
+
+The Settings tab is a native disclosure dropdown containing the six categories
+and an All settings overview link. Category selection is highlighted throughout
+its descendant pages. Mobile opens the dropdown above the five-tab bottom bar;
+menu height is bounded and scrollable.
+
+The permanent category sidebar is replaced by an In this category dropdown for
+sibling pages, preserving focused forms, familiar HA tokens and breadcrumbs.
+Native disclosure and link behavior works without JavaScript. Escape/outside
+click enhancement closes the menus; Escape restores trigger focus. No provider,
+CA, device policy or saved setting behavior changes.
+
+The bounded initial inspection combined desktop and mobile, including closed,
+category-open and page-open states. An automation timeout interrupted the
+initial desktop sweep and discarded its unsaved metrics; remaining desktop
+checks and mobile checks were recorded incrementally (17 axe views, zero
+violations or overflow). Keyboard open/close and native no-script category
+navigation passed. No further visual repair round was needed. Fixture evidence
+is under `.impeccable/audits/settings-dropdown/`. No raster assets ship in the UI.

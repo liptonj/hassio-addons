@@ -1,0 +1,17 @@
+{"route":"/settings/system/options","width":1280,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/ipsk","width":1280,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/certificates","width":320,"state":"closed","menu":[],"overflow":false,"violations":[]}
+{"route":"/settings/certificates","width":320,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/enrollment","width":320,"state":"closed","menu":[],"overflow":false,"violations":[]}
+{"route":"/settings/enrollment","width":320,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/ipsk","width":320,"state":"closed","menu":[],"overflow":false,"violations":[]}
+{"route":"/settings/ipsk","width":320,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/identity","width":320,"state":"closed","menu":[],"overflow":false,"violations":[]}
+{"route":"/settings/identity","width":320,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/captive-portal","width":320,"state":"closed","menu":[],"overflow":false,"violations":[]}
+{"route":"/settings/captive-portal","width":320,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/system","width":320,"state":"closed","menu":[],"overflow":false,"violations":[]}
+{"route":"/settings/system","width":320,"state":"categories","menu":[{"bottom":676,"height":740,"left":8,"right":312,"top":314,"width":320}],"overflow":false,"violations":[]}
+{"route":"/settings/captive-portal/appearance","width":390,"state":"pages-keyboard","menu":[{"bottom":334,"height":844,"left":12,"right":378,"top":220,"width":390}],"overflow":false,"violations":[]}
+{"route":"/settings/identity/authentication","width":390,"state":"pages-keyboard","menu":[{"bottom":334,"height":844,"left":12,"right":378,"top":220,"width":390}],"overflow":false,"violations":[]}
+{"route":"/settings/system/storage","width":390,"state":"pages-keyboard","menu":[{"bottom":526,"height":844,"left":12,"right":378,"top":220,"width":390}],"overflow":false,"violations":[]}

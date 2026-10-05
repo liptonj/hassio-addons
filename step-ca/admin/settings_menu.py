@@ -349,43 +349,46 @@ class SettingsMixin:
             f'<p class="settings-intro">{esc(description)}</p><div class="card"><div class="rows">{rows}</div></div>',
         )
 
+    def settings_dropdown(self, selected=False):
+        path, group, _ = self.settings_location()
+        links = "".join(
+            f'<a href="{esc(self.url("/settings/" + slug))}"'
+            + (' aria-current="true"' if group and group[0] == slug else "")
+            + f'>{ui.icon(glyph)}<span>{esc(label)}</span></a>'
+            for slug, label, glyph, _, _ in GROUPS
+        )
+        overview = (
+            f'<a class="settings-overview" href="{esc(self.url("/settings"))}"'
+            + (' aria-current="page"' if path == "/settings" else "")
+            + f'>{ui.icon("cog")}<span>All settings</span></a>'
+        )
+        return (
+            '<details class="tab-menu settings-dropdown"><summary class="tab'
+            + (' current" aria-current=page' if selected else '"')
+            + '>' + ui.icon("cog") + '<span>Settings</span>'
+            + ui.icon("chevron-down", "caret")
+            + '</summary><nav class="menu" aria-label="Settings navigation">'
+            + links + overview + '</nav></details>'
+        )
+
     def settings_shell(self, title, body):
         path, group, leaf = self.settings_location()
         if path == "/settings":
             return body
-        categories = "".join(
-            f'<a href="{esc(self.url("/settings/" + slug))}"'
-            + (
-                ' aria-current="page"'
-                if group and group[0] == slug and not leaf
-                else ""
-            )
-            + (' class="selected-category"' if group and group[0] == slug else "")
-            + f">{esc(label)}</a>"
-            for slug, label, _, _, _ in GROUPS
-        )
-        children = (
-            "".join(
+        pages = ""
+        if group and leaf:
+            children = "".join(
                 f'<a href="{esc(self.url("/settings/" + group[0] + "/" + slug))}"'
-                + (' aria-current="page"' if leaf and leaf[0] == slug else "")
-                + f">{esc(label)}</a>"
+                + (' aria-current="page"' if leaf[0] == slug else "")
+                + f'>{esc(label)}</a>'
                 for slug, label, _ in group[4]
             )
-            if group
-            else ""
-        )
-        menu = (
-            '<details class="settings-menu" open><summary>Settings menu'
-            + ui.icon("chevron-down", "chev")
-            + '</summary><nav aria-label="Settings navigation">'
-            + categories
-            + (
-                '<div class="settings-submenu">' + children + "</div>"
-                if children
-                else ""
+            pages = (
+                '<details class="settings-page-menu"><summary>In this category'
+                + ui.icon("chevron-down", "caret")
+                + f'</summary><nav class="menu" aria-label="{esc(group[1])} pages">'
+                + children + '</nav></details>'
             )
-            + "</nav></details>"
-        )
         breadcrumb = f'<nav class="settings-breadcrumb" aria-label="Breadcrumb"><a href="{esc(self.url("/settings"))}">Settings</a>'
         if group:
             breadcrumb += (
@@ -397,13 +400,10 @@ class SettingsMixin:
             breadcrumb += f'<span aria-hidden="true">/</span><span aria-current="page">{esc(leaf[1])}</span>'
         heading = leaf[1] if leaf else title
         return (
-            '<div class="settings-layout">'
-            + menu
-            + '<div class="settings-content">'
-            + breadcrumb
-            + f'</nav><h2 class="settings-title">{esc(heading)}</h2>'
-            + body
-            + "</div></div>"
+            '<div class="settings-content">'
+            + breadcrumb + '</nav><div class="settings-page-head">'
+            + f'<h2 class="settings-title">{esc(heading)}</h2>' + pages + '</div>'
+            + body + '</div>'
         )
 
     def settings_summary(self, topic, reader, query=None, all_options=False):

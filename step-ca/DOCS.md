@@ -206,6 +206,18 @@ captive portal** follows only a validated HTTPS `*.network-auth.com`
 click-through grant URL and requests a five-minute setup access window.
 No grant link is offered on a rejected or failed registration.
 
+### Settings category dropdown
+
+Open **Settings** in the main navigation to choose **Certificates**,
+**Enrollment & Wi-Fi**, **IPSK**, **Identity & access**, **Captive portal** or
+**System**. The dropdown is available from each main section. On phones it opens
+above the bottom navigation bar. **All settings** opens the category overview.
+
+Each category opens its focused settings pages. Within a page, **In this
+category** opens the sibling pages; breadcrumbs return to the category overview.
+Menus start closed, work with the keyboard and remain usable without JavaScript.
+With JavaScript enabled, Escape closes the menu and returns focus to its trigger.
+
 ### Captive portal appearance and content
 
 Open **Settings → Captive portal** to skin the public Wi-Fi portal. Its settings

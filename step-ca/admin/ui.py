@@ -246,7 +246,7 @@ html:not(.js) .js-only { display: none !important; }
   content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px;
   border-radius: 2px 2px 0 0; background: var(--primary-color);
 }
-/* The Tools tab is a menu: a <details> that works without the script. */
+/* Native Settings dropdowns also work without the script. */
 .tab-menu { position: relative; height: 100%; }
 .tab-menu > summary { list-style: none; cursor: pointer; user-select: none; }
 .tab-menu > summary::-webkit-details-marker { display: none; }
@@ -260,9 +260,9 @@ html:not(.js) .js-only { display: none !important; }
 }
 .menu a { display: flex; align-items: center; gap: 16px; padding: 10px 16px; color: inherit; min-height: 48px; }
 .menu a:hover, .menu a:focus-visible { background: var(--hover); text-decoration: none; outline: none; }
-.menu a[aria-current="page"] { color: var(--accent-ink); background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+.menu a[aria-current] { color: var(--accent-ink); background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
 .menu a .mdi { color: var(--secondary-text-color); }
-.menu a[aria-current="page"] .mdi { color: var(--accent-ink); }
+.menu a[aria-current] .mdi { color: var(--accent-ink); }
 .menu-text { display: flex; flex-direction: column; min-width: 0; }
 .menu-sub { font-size: 12px; color: var(--secondary-text-color); }
 .back { margin-left: -8px; color: inherit; }
@@ -318,17 +318,20 @@ a.icon-btn:hover { text-decoration: none; }
 
 /* Shared navigation and task forms */
 .settings-intro { max-width:72ch; margin-bottom:24px; }
-.settings-layout { display:grid; grid-template-columns:240px minmax(0,1fr); gap:32px; align-items:start; }
 .settings-content { min-width:0; }
-.settings-menu { position:sticky; top:80px; }
-.settings-menu > summary { display:none; }
-.settings-menu nav { display:flex; flex-direction:column; }
-.settings-menu nav a { display:flex; align-items:center; min-height:44px; padding:10px 12px;
-  color:var(--primary-text-color); overflow-wrap:anywhere; border-radius:8px; }
-.settings-menu nav a:hover { background:var(--hover); text-decoration:none; }
-.settings-menu nav a[aria-current=page], .settings-menu .selected-category {
-  color:var(--accent-ink); background:color-mix(in srgb,var(--primary-color) 10%,transparent); }
-.settings-menu .settings-submenu { margin-top:16px; padding-top:16px; border-top:1px solid var(--divider-color); }
+.settings-page-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
+.settings-page-head .settings-title { margin:0; }
+.settings-page-menu { position:relative; max-width:100%; }
+.settings-page-menu > summary { display:flex; align-items:center; justify-content:space-between; gap:12px;
+  min-height:44px; padding:10px 14px; color:var(--accent-ink); background:var(--card-background-color);
+  border:1px solid var(--outline); border-radius:8px; cursor:pointer; list-style:none; }
+.settings-page-menu > summary::-webkit-details-marker { display:none; }
+.settings-page-menu .caret { width:18px; height:18px; transition:transform .2s var(--ease-out); }
+.settings-page-menu[open] .caret { transform:rotate(180deg); }
+.settings-page-menu > summary:hover { background:var(--hover); }
+.settings-page-menu .menu { max-height:min(50dvh,360px); overflow-y:auto; max-width:calc(100vw - 24px); }
+.settings-dropdown .menu { max-height:calc(100dvh - 80px); overflow-y:auto; }
+.settings-dropdown .settings-overview { margin-top:8px; border-top:1px solid var(--divider-color); }
 .settings-breadcrumb { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; font-size:14px; }
 .settings-breadcrumb a { min-height:44px; display:inline-flex; align-items:center; }
 .settings-breadcrumb > span { overflow-wrap:anywhere; min-width:0; }
@@ -341,14 +344,11 @@ a.icon-btn:hover { text-decoration: none; }
 @media (max-width:640px) { .identity-settings input { font-size:16px; } }
 .settings-content > .btn { min-height:44px; height:auto; padding-block:10px; white-space:normal; }
 .settings-content > .hint { margin-block:16px 24px; max-width:72ch; }
-@media (max-width:900px) {
-  .settings-layout { grid-template-columns:minmax(0,1fr); gap:24px; }
-  .settings-menu { position:static; border-bottom:1px solid var(--divider-color); }
-  .settings-menu > summary { display:flex; align-items:center; justify-content:space-between; gap:12px;
-    min-height:48px; padding:12px 0; cursor:pointer; list-style:none; }
-  .settings-menu > summary::-webkit-details-marker { display:none; }
-  .settings-menu nav { padding-block:8px 16px; }
-  .settings-title { font-size:22px; line-height:28px; margin-bottom:20px; }
+@media (max-width:640px) {
+  .settings-page-head { gap:12px; margin-bottom:20px; }
+  .settings-page-head .settings-title { font-size:22px; line-height:28px; }
+  .settings-page-menu { width:100%; }
+  .settings-page-menu .menu { top:calc(100% + 4px); bottom:auto; left:0; right:0; min-width:0; }
 }
 [hidden] { display: none !important; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 20; padding: 12px 16px;
@@ -678,7 +678,7 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
 .toast.show { transform: translate(-50%, 0); opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   dialog[open] { animation: none; }
-  .toast, details.expand > summary .chev, .form-section .chev { transition: none; }
+  .toast, details.expand > summary .chev, .form-section .chev, .tab-menu .caret, .settings-page-menu .caret { transition: none; }
 }
 
 @media (max-width: 860px) {
@@ -702,7 +702,7 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
   .tab-menu { flex: 1; position: static; }
   .tab-menu > summary { height: 100%; }
   .tab-menu > summary .caret { display: none; }
-  .menu { position: fixed; top: auto; bottom: 64px; right: 8px; left: 8px; min-width: 0; }
+  .tabs .menu { position: fixed; top: auto; bottom: 64px; right: 8px; left: 8px; min-width: 0; }
   .tab[aria-current="page"]::after, .tab.current::after { top: 0; bottom: auto; border-radius: 0 0 2px 2px; left: 25%; right: 25%; }
   .content { padding: 16px 12px 32px; }
   .field-row, .revoke-form { grid-template-columns: 1fr; }
@@ -871,8 +871,8 @@ SCRIPT = r"""
     });
   });
 
-  // The Tools menu closes on a click elsewhere, on Escape, or when another opens.
-  var menus = Array.prototype.slice.call(document.querySelectorAll("details.tab-menu"));
+  // Navigation dropdowns close outside or on Escape, restoring keyboard focus.
+  var menus = Array.prototype.slice.call(document.querySelectorAll("details.tab-menu, details.settings-page-menu"));
   document.addEventListener("click", function (event) {
     menus.forEach(function (menu) { if (menu.open && !menu.contains(event.target)) menu.open = false; });
   });
