@@ -65,6 +65,27 @@ class DuoPolicy(unittest.TestCase):
                 access.member_identity(CONFIG, user_id="DUoutsider")
         client.assert_not_called()
 
+    def test_directory_accepts_documented_active_group_status_casing(self):
+        for status in ("Active", "active"):
+            with self.subTest(status=status):
+                client = MagicMock()
+                client.get_group.return_value = {"status": status}
+                client.get_group_users_iterator.return_value = iter([])
+                with patch.object(access, "admin_client", return_value=client):
+                    self.assertEqual(access.group_members(CONFIG), [])
+                client.get_group_users_iterator.assert_called_once_with(CONFIG["duo_group_id"])
+                client.get_users.assert_not_called()
+
+    def test_directory_rejects_bypassed_disabled_and_unknown_group_statuses(self):
+        for status in ("Bypass", "bypass", "Disabled", "disabled", "unknown", None):
+            with self.subTest(status=status):
+                client = MagicMock()
+                client.get_group.return_value = {"status": status}
+                with patch.object(access, "admin_client", return_value=client), self.assertRaises(ValueError):
+                    access.group_members(CONFIG)
+                client.get_group_users_iterator.assert_not_called()
+                client.get_users.assert_not_called()
+
     def test_locked_user_and_inactive_group_are_rejected(self):
         client = MagicMock()
         client.get_group.return_value = {"status":"disabled"}

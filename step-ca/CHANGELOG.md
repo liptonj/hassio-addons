@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.30.2.60
+
+- Accept Duo's documented `Active` and `active` group statuses when loading the
+  permitted directory. Continue rejecting bypassed, disabled and unknown groups.
+
 ## 0.30.2.59
 
 - Read saved Meraki connection options through the authenticated Supervisor API,

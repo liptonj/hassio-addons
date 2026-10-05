@@ -98,7 +98,8 @@ def group_members(config):
     identity_settings.validate(config, "directory", required=True)
     client = _duo_call(admin_client, config)
     group = _duo_call(client.get_group, config["duo_group_id"], api_version=2)
-    if group.get("status") != "active":
+    # Duo documents both "Active" and "active" across group responses.
+    if str(group.get("status", "")).casefold() != "active":
         raise ValueError("The permitted Duo group must be active. Contact your administrator.")
     members = []
     for member in _duo_group_users(client, config["duo_group_id"]):
