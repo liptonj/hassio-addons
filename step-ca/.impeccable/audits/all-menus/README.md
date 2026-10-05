@@ -39,5 +39,11 @@ the final source. Each of the 11 runtime settings routes rendered all five
 dropdowns. Release details are in `release-checks.json`; deployment is recorded
 separately. No independent critique score or full new audit is claimed.
 
-Finish verdict: implemented and verified locally; awaiting source CI and the
-Home Assistant deployment connection.
+Finish verdict: deployed and verified in Step CA 0.30.2.54 on 2026-10-05.
+Source CI passed for `d085e0ad3b13ac3a4e603587f8a400860b2a858c`.
+The Home Assistant connection recovered after the earlier 0.30.2.53 HTTP 522.
+The Step CA/MariaDB backup completed before updating; update-job monitoring
+returned `unknown_error`. Read-only inspection confirmed 0.30.2.54 started.
+The final verification skipped reinstallation, passed the Core configuration
+check and restart, confirmed the companion loaded, and returned five networks
+from the live IPSK options request. See `deployment.json` for workflow evidence.
