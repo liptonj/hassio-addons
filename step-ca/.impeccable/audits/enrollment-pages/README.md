@@ -36,4 +36,17 @@ results are in `release-checks.json`, `browser-checks.jsonl` and
 
 ## Deployment
 
-Pending the source CI and installed-version verification.
+Source CI [37337000619](https://github.com/liptonj/hassio-addons/actions/runs/37337000619)
+passed for commit `28ad0a055b03ceaf42c1bc532325c7114ee65457`.
+
+The initial deployment completed the Step CA/MariaDB backup at 16:01:23Z but
+returned `unknown_error` while monitoring the update. A read-only inspection
+confirmed version 0.30.2.55 started. The final exact-version run skipped
+reinstallation and passed the running-version, Core configuration/restart,
+companion-loaded and live IPSK options checks at 16:05:00Z (five wireless
+networks). [Verification run 37337751094](https://github.com/liptonj/meraki-homeassistant/actions/runs/37337751094)
+succeeded. Details are in `deployment.json`.
+
+The temporary fixture server and browser tabs were closed. The isolated build
+builder and Colima profile were removed, leaving the prior default profile
+unchanged.
