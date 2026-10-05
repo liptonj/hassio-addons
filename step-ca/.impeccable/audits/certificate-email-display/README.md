@@ -22,4 +22,18 @@ and whitespace checks passed. No layout, JavaScript or dependency changes were
 introduced. Architecture builds/runtimes remain covered by the immediately
 preceding 0.30.2.55 release; they were not repeated for this HTML/header fix.
 
-Deployment and live display verification pending.
+Source CI [37340665512](https://github.com/liptonj/hassio-addons/actions/runs/37340665512)
+passed. The initial deployment completed its backup at 16:29:03Z, then returned
+`unknown_error` while monitoring the update. Read-only inspection confirmed
+0.30.2.56 started. Final exact-version verification skipped reinstallation and
+passed Core check/restart, companion-loaded and live IPSK options checks at
+16:32:30Z. [Final verification](https://github.com/liptonj/meraki-homeassistant/actions/runs/37341346761)
+succeeded.
+
+The actual authenticated Home Assistant page through Cloudflare was checked
+before and after deployment. Before: 12 email-protection links. After: zero
+email-protection links, 12 readable email rows across the 13 active certificate
+rows. A certificate's Details page also showed its email normally with no
+email-protection links. The user tab was returned to the list. Counts and
+booleans are recorded in `live-display-checks.json`; personal addresses and
+ingress tokens are not stored in evidence.

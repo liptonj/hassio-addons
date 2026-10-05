@@ -1,0 +1,15 @@
+{
+  "before": {
+    "cloudflareEmailLinks": 12
+  },
+  "after": {
+    "cloudflareEmailLinks": 0,
+    "readableEmailRows": 12,
+    "certificateRows": 13
+  },
+  "details": {
+    "cloudflareEmailLinks": 0,
+    "emailReadable": true
+  },
+  "containsPersonalAddressValues": false
+}
