@@ -133,6 +133,12 @@ configuration:
     fields:
       enabled:
         name: Enable the public resident portal
+      key_backend:
+        name: Resident key service
+        description: Cisco Access Manager for new resident deployments; legacy Meraki keys remain supported for existing configurations.
+      access_manager_group_id:
+        name: Access Manager resident client group ID
+        description: Required for Access Manager resident onboarding. Use a matching clientIpskOnly PERMIT rule and set key lifetime to 0.
       invite_required:
         name: Require an invitation code
       network_id:
@@ -144,7 +150,7 @@ configuration:
       group_policy_id:
         name: Registered-resident group policy ID
         description: >-
-          Required when onboarding is enabled. Meraki policy applied to individual resident keys. Use splash bypass;
+          Required for legacy Meraki onboarding. Meraki policy applied to individual resident keys. Use splash bypass;
           keep the default setup key on a separate restricted captive portal policy.
       duration_hours:
         name: iPSK lifetime in hours

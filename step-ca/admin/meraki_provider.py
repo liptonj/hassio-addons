@@ -97,7 +97,7 @@ async def direct_call(config, messages):
                         result = await service.access_manager(message["network_id"])
                     elif action == "list":
                         result = await service.list(message.get("scopes", []))
-                    elif action in ("create", "configuration_plan", "configure", "client_key_plan", "assign_client_key"):
+                    elif action in ("create", "configuration_plan", "configure", "client_key_plan", "assign_client_key", "resident_key_plan", "resident_create", "resident_list"):
                         result = await getattr(service, action)(message)
                     elif action in ("get", "reveal_passphrase", "revoke", "delete"):
                         result = await service.key(action, message.get("ipsk_id"), message.get("network_id", ""), message.get("ssid_number", 0))

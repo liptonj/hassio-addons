@@ -3035,6 +3035,9 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
             notice = ui.alert("success", "Settings saved. Restart Step CA to apply network, lifetime and invitation changes.", "Restart required")
         network = str((query or {}).get("network", [config.get("network_id") or ""])[0])
         config["network_id"] = network
+        default_backend = config.get("key_backend", "meraki_legacy") if config.get("network_id") or config.get("enabled") else "access_manager"
+        backend = str((query or {}).get("backend", [default_backend])[0])
+        config["key_backend"] = backend
         try:
             choices = ipsk.get_options(network) if meraki_provider.available(SUPERVISOR_TOKEN) else {}
             if not meraki_provider.available(SUPERVISOR_TOKEN):
@@ -3042,6 +3045,13 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
         except Exception:
             choices = {}
             notice += ui.alert("warning", "Could not load Meraki networks. Check the companion integration and Meraki connection, then reload. Saved choices are retained.", "Meraki unavailable")
+        if backend == "access_manager" and network:
+            try:
+                info = ipsk.core_call({"type": "step_ca_scep/ipsk/access_manager", "network_id": network})[0]
+                choices["access_manager_groups"] = info["groups"]
+            except Exception as err:
+                detail = str(err) if isinstance(err, ValueError) else "Access Manager could not be read. Check API permissions and organization availability."
+                notice += ui.alert("warning", esc(detail), "Access Manager unavailable")
 
         def select(name, label, rows, value_key, help_text=""):
             current = str(config.get(name, 0 if name == "ssid_number" else "") or (0 if name == "ssid_number" else ""))
@@ -3056,16 +3066,25 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
         network_select = select("network_id", "Meraki network", choices.get("networks") or [], "id", "Load the network to choose its enabled iPSK SSID and resident policy.")
         lookup = (f'<form method="get" action="{esc(self.url("/settings/ipsk/network"))}">'
                   + network_select.replace('name="network_id"', 'name="network"').replace('id="network_id"', 'id="network_lookup"').replace('for="network_id"', 'for="network_lookup"')
+                  + '<label for="backend">Resident key service</label><select id="backend" name="backend">'
+                  + '<option value="access_manager"' + (' selected' if backend == "access_manager" else '') + '>Cisco Access Manager</option>'
+                  + '<option value="meraki_legacy"' + (' selected' if backend == "meraki_legacy" else '') + '>Existing Meraki keys without RADIUS</option></select>'
                   + '<button class="btn text" type="submit">Load network options</button></form>')
+        ssids = [s for s in choices.get("active_ssids", []) if s.get("auth_mode") == "ipsk-with-nac"] if backend == "access_manager" else choices.get("ssids", [])
+        policy = (select("access_manager_group_id", "Access Manager resident group", choices.get("access_manager_groups") or [], "id",
+                         "Choose the group used by a matching Access Manager PERMIT rule in clientIpskOnly mode. Keys apply across this organization; passwords are shown once.")) if backend == "access_manager" else (
+                         select("group_policy_id", "Registered-resident policy", choices.get("group_policies") or [], "id", "Use a policy that bypasses splash after registration."))
         fields = (f'<input type="hidden" name="network_id" value="{esc(network)}">'
+                  + f'<input type="hidden" name="key_backend" value="{esc(backend)}">'
                   + '<label class="check"><input type="checkbox" name="enabled" value="1"' + (' checked' if config.get("enabled") else '') + '>Enable resident onboarding</label>'
                   + '<label class="check"><input type="checkbox" name="invite_required" value="1"' + (' checked' if config.get("invite_required", True) else '') + '>Require an invitation</label>'
-                  + select("ssid_number", "Resident SSID", choices.get("ssids") or [], "number", "Only enabled iPSK-without-RADIUS SSIDs are listed. SSID 0 is valid.")
-                  + select("group_policy_id", "Registered-resident policy", choices.get("group_policies") or [], "id", "Use a policy that bypasses splash after registration.")
+                  + select("ssid_number", "Resident SSID", ssids, "number", "Only enabled SSIDs matching the resident key service are listed. SSID 0 is valid.")
+                  + policy
                   + '<label for="duration_hours">Key lifetime in hours</label>'
                   + f'<input id="duration_hours" type="number" name="duration_hours" min="0" max="87600" value="{esc(config.get("duration_hours", 0))}" required>'
-                  + '<p class="hint">0 creates keys without an expiry. Changing this applies to new keys.</p>')
-        body = (notice + '<p class="settings-intro">Configure the setup network for resident registration. Changes apply after restarting Step CA.</p>'
+                  + '<p class="hint">Access Manager requires 0: its API has no per-client expiry. Revoke access from the Wi-Fi key list.</p>')
+        body = (notice + '<p class="settings-intro">Choose the resident SSID and key service. Duo sign-in, invitations and device limits continue to apply. Changes apply after restarting Step CA.</p>'
+                + '<p>Existing Access Manager clients keep their current access. Self-service creates keys for new hardware MACs and never replaces an existing client. Existing Meraki key records remain available for management.</p>'
                 + '<section class="card"><div class="card-content">' + lookup
                 + f'<form method="post" action="{esc(self.url("/settings/ipsk/network/save"))}">{csrf}' + fields
                 + '<button class="btn" type="submit">Save onboarding</button></form></div></section>'
@@ -3075,7 +3094,8 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
         self.page("Network and onboarding", guidance.form_error(body, error))
 
     def ipsk_network_save(self, form):
-        draft = {key: str(form.get(key, [""])[0])[:128] for key in ("network_id", "ssid_number", "group_policy_id", "duration_hours")}
+        draft = {key: str(form.get(key, [""])[0])[:128] for key in ("network_id", "ssid_number", "duration_hours")}
+        draft.update({key: str(form[key][0])[:128] for key in ("key_backend", "group_policy_id", "access_manager_group_id") if key in form})
         draft.update({key: form.get(key, [""])[0] == "1" for key in ("enabled", "invite_required")})
         try:
             options = saved_options()
@@ -3090,14 +3110,23 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
                     raise guidance.FieldError(key, f"Enter a whole number from 0 to {maximum}.") from err
             if config["enabled"] and options.get("database") != "mariadb":
                 raise ValueError("Select MariaDB under Settings → System → Database before enabling resident onboarding.")
-            if config["enabled"] and (not config["network_id"] or not config["group_policy_id"]):
-                raise ValueError("Choose the Meraki network and registered-resident policy before enabling onboarding.")
+            backend = config.get("key_backend", "meraki_legacy")
+            if backend not in ("access_manager", "meraki_legacy"):
+                raise guidance.FieldError("key_backend", "Choose a supported resident key service.")
+            if backend == "access_manager" and config["duration_hours"]:
+                raise guidance.FieldError("duration_hours", "Use 0 for Access Manager: the API has no per-client key expiry.")
+            policy_field = "access_manager_group_id" if backend == "access_manager" else "group_policy_id"
+            if config["enabled"] and (not config["network_id"] or not config.get(policy_field)):
+                raise ValueError("Choose the Meraki network, resident SSID and resident group before enabling onboarding.")
             if config["network_id"]:
                 try:
                     choices = ipsk.get_options(config["network_id"])
                 except Exception:
                     raise RuntimeError("The Meraki network options could not be checked.") from None
-                for key, rows, identifier in (("network_id", "networks", "id"), ("ssid_number", "ssids", "number"), ("group_policy_id", "group_policies", "id")):
+                if backend == "access_manager":
+                    choices["ssids"] = [s for s in choices.get("active_ssids", []) if s.get("auth_mode") == "ipsk-with-nac"]
+                    choices["group_policies"] = ipsk.core_call({"type": "step_ca_scep/ipsk/access_manager", "network_id": config["network_id"]})[0]["groups"]
+                for key, rows, identifier in (("network_id", "networks", "id"), ("ssid_number", "ssids", "number"), (policy_field, "group_policies", "id")):
                     if not any(str(row.get(identifier)) == str(config[key]) for row in choices.get(rows) or []):
                         raise guidance.FieldError(key, "Choose an available option from the selected Meraki network.")
             ipsk.resident_access.validate_settings(config)
@@ -3536,11 +3565,16 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
             chip_kind = "ok" if state == "active" else "bad" if state == "revoked" else "neutral"
             action_forms = ""
             if ident:
-                actions = [("reveal", "Reveal")]
+                access_manager_key = ident.startswith("nac:")
+                actions = [] if access_manager_key else [("reveal", "Reveal")]
                 if state == "active":
-                    actions.append(("qr", "Show QR"))
+                    if not access_manager_key:
+                        actions.append(("qr", "Show QR"))
                     actions.append(("revoke", "Revoke"))
-                actions.append(("delete", "Delete"))
+                if access_manager_key and state == "pending":
+                    actions.append(("revoke", "Revoke"))
+                if state != "review_required":
+                    actions.append(("delete", "Delete"))
                 for action, label in actions:
                     klass = ' class="btn text danger"' if action in ("revoke", "delete") else ' class="btn text"'
                     confirm_id = f"ipsk-{index}-{action}"
@@ -3554,7 +3588,8 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
                     )
                     if action in ("revoke", "delete"):
                         operation = "Revoke" if action == "revoke" else "Delete"
-                        consequence = "This will immediately remove the key's Wi-Fi access." if action == "revoke" else "This permanently removes the key from Meraki."
+                        consequence = "This clears the resident key across the Meraki organization and removes its resident group membership. The client record is retained." if access_manager_key else (
+                            "This will immediately remove the key's Wi-Fi access." if action == "revoke" else "This permanently removes the key from Meraki.")
                         key_dialogs.append(
                             f'<dialog id="{confirm_id}" aria-labelledby="{confirm_id}-title">'
                             f'<h2 id="{confirm_id}-title">{operation} {esc(name)}?</h2>'
@@ -3573,6 +3608,10 @@ class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
             '<div class="card" id="device-keys"><div class="card-header"><h2>Wi-Fi keys</h2>'
             + f'<a class="btn" href="{esc(self.url("/ipsk/create"))}">{ui.icon("plus")}Create a key</a>'
             + f'<p class="muted">{key_count} Wi-Fi {"key" if key_count == 1 else "keys"} · Manage individual network access.</p></div>'
+            + ('<div class="card-content"><p>Access Manager passwords are shown once at registration. '
+               'A pending key needs a Dashboard check and revocation before retrying. Review required means '
+               'the client is now managed outside this registration; resolve ownership in Dashboard.</p></div>'
+               if any(str(k.get("id", "")).startswith("nac:") for k in keys) else '')
             + management
             + (f'<div class="table-wrap"><table class="ipsk-table"><thead><tr><th>Name / ID</th><th>SSID</th><th>Resident</th><th>Status</th><th>Actions</th></tr></thead>'
                f'<tbody>{"".join(key_rows)}</tbody></table></div>' if key_rows else

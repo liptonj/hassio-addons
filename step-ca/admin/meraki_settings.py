@@ -121,7 +121,7 @@ class MerakiSettingsMixin:
                 ("guest", "Guest network: bypass portal"), ("none", "No captive portal (enterprise Wi-Fi)")], draft.get("portal_type", "external")) + '</select>'
             fields += ('<label for="portal_url">Public HTTPS portal URL</label>'
                        f'<input id="portal_url" name="portal_url" type="url" maxlength="2048" value="{esc(draft.get("portal_url", default_url))}">'
-                       '<p class="hint">Step CA uses /api/step_ca_scep/portal on your public Home Assistant host and the running resident SSID. External portals can use any enabled SSID. Bypass and no-portal assignments ignore the URL.</p>'
+                       '<p class="hint">Step CA uses /api/step_ca_scep/portal on your public Home Assistant host. With Access Manager, assign this portal to the configured setup SSID in the resident Meraki network. Legacy onboarding uses the resident SSID. Bypass and no-portal assignments ignore the URL.</p>'
                        '<label for="auth_mode">SSID authentication</label><select id="auth_mode" name="auth_mode">' + options("auth_mode", [
                            ("preserve", "Keep current authentication"), ("ipsk-without-radius", "iPSK without RADIUS"),
                            ("ipsk-with-nac", "iPSK with Access Manager"),
@@ -137,11 +137,13 @@ class MerakiSettingsMixin:
             body = '<p class="settings-intro">Assign a captive portal and configure its selected SSID. Review the exact API changes before applying them.</p>' + lookup + inventory
             body += f'<section class="card"><div class="card-content"><form method="post" action="{esc(self.url(ROOT + "ssids/preview"))}">{self.meraki_csrf()}{fields}<button class="btn" type="submit">Preview SSID changes</button></form></div></section>'
         else:
-            body = ('<p class="settings-intro">Inspect Access Manager policies and assign a per-client iPSK to a hardware MAC address. Resident self-service currently issues iPSKs without RADIUS.</p>' + lookup)
+            body = ('<p class="settings-intro">Inspect Access Manager policies and assign a per-client iPSK to a hardware MAC address. '
+                    + f'<a href="{esc(self.url("/settings/ipsk/network"))}">Configure resident self-service</a> to issue keys through Access Manager.</p>' + lookup)
             try:
                 info = ipsk.core_call({"type": "step_ca_scep/ipsk/access_manager", "network_id": network})[0]
-            except Exception:
-                self.page(titles[kind], notice + body + ui.alert("warning", "Access Manager could not be read. Check organization access, beta API availability and API permissions.", "Access Manager unavailable"))
+            except Exception as err:
+                detail = str(err) if isinstance(err, ValueError) else "Access Manager could not be read. Check organization access, beta API availability and API permissions."
+                self.page(titles[kind], notice + body + ui.alert("warning", esc(detail), "Access Manager unavailable"))
                 return
             rows = ''.join('<tr><td>' + esc(p["name"]) + '</td><td>' + ('Enabled' if p["enabled"] else 'Disabled') + '</td><td>'
                            + '<br>'.join(esc(r["name"]) + ': ' + esc(r["ipsk_mode"]) + ' (' + esc(r["result"]) + (', enabled)' if r["enabled"] else ', disabled)') for r in p["rules"]) + '</td></tr>' for p in info["policies"])
@@ -259,9 +261,25 @@ class MerakiSettingsMixin:
         if message.get("portal_type") != "resident":
             return
         config = resident_access.settings()
-        if (not config.get("enabled") or message["network_id"] != config.get("network_id")
-                or message["ssid_number"] != config.get("ssid_number")):
-            raise ValueError("Save and restart Step CA with this resident network and SSID before assigning its portal. The resident issuer supports one running SSID.")
+        if not config.get("enabled") or message["network_id"] != config.get("network_id"):
+            raise ValueError("Save and restart Step CA with this resident Meraki network before assigning its setup portal.")
+        if config.get("key_backend") == "access_manager":
+            rows = ipsk.get_options(message["network_id"]).get("active_ssids", [])
+            setup = next((s for s in rows if s["number"] == message["ssid_number"]), {})
+            if (message["ssid_number"] == config.get("ssid_number") or not config.get("setup_ssid")
+                    or setup.get("name") != config["setup_ssid"] or setup.get("auth_mode") not in ("psk", "open", "ipsk-without-radius")):
+                raise ValueError("Choose the separate setup SSID saved under Guest and setup networks, in the resident Meraki network. Keep the Access Manager resident SSID for individual keys.")
+            if message.get("auth_mode", "preserve") != "preserve":
+                raise ValueError("Keep current authentication on the resident setup SSID; its existing setup credentials must remain valid.")
+        elif message["ssid_number"] != config.get("ssid_number"):
+            raise ValueError("Choose the running legacy resident SSID before assigning its portal.")
+        expected = "ipsk-with-nac" if config.get("key_backend") == "access_manager" else "ipsk-without-radius"
+        mode = message.get("auth_mode", "preserve")
+        if mode == "preserve" and config.get("key_backend") != "access_manager":
+            rows = ipsk.get_options(message["network_id"]).get("active_ssids", [])
+            mode = next((s.get("auth_mode") for s in rows if s["number"] == message["ssid_number"]), None)
+        if config.get("key_backend") != "access_manager" and mode != expected:
+            raise ValueError("Choose SSID authentication matching the running resident key service in Network and onboarding.")
         parsed = urlsplit(message["portal_url"])
         if parsed.path != "/api/step_ca_scep/portal" or parsed.query:
             raise ValueError("Use the public Home Assistant HTTPS URL ending in /api/step_ca_scep/portal.")

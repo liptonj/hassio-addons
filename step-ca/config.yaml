@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2.60"
+version: "0.30.2.61"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -87,6 +87,8 @@ options:
     footer_text: ""
   resident_onboarding:
     enabled: false
+    key_backend: meraki_legacy
+    access_manager_group_id: ""
     invite_required: true
     network_id: ""
     ssid_number: 0
@@ -227,6 +229,8 @@ schema:
     footer_text: str(0,200)?
   resident_onboarding:
     enabled: bool
+    key_backend: list(access_manager|meraki_legacy)?
+    access_manager_group_id: str(0,80)?
     invite_required: bool
     network_id: str(0,128)?
     ssid_number: int(0,14)

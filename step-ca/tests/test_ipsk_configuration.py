@@ -116,7 +116,7 @@ class IPSKConfigurationTests(unittest.TestCase):
                 patch.object(ipsk, "get_options", return_value=CHOICES):
             handler.do_GET()
         markup = handler.send.call_args.args[1]
-        for field in settings_menu.IPSK_NETWORK_FIELDS:
+        for field in settings_menu.IPSK_NETWORK_FIELDS - {"access_manager_group_id"}:
             self.assertIn('name="' + field + '"', markup)
         self.assertIn('<option value="0" selected>Resident Wi-Fi', markup)
         self.assertIn("Load network options", markup)

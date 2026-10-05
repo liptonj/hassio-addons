@@ -39,6 +39,13 @@ def enabled(config=None):
 
 
 def validate_settings(config):
+    if config.get("key_backend", "meraki_legacy") not in ("access_manager", "meraki_legacy"):
+        raise ValueError("Choose a supported resident key service.")
+    if config.get("key_backend") == "access_manager":
+        if config.get("duration_hours", 0):
+            raise guidance.FieldError("duration_hours", "Access Manager resident keys require a lifetime of 0; the API has no per-client expiry.")
+        if (config.get("enabled") or enabled(config)) and not config.get("access_manager_group_id"):
+            raise ValueError("Choose the Access Manager resident group in Network and onboarding first.")
     try:
         limit = int(config.get("max_devices_per_resident", 5))
     except (TypeError, ValueError) as err:
@@ -144,7 +151,7 @@ def universal_client(config):
 
 def policy_stamp(config):
     fields = (*BOOL_FIELDS, *TEXT_FIELDS, *SECRET_FIELDS, "max_devices_per_resident", "network_id",
-              "ssid_number", "group_policy_id", "invite_required")
+              "ssid_number", "group_policy_id", "invite_required", "key_backend", "access_manager_group_id", "duration_hours")
     return hashlib.sha256(json.dumps({k: config.get(k) for k in fields}, sort_keys=True).encode()).hexdigest()
 
 
@@ -480,8 +487,11 @@ def create_device(engine, config, identity, name, mac, unit, invitation, ip):
                 if not invite:
                     raise guidance.FieldError("invite", "That invitation is invalid, expired or already used. Ask your administrator for a new code.")
                 invite_id = invite["id"]
-            created = engine.create_ipsk(name, config["network_id"], config.get("ssid_number", 0),
-                                         config.get("duration_hours", 0), unit, identity["name"], config.get("group_policy_id", ""))
+            if config.get("key_backend", "meraki_legacy") == "meraki_legacy":
+                created = engine.create_ipsk(name, config["network_id"], config.get("ssid_number", 0),
+                                             config.get("duration_hours", 0), unit, identity["name"], config.get("group_policy_id", ""))
+            else:
+                created = engine.create_resident_key(config, name, mac, unit, identity["name"])
             created_id = str(created.get("id") or created.get("psk_group_id") or "")
             ssid, passphrase = str(created.get("ssid_name") or ""), str(created.get("passphrase") or "")
             if not created_id:

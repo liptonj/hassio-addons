@@ -10,6 +10,16 @@ related_targets:
   - "admin/captive.py"
 ---
 
+Resident Access Manager migration (2026-10-05): Network and onboarding selects
+the key service and filters enabled resident SSIDs/client groups. Duo choices,
+invitation checks and quotas remain in their established flows. New client keys
+are shown once, pending writes have durable password-free attribution, and
+owned revocation retains the client. The setup portal uses a separate configured
+SSID with its current authentication. Browser and test evidence is recorded in
+`.impeccable/audits/resident-access-manager/README.md`; live activation needs the
+target network/SSID/group and NAC API access. Existing certificate profiles remain
+valid. No visual identity or shipping image assets changed.
+
 # Certificates and resident network panel (Step CA)
 
 Scope: every page rendered by step-ca/admin/app.py, both the ingress admin panel (Certificates, Enroll, Residents, Authority, Tools) and the public enrollment pages (EnrollHandler). Mode: Operate.

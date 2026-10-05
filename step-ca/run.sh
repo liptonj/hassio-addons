@@ -107,8 +107,15 @@ fi
 if [[ "${resident_enabled}" == "true" ]]; then
   [[ -n "$(jq --raw-output '.network_id // ""' <<<"${resident_settings_json}")" ]] \
     || fatal "Set resident_onboarding.network_id before enabling resident onboarding."
-  [[ -n "$(jq --raw-output '.group_policy_id // ""' <<<"${resident_settings_json}")" ]] \
-    || fatal "Set resident_onboarding.group_policy_id to the registered-resident Meraki policy before enabling resident onboarding."
+  if [[ "$(jq --raw-output '.key_backend // "meraki_legacy"' <<<"${resident_settings_json}")" == "access_manager" ]]; then
+    [[ -n "$(jq --raw-output '.access_manager_group_id // ""' <<<"${resident_settings_json}")" ]] \
+      || fatal "Set resident_onboarding.access_manager_group_id before enabling Access Manager resident onboarding."
+    [[ "$(jq --raw-output '.duration_hours // 0' <<<"${resident_settings_json}")" == "0" ]] \
+      || fatal "Access Manager resident keys require duration_hours: 0; the API has no per-client expiry."
+  else
+    [[ -n "$(jq --raw-output '.group_policy_id // ""' <<<"${resident_settings_json}")" ]] \
+      || fatal "Set resident_onboarding.group_policy_id before enabling legacy resident onboarding."
+  fi
 fi
 
 # Certificate groups (e.g. adults, kids, guests): each gets its own SCEP

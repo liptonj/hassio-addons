@@ -6,6 +6,7 @@ in Step CA's MariaDB database. Never persist passphrases here.
 from __future__ import annotations
 
 import asyncio
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -134,8 +135,6 @@ class MerakiIpsk:
         mode = msg.get("auth_mode", "preserve")
         if role not in ("resident", "external", "guest", "none") or mode not in ("preserve", "ipsk-without-radius", "ipsk-with-nac", "8021x-nac"):
             raise ValueError("Choose a supported portal and authentication mode.")
-        if role == "resident" and mode == "ipsk-with-nac":
-            raise ValueError("The Step CA resident issuer uses iPSK without RADIUS. Access Manager client keys are managed separately.")
         no_portal = role in ("guest", "none")
         changes = {"splashPage": "None" if no_portal else "Click-through splash page"}
         if mode != "preserve":
@@ -143,8 +142,8 @@ class MerakiIpsk:
             changes["wpaEncryptionMode"] = "WPA2 only"
             changes["dot11r"] = {"enabled": False}
         effective_mode = changes.get("authMode", current.get("authMode"))
-        if role == "resident" and effective_mode != "ipsk-without-radius":
-            raise ValueError("Configure the resident SSID for iPSK without RADIUS.")
+        if role == "resident" and effective_mode not in ("ipsk-without-radius", "ipsk-with-nac", "psk", "open"):
+            raise ValueError("Choose a resident setup network with PSK, open or iPSK authentication.")
         manual = []
         if msg.get("prepare_wpn", False):
             if effective_mode != "ipsk-without-radius":
@@ -188,6 +187,8 @@ class MerakiIpsk:
                 manual.append("For EAP-TLS, Access Manager must trust Step CA's enabled intermediate/root chain as a trusted anchor and have matching certificate rules. Keep existing working Access Manager profiles. Replace a device profile only if its SSID, authentication method or trust settings change. SSID configuration alone does not establish certificate trust.")
             else:
                 manual.append("Configure matching Access Manager rules and client groups. Per-client iPSK needs its organization feature enabled and a rule using Client iPSK only or Client iPSK with fallback.")
+        if role == "resident":
+            manual.append("For Access Manager resident issuance, use a separate restricted setup SSID for this captive portal. The resident SSID needs a matching clientIpskOnly rule and no default-key fallback. Verify splash bypass and association on a device.")
         before = {key: current.get(key) for key in changes}
         before["splash_settings"] = {key: splash.get(key) for key in splash_changes}
         # Include managed values in the revision; secrets and unrelated SSID
@@ -235,14 +236,34 @@ class MerakiIpsk:
         """
         metadata = {"tags": ["nac", "configure"], "operation": "stepCaAccessManager"}
         session = client.dashboard._session
-        if method == "GET":
-            return await session.get(metadata, resource, params or {})
-        return await getattr(session, method.lower())(metadata, resource, body or {})
+        if isinstance(getattr(session, "_maximum_retries", None), int):
+            # Reuse the authenticated HTTP connection, limiter and semaphore.
+            # A shallow SDK facade leaves the shared Meraki HA session intact
+            # while preventing a retry or debug log of a secret-bearing write.
+            session = copy.copy(session)
+            session._logger = None
+            if method != "GET":
+                session._maximum_retries = 1
+        try:
+            if method == "GET":
+                return await session.get(metadata, resource, params or {})
+            return await getattr(session, method.lower())(metadata, resource, body or {})
+        except Exception as err:
+            # Report only the HTTP status, never SDK request/response bodies.
+            status = getattr(err, "status", None)
+            if status in (401, 403, 404):
+                detail = {401: "The Meraki connection was not authorized.",
+                          403: "Meraki refused this Access Manager operation (HTTP 403). Check API permissions and per-client iPSK feature availability.",
+                          404: "This Access Manager API is unavailable for the selected organization."}[status]
+                raise ValueError(detail) from None
+            raise
 
     @staticmethod
     def nac_items(value):
         if isinstance(value, dict):
-            rows = value.get("items") or []
+            rows = value.get("items")
+            if not isinstance(rows, list):
+                raise ValueError("Access Manager returned an unexpected response.")
             meta = value.get("meta") or {}
             if meta.get("filteredCount", meta.get("totalCount", len(rows))) > len(rows):
                 raise ValueError("This Access Manager result has more pages. Narrow the search or use Dashboard.")
@@ -275,7 +296,7 @@ class MerakiIpsk:
                 "groups": [{"id": str(g.get("id") or ""), "name": str(g.get("name") or "")}
                            for g in self.nac_items(groups)]}
 
-    async def client_key_plan(self, msg):
+    async def client_key_plan(self, msg, resident=False):
         network, number = scope(msg.get("network_id"), msg.get("ssid_number"))
         client = await self.target(network)
         ssid = await self.ssid(client, network, number)
@@ -296,14 +317,21 @@ class MerakiIpsk:
             raise ValueError("Choose an available Access Manager client group.")
         if not any(p["enabled"] and any(r["enabled"] and r["result"] == "PERMIT" and r["ipsk_mode"] in ("clientIpskOnly", "clientIpskWithDefaultFallback") for r in p["rules"]) for p in info["policies"]):
             raise ValueError("Configure an enabled Access Manager PERMIT rule using per-client iPSK before assigning client keys.")
+        if resident and not any(p["enabled"] and any(r["enabled"] and r["result"] == "PERMIT" and r["ipsk_mode"] == "clientIpskOnly" for r in p["rules"]) for p in info["policies"]):
+            raise ValueError("Resident self-service requires an enabled PERMIT rule in clientIpskOnly mode. Default-key fallback would bypass individual key revocation.")
         org = info["organization_id"]
         found = await self.nac_call(client, "GET", f"/organizations/{org}/nac/clients", params={"search": mac, "perPage": 1000})
-        matches = [r for r in self.nac_items(found) if str(r.get("mac") or "").lower().replace("-", ":") == mac]
+        rows = self.nac_items(found)
+        if resident and any(not isinstance(r, dict) or not re.fullmatch(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}", str(r.get("mac") or "").lower().replace("-", ":")) for r in rows):
+            raise ValueError("Access Manager returned inconsistent client details.")
+        matches = [r for r in rows if str(r.get("mac") or "").lower().replace("-", ":") == mac]
         if len(matches) > 1:
             raise ValueError("Multiple Access Manager clients have this MAC. Resolve them in Dashboard first.")
         existing = matches[0] if matches else None
         if existing and not ID.fullmatch(str(existing.get("id") or "")):
             raise ValueError("Access Manager returned an invalid client identifier.")
+        if resident and existing and (self.has_client_key(existing) or not re.fullmatch(r"Step CA resident [0-9a-f]{32}", str(existing.get("description") or ""))):
+            raise ValueError("This device already exists in Access Manager. Ask your administrator to manage its existing access; self-service cannot replace it.")
         revision = self.revision({"organization": org, "network": network, "ssid": ssid,
                                   "client": existing, "group": group, "policies": info["policies"]})
         return {"organization_id": org, "network_id": network, "ssid_number": number, "ssid_name": ssid["name"],
@@ -329,6 +357,152 @@ class MerakiIpsk:
         return {"mac": plan["mac"], "organization_id": plan["organization_id"],
                 "message": "Access Manager accepted the client iPSK. Test association on the device; rule matching is not verified by this write."}
 
+    async def resident_client(self, client, org, mac):
+        rows = self.nac_items(await self.nac_call(client, "GET", f"/organizations/{org}/nac/clients",
+                                                params={"search": mac, "perPage": 1000}))
+        if any(not isinstance(r, dict) or not re.fullmatch(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}", str(r.get("mac") or "").lower().replace("-", ":")) for r in rows):
+            raise ValueError("Access Manager returned inconsistent client details.")
+        matches = [r for r in rows if str(r.get("mac") or "").lower().replace("-", ":") == mac]
+        if len(matches) > 1:
+            raise ValueError("Multiple Access Manager clients have this hardware MAC. Resolve them in Dashboard.")
+        row = matches[0] if matches else None
+        if row and not ID.fullmatch(str(row.get("id") or "")):
+            raise ValueError("Access Manager returned an invalid client identifier.")
+        return row
+
+    @staticmethod
+    def has_client_key(row):
+        if type(row.get("ipskConfigured")) is bool:
+            return row["ipskConfigured"]
+        state = str(row.get("ipsk") or "").casefold()
+        if state in ("configured", "notconfigured", "not configured", ""):
+            return state == "configured"
+        # Never interpret an unfamiliar or masked value as an empty key.
+        return True
+
+    @staticmethod
+    def client_groups(row):
+        groups = row.get("groups") or {}
+        if isinstance(groups, dict):
+            items = groups.get("items", [])
+            if groups.get("totalCount", len(items)) > len(items):
+                raise ValueError("This client's group membership has more pages. Check Dashboard before changing it.")
+            return items
+        if not isinstance(groups, list):
+            raise ValueError("Access Manager returned inconsistent client groups.")
+        return groups
+
+    @staticmethod
+    def resident_key_parts(ident):
+        parts = str(ident).split(":")
+        if (len(parts) != 5 or parts[0] != "nac" or not ID.fullmatch(parts[1])
+                or not re.fullmatch(r"[0-9a-f]{12}", parts[2]) or not ID.fullmatch(parts[3])
+                or not re.fullmatch(r"[0-9a-f]{32}", parts[4]) or len(ident) > 191):
+            raise ValueError("Choose a valid Access Manager resident key.")
+        return parts[1], ":".join(parts[2][i:i+2] for i in range(0, 12, 2)), parts[3], parts[4]
+
+    async def resident_key_plan(self, msg):
+        token = msg.get("registration_id", "")
+        if not re.fullmatch(r"[0-9a-f]{32}", token):
+            raise ValueError("Choose a valid resident registration identifier.")
+        plan = await self.client_key_plan(msg, resident=True)
+        if not ID.fullmatch(plan["group"]["id"]):
+            raise ValueError("Choose a valid Access Manager client group.")
+        # Self-service cannot replace a working organization-wide key, claim an
+        # existing resident registration, or repurpose an existing client.
+        ident = f'nac:{plan["organization_id"]}:{plan["mac"].replace(":", "")}:{plan["group"]["id"]}:{token}'
+        self.resident_key_parts(ident)
+        return {**plan, "id": ident}
+
+    async def resident_create(self, msg):
+        plan = await self.resident_key_plan(msg)
+        if msg.get("expected_revision") != plan["revision"]:
+            raise ValueError("Access Manager changed during registration. Contact your administrator before retrying.")
+        client = await self.target(plan["network_id"])
+        marker = "Step CA resident " + msg["registration_id"]
+        body = {"type": "BYOD", "mac": plan["mac"], "owner": plan["owner"],
+                "description": marker, "ipsk": msg["passphrase"],
+                "groups": [{"value": plan["group"]["id"], "display": plan["group"]["name"]}]}
+        base = f'/organizations/{plan["organization_id"]}/nac/clients'
+        if plan["client_id"]:
+            body["groups"] = {"addList": body["groups"]}
+            await self.nac_call(client, "PUT", base + "/" + plan["client_id"], body)
+        else:
+            await self.nac_call(client, "POST", base, body)
+        row = await self.resident_client(client, plan["organization_id"], plan["mac"])
+        if not row or row.get("description") != marker or not self.has_client_key(row):
+            raise ValueError("Access Manager did not confirm the resident key. Ask your administrator to check Dashboard before retrying.")
+        groups = self.client_groups(row)
+        if not any(g.get("value") == plan["group"]["id"] for g in groups):
+            raise ValueError("Access Manager did not confirm the resident group. Ask your administrator to check Dashboard.")
+        return {"id": plan["id"], "network_id": plan["network_id"], "ssid_number": plan["ssid_number"],
+                "ssid_name": plan["ssid_name"], "name": plan["owner"], "status": "active",
+                "backend": "access_manager", "expires_at": None, "passphrase": msg["passphrase"]}
+
+    async def resident_key(self, action, ident, network_id, ssid_number):
+        org, mac, group, token = self.resident_key_parts(ident)
+        network, number = scope(network_id, ssid_number)
+        client = await self.target(network)
+        if str(client.organization_id) != org:
+            raise ValueError("This resident key belongs to a different Meraki organization.")
+        row = await self.resident_client(client, org, mac)
+        marker = "Step CA resident " + token
+        if row and row.get("description") != marker:
+            if action == "get":
+                return {"id": ident, "network_id": network, "ssid_number": number,
+                        "name": mac, "status": "review_required", "backend": "access_manager", "expires_at": None}
+            raise ValueError("This client is now managed outside this resident registration. Review it in Dashboard; its key was not changed.")
+        if action == "reveal_passphrase":
+            raise ValueError("Access Manager passwords are shown once at registration. The API cannot retrieve them later.")
+        if action in ("revoke", "delete"):
+            if row:
+                await self.nac_call(client, "PUT", f'/organizations/{org}/nac/clients/{row["id"]}',
+                                    {"mac": mac, "ipsk": "", "groups": {"removeList": [{"value": group}]}})
+                check = await self.resident_client(client, org, mac)
+                if check and (check.get("description") != marker or self.has_client_key(check)):
+                    raise ValueError("Access Manager did not confirm revocation. Check Dashboard before retrying.")
+                groups = self.client_groups(check or {})
+                if any(g.get("value") == group for g in groups):
+                    raise ValueError("Access Manager did not confirm removal from the resident group. Check Dashboard.")
+            return {"id": ident, "status": "revoked" if action == "revoke" else "deleted"}
+        ssid = await self.ssid(client, network, number)
+        return {"id": ident, "network_id": network, "ssid_number": number, "ssid_name": ssid["name"],
+                "name": str((row or {}).get("owner") or mac), "backend": "access_manager", "expires_at": None,
+                "status": "active" if row and self.has_client_key(row) else "revoked"}
+
+    async def resident_list(self, msg):
+        keys = msg.get("keys", [])
+        if not isinstance(keys, list) or len(keys) > 1000:
+            raise ValueError("Choose at most 1,000 resident keys.")
+        candidates = await self.networks()
+        clients, ssids, result = {}, {}, []
+        for key in keys:
+            org, mac, group, token = self.resident_key_parts(key["ipsk_id"])
+            network, number = scope(key["network_id"], key["ssid_number"])
+            if network not in candidates or str(candidates[network][0].organization_id) != org:
+                raise ValueError("A saved resident key is unavailable in this Meraki connection.")
+            client = candidates[network][0]
+            if org not in clients:
+                rows = self.nac_items(await self.nac_call(client, "GET", f"/organizations/{org}/nac/clients", params={"perPage": 1000}))
+                clients[org] = {}
+                for row in rows:
+                    address = str(row.get("mac") or "").lower().replace("-", ":")
+                    if not re.fullmatch(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}", address):
+                        raise ValueError("Access Manager returned inconsistent client details.")
+                    if address in clients[org]:
+                        raise ValueError("Access Manager returned duplicate client MACs. Review them in Dashboard.")
+                    clients[org][address] = row
+            if (network, number) not in ssids:
+                ssids[network, number] = await self.ssid(client, network, number)
+            row = clients[org].get(mac)
+            state = "active" if row and self.has_client_key(row) else "revoked"
+            if row and row.get("description") != "Step CA resident " + token:
+                state = "review_required"
+            result.append({"id": key["ipsk_id"], "network_id": network, "ssid_number": number,
+                           "ssid_name": ssids[network, number]["name"], "name": str((row or {}).get("owner") or mac),
+                           "status": state, "backend": "access_manager", "expires_at": None})
+        return result
+
     async def ssid(self, client, network_id, number, creating=False):
         row = await client.dashboard.wireless.getNetworkWirelessSsid(network_id, number)
         if creating and (not row.get("enabled") or row.get("authMode") != "ipsk-without-radius"):
@@ -348,6 +522,8 @@ class MerakiIpsk:
                 raise ValueError("A saved wireless network is unavailable in the Meraki connection.")
             client = candidates[network_id][0]
             ssid = await self.ssid(client, network_id, number)
+            if ssid.get("authMode") == "ipsk-with-nac":
+                continue
             keys = await client.dashboard.wireless.getNetworkWirelessSsidIdentityPsks(network_id, number)
             result.extend(normalize(k, network_id, ssid) for k in keys)
         return result
@@ -390,6 +566,8 @@ class MerakiIpsk:
             raise
 
     async def key(self, action, ident, network_id="", ssid_number=0):
+        if str(ident).startswith("nac:"):
+            return await self.resident_key(action, ident, network_id, ssid_number)
         network_id, number, remote_id = key_scope(ident, network_id, ssid_number)
         client = await self.target(network_id)
         wireless = client.dashboard.wireless

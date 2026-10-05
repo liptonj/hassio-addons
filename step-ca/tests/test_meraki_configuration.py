@@ -312,7 +312,7 @@ class AdminWorkflowTests(unittest.TestCase):
         handler = self.handler("ssids")
         config = {"enabled": True, "network_id": "N_fixture", "ssid_number": 0}
         msg = {"portal_type": "resident", "network_id": "N_fixture", "ssid_number": 0, "portal_url": "https://ha.example.org/api/step_ca_scep/portal"}
-        with patch.object(resident_access, "settings", return_value=config):
+        with patch.object(resident_access, "settings", return_value=config), patch.object(ipsk, "get_options", return_value={"active_ssids": [{"number": 0, "auth_mode": "ipsk-without-radius"}]}):
             handler.meraki_resident_scope(msg)
             for changes in ({"network_id": "N_other"}, {"ssid_number": 1}, {"portal_url": "https://ha.example.org/wrong"}):
                 with self.assertRaises(ValueError):
@@ -404,7 +404,7 @@ class SdkConfigurationContractTests(unittest.IsolatedAsyncioTestCase):
                 result = (await provider.direct_call(config, [{**client_msg, "type": "step_ca_scep/ipsk/assign_client_key", "expected_revision": plan["revision"]}]))[0]
                 self.assertNotIn("never-return-key", json.dumps(result))
                 feature_disabled = True
-                with self.assertRaises(RuntimeError) as rejected:
+                with self.assertRaises(ValueError) as rejected:
                     await provider.direct_call(config, [{**client_msg, "type": "step_ca_scep/ipsk/assign_client_key", "expected_revision": plan["revision"]}])
                 self.assertNotIn("private-client-key", str(rejected.exception))
             writes = [r for r in requests if r[0] != "GET"]

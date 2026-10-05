@@ -214,6 +214,8 @@ LABELS = {
     "network_id": "Meraki network ID",
     "ssid_number": "SSID number",
     "group_policy_id": "Registered-resident policy ID",
+    "key_backend": "Resident key service",
+    "access_manager_group_id": "Access Manager resident group ID",
     "duration_hours": "Key lifetime in hours",
     "guest_ssid": "Guest SSID",
     "guest_psk": "Guest password",
@@ -237,6 +239,8 @@ SECRET_NAMES = {
     "duo_admin_secret",
 }
 IPSK_NETWORK_FIELDS = {
+    "key_backend",
+    "access_manager_group_id",
     "enabled",
     "invite_required",
     "network_id",

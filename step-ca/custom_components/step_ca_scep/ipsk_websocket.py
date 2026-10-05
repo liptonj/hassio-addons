@@ -13,7 +13,8 @@ from .meraki_ipsk import MerakiIpsk
 _LOGGER = logging.getLogger(__name__)
 PREFIX = "step_ca_scep/ipsk/"
 COMMANDS = ("options", "list", "create", "get", "reveal_passphrase", "revoke", "delete",
-            "configuration_plan", "configure", "access_manager", "client_key_plan", "assign_client_key")
+            "configuration_plan", "configure", "access_manager", "client_key_plan", "assign_client_key",
+            "resident_key_plan", "resident_create", "resident_list")
 
 
 def command_schema(command):
@@ -24,6 +25,9 @@ def command_schema(command):
     elif command == "list":
         schema[vol.Optional("scopes")] = [{vol.Required("network_id"): str,
                                           vol.Required("ssid_number"): int}]
+    elif command == "resident_list":
+        schema[vol.Required("keys")] = [{vol.Required("ipsk_id"): str, vol.Required("network_id"): str,
+                                        vol.Required("ssid_number"): int}]
     elif command == "create":
         schema.update({vol.Required("network_id"): str, vol.Required("ssid_number"): int,
                        vol.Required("name"): str, vol.Optional("group_policy_id"): str,
@@ -39,11 +43,13 @@ def command_schema(command):
                        vol.Optional("walled_garden_ranges"): [str]})
         if command == "configure":
             schema[vol.Required("expected_revision")] = str
-    elif command in ("client_key_plan", "assign_client_key"):
+    elif command in ("client_key_plan", "assign_client_key", "resident_key_plan", "resident_create"):
         schema.update({vol.Required("network_id"): str, vol.Required("ssid_number"): int,
                        vol.Required("mac"): str, vol.Required("owner"): str,
                        vol.Required("passphrase"): str, vol.Required("group_id"): str})
-        if command == "assign_client_key":
+        if command.startswith("resident_"):
+            schema[vol.Required("registration_id")] = str
+        if command in ("assign_client_key", "resident_create"):
             schema[vol.Required("expected_revision")] = str
     else:
         schema.update({vol.Required("ipsk_id"): str, vol.Optional("network_id"): str,
@@ -77,7 +83,7 @@ async def dispatch(hass, connection, msg):
                 result = await service.create(msg)
             elif action == "access_manager":
                 result = await service.access_manager(msg["network_id"])
-            elif action in ("configuration_plan", "configure", "client_key_plan", "assign_client_key"):
+            elif action in ("configuration_plan", "configure", "client_key_plan", "assign_client_key", "resident_key_plan", "resident_create", "resident_list"):
                 result = await getattr(service, action)(msg)
             else:
                 result = await service.key(action, msg.get("ipsk_id"), msg.get("network_id", ""), msg.get("ssid_number", 0))

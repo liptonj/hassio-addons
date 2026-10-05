@@ -71,10 +71,10 @@ HELP_TOPICS = (
      '<li>Open Setup and checks to inspect database access and the existing Meraki connection.</li>'
      '<li>Keep certificate enrollment in Step CA. Resident Wi-Fi keys use its same MariaDB database.</li></ol>'),
     ("resident-setup", "Set up resident Wi-Fi", "meraki ssid policy captive splash invitation duo group",
-     '<ol><li>In Meraki, enable an iPSK-without-RADIUS SSID and choose the registered-resident group policy.</li>'
-     '<li>Save its network, SSID number and group policy in the add-on resident options.</li>'
-     '<li>Set the default setup key’s policy to use a click-through splash page. Use your public HTTPS '
-     'Home Assistant URL followed by /api/step_ca_scep/portal.</li>'
+     '<ol><li>In Meraki, enable an Access Manager iPSK SSID and a matching resident-group PERMIT rule in clientIpskOnly mode.</li>'
+     '<li>In Network and onboarding, choose Cisco Access Manager, load the network, and save its SSID and resident client group. Use a key lifetime of 0.</li>'
+     '<li>Use a restricted setup network with a click-through splash page. Use your public HTTPS '
+     'Home Assistant URL followed by /api/step_ca_scep/portal. A default-key fallback on the resident SSID can bypass individual revocation.</li>'
      '<li>Allow Home Assistant and any required Duo endpoints in the walled garden.</li>'
      '<li>Choose invitation and resident identity policies, then check them with a physical device.</li></ol>'
      '<p>Duo performs factor verification. A group-only account selector attributes access but does not verify identity.</p>'),

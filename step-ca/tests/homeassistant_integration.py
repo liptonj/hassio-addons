@@ -47,7 +47,7 @@ async def main():
         service.list = AsyncMock(return_value=[])
         service.create = AsyncMock(return_value={})
         service.key = AsyncMock(return_value={})
-        for name in ('configuration_plan', 'configure', 'access_manager', 'client_key_plan', 'assign_client_key'):
+        for name in ('configuration_plan', 'configure', 'access_manager', 'client_key_plan', 'assign_client_key', 'resident_key_plan', 'resident_create', 'resident_list'):
             setattr(service, name, AsyncMock(return_value={}))
         with patch.object(bridge, 'MerakiIpsk', return_value=service):
             outbound = []
@@ -78,7 +78,10 @@ async def main():
                              'owner': 'Alice', 'group_id': '10', 'passphrase': 'fixture-password'}
             payloads.update(configuration_plan=ssid_fields, configure={**ssid_fields, 'expected_revision': 'r1'},
                             access_manager={'network_id': 'N_fixture'}, client_key_plan=client_fields,
-                            assign_client_key={**client_fields, 'expected_revision': 'r1'})
+                            assign_client_key={**client_fields, 'expected_revision': 'r1'},
+                            resident_key_plan={**client_fields, 'registration_id': 'a' * 32},
+                            resident_create={**client_fields, 'registration_id': 'a' * 32, 'expected_revision': 'r1'},
+                            resident_list={'keys': [{'ipsk_id': 'nac:123:001122334455:10:' + 'a' * 32, 'network_id': 'N_fixture', 'ssid_number': 0}]})
             for ident, action in enumerate(bridge.COMMANDS, 2):
                 fields = payloads.get(action, {'ipsk_id': 'N_fixture:0:key',
                                                'network_id': 'N_fixture', 'ssid_number': 0})
@@ -102,7 +105,7 @@ async def main():
             service.options.assert_awaited_once()
         print(json.dumps({'status': 'passed', 'homeassistant': __version__,
               'checks': ['real companion and config flow imports', 'original options request failure reproduced',
-                         'all twelve commands dispatched through real ActiveConnection with full portal payloads',
+                         'all fifteen commands dispatched through real ActiveConnection with full portal payloads',
                          'unknown request fields rejected before dispatch',
                          'idempotent registration', 'real Supervisor data key authorization', 'ordinary resident denied']}))
 

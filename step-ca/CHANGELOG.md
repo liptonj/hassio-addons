@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.30.2.61
+
+- Add Cisco Access Manager resident self-service for captive registration and
+  Duo device registration, with client-group selection and one-time passwords/QRs.
+- Track organization/MAC/group ownership and pending writes in MariaDB without
+  passwords. Confirm key/group assignment and revocation with API readback.
+- Clear only portal-owned client keys and resident group membership on revoke or
+  delete; preserve existing Access Manager clients and certificate profiles.
+- Require clientIpskOnly rules and lifetime 0 for resident keys. Retain legacy
+  issuance for existing configurations, and expose safe NAC HTTP failure details.
+- Update the companion to 1.7.0 with three resident lifecycle commands.
+
 ## 0.30.2.60
 
 - Accept Duo's documented `Active` and `active` group statuses when loading the

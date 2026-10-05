@@ -124,6 +124,8 @@ async def _core_exchange(*messages):
                         raise meraki_provider.ProviderUnavailable("Update the bundled Step CA companion integration, then restart Home Assistant.")
                     if error.get("code") == "provider_unavailable":
                         raise meraki_provider.ProviderUnavailable("Connect Meraki HA or save an API key under Settings → Meraki → Connection.")
+                    if error.get("code") == "invalid_request":
+                        raise ValueError(error.get("message") or "The Wi-Fi service rejected the request.")
                     raise RuntimeError(error.get("message") or "The Wi-Fi service rejected the request.")
                 results.append(reply.get("result"))
             return results
@@ -142,7 +144,10 @@ def _key_records():
     if not os.environ.get("PORTAL_DB_HOST"):
         return []
     with db_connect() as conn, conn.cursor() as cursor:
-        cursor.execute("SELECT ipsk_id, network_id, ssid_number, associated_user, associated_unit, status FROM stepca_ipsks WHERE status != 'deleted'")
+        cursor.execute("SELECT k.ipsk_id, k.network_id, k.ssid_number, k.associated_user, k.associated_unit, k.status, "
+                       "COALESCE(d.device_name, r.ipsk_name, '') AS device_name FROM stepca_ipsks k "
+                       "LEFT JOIN stepca_resident_devices d ON d.ipsk_id = k.ipsk_id "
+                       "LEFT JOIN stepca_residents r ON r.ipsk_id = k.ipsk_id WHERE k.status != 'deleted'")
         return cursor.fetchall()
 
 
@@ -153,27 +158,56 @@ def _default_scope():
 
 
 def _key_command(action, ident):
+    if str(ident).startswith("nac:"):
+        with db_connect() as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT network_id, ssid_number FROM stepca_ipsks WHERE ipsk_id = %s", (ident,))
+            record = cursor.fetchone()
+        if not record:
+            raise ValueError("This Access Manager key is not recorded in Step CA.")
+        return {"type": "step_ca_scep/ipsk/" + action, "ipsk_id": ident,
+                "network_id": record["network_id"], "ssid_number": int(record["ssid_number"])}
     return {"type": "step_ca_scep/ipsk/" + action, "ipsk_id": ident, **_default_scope()}
 
 
 def list_ipsks(status=""):
     records = _key_records()
-    scopes = {(str(row["network_id"]), int(row["ssid_number"])) for row in records}
+    scopes = {(str(row["network_id"]), int(row["ssid_number"])) for row in records
+              if not row["ipsk_id"].startswith("nac:")}
     default = _default_scope()
-    if default["network_id"]:
+    if default["network_id"] and resident_access.settings().get("key_backend", "meraki_legacy") == "meraki_legacy":
         scopes.add((default["network_id"], default["ssid_number"]))
-    if not scopes:
-        return []
     command = {"type": "step_ca_scep/ipsk/list", "scopes": [
         {"network_id": network, "ssid_number": number} for network, number in sorted(scopes)]}
-    result = core_call(command)[0]
+    result = core_call(command)[0] if scopes else []
     if not isinstance(result, list):
         raise RuntimeError("Home Assistant returned invalid Wi-Fi key details.")
+    remote_keys = [{"ipsk_id": r["ipsk_id"], "network_id": r["network_id"], "ssid_number": int(r["ssid_number"])}
+                   for r in records if r["ipsk_id"].startswith("nac:") and r.get("status") != "revoked"]
+    remote = core_call({"type": "step_ca_scep/ipsk/resident_list", "keys": remote_keys})[0] if remote_keys else []
+    remote = {k["id"]: k for k in remote}
+    for row in records:
+        if not row["ipsk_id"].startswith("nac:"):
+            continue
+        if row.get("status") == "revoked":
+            key = {"id": row["ipsk_id"], "status": "revoked", "name": row["associated_user"], "backend": "access_manager"}
+        else:
+            key = remote[row["ipsk_id"]]
+            if row.get("status") == "pending" and key.get("status") != "review_required":
+                key["status"] = "pending"
+        result.append(key)
+    found = {k["id"] for k in result}
+    for row in records:
+        if row["ipsk_id"] not in found:
+            result.append({"id": row["ipsk_id"], "name": row["associated_user"],
+                           "network_id": row["network_id"], "ssid_number": int(row["ssid_number"]),
+                           "status": "revoked" if row.get("status") == "revoked" else "review_required"})
     metadata = {row["ipsk_id"]: row for row in records}
     for key in result:
         record = metadata.get(key.get("id"), {})
         key["associated_user"] = record.get("associated_user", "")
         key["associated_unit"] = record.get("associated_unit", "")
+        if key.get("backend") == "access_manager" and record.get("device_name"):
+            key["name"] = record["device_name"]
         if record.get("status") == "revoked":
             key["status"] = "revoked"
     return [key for key in result if not status or key.get("status") == status]
@@ -220,6 +254,44 @@ def create_ipsk(name, network_id, ssid_number, duration_hours, unit="", email=""
     result = core_call(command)[0]
     _record_key(result, unit, email)
     return result if isinstance(result, dict) else {}
+
+
+def create_resident_key(config, name, mac, unit, user):
+    """Record a pending Access Manager operation before its first remote write."""
+    if config.get("key_backend", "meraki_legacy") == "meraki_legacy":
+        return create_ipsk(name, config["network_id"], config.get("ssid_number", 0),
+                           config.get("duration_hours", 0), unit, user, config.get("group_policy_id", ""))
+    if config.get("key_backend") != "access_manager":
+        raise ValueError("Choose a supported resident key service.")
+    if not os.environ.get("PORTAL_DB_HOST"):
+        raise RuntimeError("Select MariaDB before creating resident keys.")
+    if config.get("duration_hours", 0):
+        raise ValueError("Access Manager has no per-client key expiry. Set the resident key lifetime to 0.")
+    message = {"network_id": config["network_id"], "ssid_number": int(config.get("ssid_number", 0)),
+               "mac": mac, "owner": user[:100], "group_id": config.get("access_manager_group_id", ""),
+               "passphrase": secrets.token_urlsafe(24), "registration_id": secrets.token_hex(16)}
+    plan = core_call({**message, "type": "step_ca_scep/ipsk/resident_key_plan"})[0]
+    ident = plan["id"]
+    # A timeout may follow an accepted write. Keep an attributable pending
+    # record for administrator reconciliation; never switch transport/retry it.
+    with db_connect() as conn, conn.cursor() as cursor:
+        cursor.execute("INSERT INTO stepca_ipsks (ipsk_id, network_id, ssid_number, associated_user, associated_unit, status, created_at) "
+                       "VALUES (%s,%s,%s,%s,%s,'pending',UTC_TIMESTAMP())",
+                       (ident, message["network_id"], message["ssid_number"], user[:254], unit[:80]))
+        conn.commit()
+    result = core_call({**message, "type": "step_ca_scep/ipsk/resident_create", "expected_revision": plan["revision"]})[0]
+    if result.get("id") != ident:
+        raise RuntimeError("Access Manager did not confirm the recorded resident key. Check Dashboard before retrying.")
+    validate_wifi_credentials(result.get("ssid_name"), result.get("passphrase"))
+    try:
+        with db_connect() as conn, conn.cursor() as cursor:
+            cursor.execute("UPDATE stepca_ipsks SET status = 'active' WHERE ipsk_id = %s", (ident,))
+            conn.commit()
+    except Exception:
+        # The ID is already durable, so cleanup can verify the ownership marker.
+        set_ipsk_status(ident, "delete")
+        raise
+    return result
 
 
 def create_admin_ipsk(name, network_id, ssid_number, passphrase="", duration_hours=0,
@@ -360,6 +432,7 @@ def set_ipsk_status(ipsk_id, action):
     if os.environ.get("PORTAL_DB_HOST"):
         with db_connect() as conn, conn.cursor() as cursor:
             cursor.execute("UPDATE stepca_ipsks SET status = %s WHERE ipsk_id = %s", ("revoked" if command == "revoke" else "deleted", ipsk_id))
+            sync_inactive_keys(cursor, [ipsk_id])
             conn.commit()
 
 
@@ -459,9 +532,6 @@ def register_resident(name, email, unit, invite_code, client_ip, client_mac):
 
     settings = json.loads(os.environ.get("RESIDENT_SETTINGS_JSON") or "{}")
     network_id = str(settings.get("network_id") or "")
-    ssid_number = int(settings.get("ssid_number") or 0)
-    duration_hours = int(settings.get("duration_hours") or 0)
-    group_policy_id = str(settings.get("group_policy_id") or "")
     if not network_id:
         raise RuntimeError("Resident Wi-Fi onboarding is not configured yet. Contact your administrator.")
 
@@ -492,7 +562,7 @@ def register_resident(name, email, unit, invite_code, client_ip, client_mac):
                 invite_id = invite["id"]
             clean = re.sub(r"[^A-Za-z0-9 ._-]", "", name).strip()[:64] or "Resident"
             label = (f"Unit-{unit}-{clean}" if unit else f"Resident-{clean}")[:128]
-            created = create_ipsk(label, network_id, ssid_number, duration_hours, unit, name, group_policy_id)
+            created = create_resident_key(settings, label, client_mac, unit, name)
             ipsk_id = str(created.get("id") or created.get("psk_group_id") or "")
             created_ipsk_id = ipsk_id
             passphrase = str(created.get("passphrase") or "")
