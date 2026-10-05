@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2.56
+
+- Prevent Cloudflare email obfuscation from replacing certificate addresses
+  with unreadable placeholders when its decoding script is blocked by CSP.
+- Preserve the existing script policy and certificate data; opt rendered pages
+  out of email rewriting and add the no-transform response directive.
+
 ## 0.30.2.55
 
 - Split Enroll into an overview, one-time link creation, enrollment link

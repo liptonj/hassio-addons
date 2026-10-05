@@ -1250,7 +1250,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "no-store, no-transform")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         script = f" script-src 'nonce-{nonce}';" if nonce else ""
@@ -1348,8 +1348,9 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             f"<!doctype html><html lang=en><head><meta charset=utf-8>"
             f'<meta name=viewport content="width=device-width, initial-scale=1">{head}'
             f"<title>{esc(title)}</title><style>{ui.STYLE}</style></head>"
-            f'<body class="{body_class}">{ui.DIRECTION}<a class="skip-link" href="#main-content">Skip to content</a>'
-            f'{body}<script nonce="{nonce}">{ui.SCRIPT}</script></body></html>',
+            # Keep Cloudflare's email rewrite out even if ingress strips no-transform.
+            f'<body class="{body_class}"><!--email_off-->{ui.DIRECTION}<a class="skip-link" href="#main-content">Skip to content</a>'
+            f'{body}<script nonce="{nonce}">{ui.SCRIPT}</script><!--/email_off--></body></html>',
             nonce=nonce,
         )
 
