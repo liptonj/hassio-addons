@@ -219,7 +219,7 @@ class ResidentManagementRegression(unittest.TestCase):
         self.assertNotIn('id="device-keys"', markup)
         self.assertIn("No matching device records", self.render({"q": ["nobody"]}, section="devices"))
 
-    def test_each_task_is_a_separate_page_with_current_navigation(self):
+    def test_each_task_is_a_separate_page_without_duplicate_navigation(self):
         checks = (("create", 'id="create-device-key"'), ("invitations", "Create invitation code"),
                   ("join-codes", 'id="join-codes"'), ("join-codes/settings", 'id="qr-settings"'),
                   ("access", "Save device access"))
@@ -227,8 +227,7 @@ class ResidentManagementRegression(unittest.TestCase):
             with self.subTest(section=section):
                 markup = self.render(section=section)
                 self.assertIn(expected, markup)
-                self.assertEqual(markup.count('aria-current="page"'),
-                             0 if section in ("access", "join-codes/settings") else 1)
+                self.assertNotIn('class="tool-nav ipsk-nav"', markup)
                 self.assertNotIn('id="device-keys"', markup)
                 self.assertNotIn('id="registered-devices"', markup)
                 if section != "access":

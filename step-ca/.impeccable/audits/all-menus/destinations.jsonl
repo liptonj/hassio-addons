@@ -1,0 +1,28 @@
+{"href":"http://127.0.0.1:8771/?status=all","label":"All certificates","error":false,"hash":"","target":true,"title":"Certificates"}
+{"href":"http://127.0.0.1:8771/?status=active","label":"Active","error":false,"hash":"","target":true,"title":"Certificates"}
+{"href":"http://127.0.0.1:8771/?status=expiring","label":"Expiring","error":false,"hash":"","target":true,"title":"Certificates"}
+{"href":"http://127.0.0.1:8771/?status=expired","label":"Expired","error":false,"hash":"","target":true,"title":"Certificates"}
+{"href":"http://127.0.0.1:8771/?status=revoked","label":"Revoked","error":false,"hash":"","target":true,"title":"Certificates"}
+{"href":"http://127.0.0.1:8771/settings/certificates","label":"Certificates","error":false,"hash":"","target":true,"title":"Certificates"}
+{"href":"http://127.0.0.1:8771/enroll","label":"Enrollment overview","error":false,"hash":"","target":true,"title":"Enroll devices"}
+{"href":"http://127.0.0.1:8771/enroll#new-link","label":"New one-time link","error":false,"hash":"#new-link","target":true,"title":"Enroll devices"}
+{"href":"http://127.0.0.1:8771/enroll#links","label":"Enrollment links","error":false,"hash":"#links","target":true,"title":"Enroll devices"}
+{"href":"http://127.0.0.1:8771/enroll/self","label":"Enroll this computer","error":false,"hash":"","target":true,"title":"Enroll device"}
+{"href":"http://127.0.0.1:8771/enroll#issue-certificate","label":"Issue a certificate","error":false,"hash":"#issue-certificate","target":true,"title":"Enroll devices"}
+{"href":"http://127.0.0.1:8771/settings/enrollment","label":"Enrollment & Wi-Fi","error":false,"hash":"","target":true,"title":"Enrollment & Wi-Fi"}
+{"href":"http://127.0.0.1:8771/ipsk","label":"Wi-Fi keys","error":false,"expanded":null,"hash":"","target":true,"title":"IPSK · Wi-Fi keys"}
+{"href":"http://127.0.0.1:8771/ipsk/devices","label":"Registered devices","error":false,"expanded":null,"hash":"","target":true,"title":"IPSK · Registered devices"}
+{"href":"http://127.0.0.1:8771/ipsk/invitations","label":"Invitations","error":false,"expanded":null,"hash":"","target":true,"title":"IPSK · Invitations"}
+{"href":"http://127.0.0.1:8771/ipsk/join-codes","label":"Join codes","error":false,"expanded":null,"hash":"","target":true,"title":"IPSK · Join codes"}
+{"href":"http://127.0.0.1:8771/ipsk/create","label":"Create a Wi-Fi key","error":false,"expanded":null,"hash":"","target":true,"title":"IPSK · Create a Wi-Fi key"}
+{"href":"http://127.0.0.1:8771/settings/ipsk","label":"IPSK","error":false,"expanded":null,"hash":"","target":true,"title":"IPSK"}
+{"href":"http://127.0.0.1:8771/ca","label":"Authority overview","error":false,"expanded":null,"hash":"","target":true,"title":"Authority"}
+{"href":"http://127.0.0.1:8771/ca#root-ca","label":"Root CA","error":false,"expanded":true,"hash":"#root-ca","target":true,"title":"Authority"}
+{"href":"http://127.0.0.1:8771/ca#intermediate-ca","label":"Intermediate CA","error":false,"expanded":true,"hash":"#intermediate-ca","target":true,"title":"Authority"}
+{"href":"http://127.0.0.1:8771/ca#authority-downloads","label":"Downloads","error":false,"expanded":null,"hash":"#authority-downloads","target":true,"title":"Authority"}
+{"href":"http://127.0.0.1:8771/ca#authority-endpoints","label":"Endpoints","error":false,"expanded":null,"hash":"#authority-endpoints","target":true,"title":"Authority"}
+{"href":"http://127.0.0.1:8771/settings/certificates/trust","label":"Trust certificates","error":false,"expanded":null,"hash":"","target":true,"title":"Other trusted CAs"}
+{"href":"http://127.0.0.1:8771/settings/identity","label":"Identity & access","error":false,"expanded":null,"hash":"","target":true,"title":"Identity & access"}
+{"href":"http://127.0.0.1:8771/settings/captive-portal","label":"Captive portal","error":false,"expanded":null,"hash":"","target":true,"title":"Captive portal"}
+{"href":"http://127.0.0.1:8771/settings/system","label":"System","error":false,"expanded":null,"hash":"","target":true,"title":"System"}
+{"href":"http://127.0.0.1:8771/settings","label":"All settings","error":false,"expanded":null,"hash":"","target":true,"title":"Settings"}

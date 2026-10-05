@@ -65,7 +65,14 @@ It lets you:
 - add, edit, and remove [certificate groups](#certificate-groups) and
   download MDM profiles.
 
-The **Settings** tab groups configuration into five submenus:
+Each main section opens a dropdown of its sub-options. **Certificates** offers
+status views; **Enroll** offers enrollment tasks and links; **IPSK** offers key,
+device, invitation and join-code pages; **Authority** offers CA details,
+downloads and endpoints. Their settings links open the corresponding category.
+Choose a sub-option to open its page or jump to its section. The same menus work
+on desktop and above the bottom bar on phones, with visible dropdown carets.
+
+The **Settings** dropdown groups configuration into six categories:
 
 - **Certificates:** authority and SCEP defaults, certificate groups, and device
   trust certificates.
@@ -73,11 +80,13 @@ The **Settings** tab groups configuration into five submenus:
   and downloadable MDM profiles.
 - **IPSK:** network and onboarding, device access, and guest/setup networks.
 - **Identity & access:** shared authentication and the user directory.
+- **Captive portal:** portal appearance, branding and welcome content.
 - **System:** database, companion integration, setup checks, troubleshooting,
   certificate tools, and the complete saved options reference.
 
-Each submenu opens a dedicated page. Desktop pages show a settings sidebar and
-breadcrumbs; phones use a collapsible Settings menu. Configuration managed by
+Each category opens focused pages, with breadcrumbs and an **In this category**
+dropdown for sibling pages. Menus work with the keyboard and without JavaScript.
+Configuration managed by
 Home Assistant has an **Edit in Home Assistant** link. Its changes apply after
 restarting Step CA; existing certificates are retained. Saved passwords and
 secrets are redacted in configuration summaries. Old Tools and IPSK settings

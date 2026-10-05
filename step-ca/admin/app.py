@@ -1275,6 +1275,56 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             ("/ipsk", "IPSK", "wifi"),
             ("/ca", "Authority", "shield-check"), ("/settings", "Settings", "cog"))
 
+    SECTION_PAGES = {
+        "/": (("/?status=all", "All certificates", "certificate"),
+              ("/?status=active", "Active", "check-circle-outline"),
+              ("/?status=expiring", "Expiring", "clock-alert-outline"),
+              ("/?status=expired", "Expired", "clock-alert-outline"),
+              ("/?status=revoked", "Revoked", "cancel"),
+              ("/settings/certificates", "Certificate settings", "cog")),
+        "/enroll": (("/enroll", "Enrollment overview", "qrcode"),
+                    ("/enroll#new-link", "New one-time link", "link-variant"),
+                    ("/enroll#links", "Enrollment links", "link-variant"),
+                    ("/enroll/self", "Enroll this computer", "laptop"),
+                    ("/enroll#issue-certificate", "Issue a certificate", "key-variant"),
+                    ("/settings/enrollment", "Enrollment & Wi-Fi settings", "cog")),
+        "/ipsk": (("/ipsk", "Wi-Fi keys", "key-variant"),
+                  ("/ipsk/devices", "Registered devices", "laptop"),
+                  ("/ipsk/invitations", "Invitations", "account-group"),
+                  ("/ipsk/join-codes", "Join codes", "qrcode"),
+                  ("/ipsk/create", "Create a Wi-Fi key", "plus"),
+                  ("/settings/ipsk", "IPSK settings", "cog")),
+        "/ca": (("/ca", "Authority overview", "shield-check"),
+                ("/ca#root-ca", "Root CA", "shield-check"),
+                ("/ca#intermediate-ca", "Intermediate CA", "shield-check"),
+                ("/ca#authority-downloads", "Downloads", "download"),
+                ("/ca#authority-endpoints", "Endpoints", "link-variant"),
+                ("/settings/certificates/trust", "Trust certificates", "cog")),
+    }
+
+    def section_dropdown(self, section, label, glyph, selected=False):
+        if section == "/settings":
+            return self.settings_dropdown(selected)
+        parsed = urllib.parse.urlsplit(self.path)
+        path = canonical_url(parsed.path)
+        query = urllib.parse.parse_qs(parsed.query)
+        status = query.get("status", ["active"])[0]
+        if status not in ("all", "active", "expiring", "expired", "revoked"):
+            status = "active"
+        links = ""
+        for target, title, icon in self.SECTION_PAGES[section]:
+            location = urllib.parse.urlsplit(target)
+            current = selected and path == location.path and not location.fragment
+            if section == "/":
+                current = current and urllib.parse.parse_qs(location.query).get("status") == [status]
+            links += (
+                f'<a href="{esc(self.url(target))}"'
+                + (' class="menu-divider"' if target.startswith("/settings/") else "")
+                + (' aria-current="page"' if current else "")
+                + f'>{ui.icon(icon)}<span>{esc(title)}</span></a>'
+            )
+        return ui.navigation_dropdown(label, glyph, links, selected)
+
     def current_tab(self):
         path = canonical_url(urllib.parse.urlsplit(self.path).path)
         if path.startswith("/settings"):
@@ -1309,12 +1359,11 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         else:
             current = self.current_tab()
             tabs = "".join(
-                self.settings_dropdown(current == "/settings") if path == "/settings" else
-                f'<a class="tab" href="{esc(self.url(path))}"'
-                f'{" aria-current=page" if path == current else ""}>{ui.icon(icon)}<span>{label}</span></a>'
+                self.section_dropdown(path, label, icon, path == current)
                 for path, label, icon in self.TABS
             )
-            bar = f'<h1 class="toolbar-title">{esc(heading or ("Settings" if current == "/settings" else "IPSK" if current == "/ipsk" else "Certificates"))}</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
+            section_title = next((label for path, label, _ in self.TABS if path == current), title)
+            bar = f'<h1 class="toolbar-title">{esc(heading or section_title)}</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
         if not back and self.current_tab() == "/settings":
             body = self.settings_shell(title, body)
             narrow = False
@@ -2376,7 +2425,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         body = (
             notice
             + '<div class="grid"><div>'
-            f'<form class="card" method="post" action="{esc(self.url("/enroll/new"))}">{csrf}'
+            f'<form class="card" id="new-link" method="post" action="{esc(self.url("/enroll/new"))}">{csrf}'
             '<div class="card-header"><h2>New one-time link</h2>'
             '<p class="muted">A link and QR code for one device. On an iPhone, iPad, or Mac it installs a signed '
             "profile, so the device creates its own key and gets its certificate over SCEP. Other devices get a "
@@ -2425,7 +2474,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             '<span class="row-sub">A certificate for the Mac or Windows PC you are using now</span></span>'
             f'<span class="row-actions"><a class="btn text" href="{esc(self.url("/enroll/self"))}">Enroll</a>'
             "</span></div></div>"
-            f'<form class="card" method="post" action="{esc(self.url("/issue"))}">{csrf}'
+            f'<form class="card" id="issue-certificate" method="post" action="{esc(self.url("/issue"))}">{csrf}'
             '<div class="card-header"><h2>Issue a certificate now</h2>'
             '<p class="muted">Creates the key here and gives you a .p12 file to hand over.</p></div>'
             '<div class="card-content"><div class="field"><label for="issue-cn">Certificate name (CN)</label>'
@@ -2604,12 +2653,12 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                 f'title="Download {esc(filename)}">{ui.icon("download")}</a></span></div>'
             )
 
-        def authority(title, cert, link, filename, opened):
+        def authority(title, cert, link, filename, opened, anchor):
             left = cert.not_valid_after_utc - now
             chip = (ui.chip("bad", "Expired") if left.days < 0 else
                     ui.chip("warn", "Renew soon") if left.days < 180 else ui.chip("ok", "Valid"))
             return (
-                f'<details class="expand"{" open" if opened else ""}><summary>'
+                f'<details class="expand" id="{anchor}"{" open" if opened else ""}><summary>'
                 f'<span class="row-icon">{ui.icon("shield-check")}</span><span class="summary-text">'
                 f'<span class="summary-title">{title}</span>'
                 f'<span class="summary-sub">{esc(enroll.common_name(cert))}</span></span>{chip}'
@@ -2633,9 +2682,9 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             '<div class="grid"><div>'
             '<div class="card"><div class="card-header"><h2>' + esc(CA_NAME) + "</h2>"
             '<p class="muted">The root signs the intermediate; the intermediate signs device certificates.</p></div>'
-            + authority("Root CA", root, "/download/root_ca.pem", "root_ca.pem", False)
-            + authority("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem", False)
-            + '<h3 class="subhead">Downloads</h3><div class="rows">'
+            + authority("Root CA", root, "/download/root_ca.pem", "root_ca.pem", False, "root-ca")
+            + authority("Intermediate CA", inter, "/download/intermediate_ca.pem", "intermediate_ca.pem", False, "intermediate-ca")
+            + '<h3 class="subhead" id="authority-downloads">Downloads</h3><div class="rows">'
             + download_row("file-certificate-outline", "CA chain",
                            "Intermediate and root, for MDMs and RADIUS servers",
                            "/download/ca-chain.pem", "ca-chain.pem")
@@ -2651,7 +2700,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                            "/download/crl.pem", "crl.pem")
             + "</div></div>"
             "</div><div>"
-            '<div class="card"><div class="card-header"><h2>Endpoints</h2>'
+            '<div class="card" id="authority-endpoints"><div class="card-header"><h2>Endpoints</h2>'
             '<p class="muted">Served without login through Home Assistant.</p></div><dl class="rows">'
             + url_row("SCEP URL", scep_url)
             + "".join(url_row(f"SCEP URL, {esc(g)}", f"{base}/api/step_ca_scep/scep/{esc(g)}") for g in GROUPS)
@@ -2895,11 +2944,6 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
 
     def residents_page(self, query=None, error="", invite_code="", revealed=None, created_key="", join_key=None, section="keys", draft=None):
         """Render one focused IPSK task; existing POST handlers share feedback here."""
-        pages = (("keys", "/ipsk", "Wi-Fi keys"),
-                 ("devices", "/ipsk/devices", "Registered devices"),
-                 ("invitations", "/ipsk/invitations", "Invitations"),
-                 ("join-codes", "/ipsk/join-codes", "Join codes"),
-                 ("settings", "/settings/ipsk", "IPSK settings"))
         page_path = "/ipsk" if section == "keys" else "/ipsk/" + section
         query = query or {}
         draft = draft or {}
@@ -3058,13 +3102,6 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         record_pager = guidance.pagination(inventory["page"], inventory["pages"], (inventory["page"] - 1) * inventory["size"] + 1,
                                           min(inventory["page"] * inventory["size"], inventory["matched"]), inventory["matched"],
                                           lambda number: inventory_link(number, "record_page", "#registered-devices"), "Registered device pages")
-        navigation = '<nav class="tool-nav ipsk-nav" aria-label="IPSK pages">' + "".join(
-            f'<a href="{esc(self.url(path))}"' + (' aria-current="page"' if name == section or
-                (name == "keys" and section == "create") or
-                (name == "join-codes" and section == "join-codes/settings") else '') + f'>{label}</a>'
-            for name, path, label in pages) + '</nav>'
-        if section in ("access", "join-codes/settings"):
-            navigation = ""
         is_devices = section == "devices"
         sort_field = "record_sort" if is_devices else "key_sort"
         sort_value = record_sort if is_devices else key_sort
@@ -3326,7 +3363,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         content = re.sub(r'<(table|thead|tbody|tr|th|td)(?=[\s>])',
                          lambda match: match[0] + ' role="' + {"table": "table", "thead": "rowgroup", "tbody": "rowgroup",
                                                               "tr": "row", "th": "columnheader", "td": "cell"}[match[1]] + '"', content)
-        self.page("IPSK · " + title, navigation + notice + content, head="""<style>
+        self.page("IPSK · " + title, notice + content, head="""<style>
                   #device-keys .card-header > p { max-width:none; width:100%; }
                   #device-keys td:first-child small { display:block; margin-top:4px; overflow-wrap:anywhere; }
                   .ipsk-table { width:100%; table-layout:fixed; }

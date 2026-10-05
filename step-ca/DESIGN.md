@@ -335,9 +335,9 @@ Quiet pills that follow ha-button.
 
 ### Navigation
 - **Toolbar:** sticky, 56px, page-gray background with a bottom divider, 20px title, then tabs at full height.
-- **Tabs:** Certificates, Enroll, IPSK, Authority, and Settings; icon (20px) plus label, secondary ink, 0 20px padding. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners.
+- **Section dropdowns:** Certificates, Enroll, IPSK, Authority, and Settings; native details/summary with icon (20px), label and caret. Each opens its own task links. Hover is the wash plus full-strength text color. Active is accent ink with a 2px primary underline inset 12px with rounded top corners. Menus are bounded and scrollable, close after selection, outside clicks or Escape; Escape restores focus. Between 641 and 1100px the title is visually hidden and trigger spacing tightens to keep all five menus visible.
 - **Mobile:** tabs become a fixed bottom bar; each tab is an equal column with the icon above a 12px label, and the indicator moves to the top edge, inset 25%.
-- **Settings navigation:** a five-row hub leads to Certificates, Enrollment & Wi-Fi, IPSK, Identity & access, and System. Each category has focused subpages. Desktop subpages use a 240px sticky sidebar with 44px navigation targets and breadcrumbs; at 900px and below, a native disclosure replaces the sidebar. The menu stays usable without JavaScript. Home Assistant-managed options show a redacted saved summary and an explicit configuration link.
+- **Settings navigation:** a six-row hub leads to Certificates, Enrollment & Wi-Fi, IPSK, Identity & access, Captive portal, and System. Each category has focused subpages, breadcrumbs and an In this category dropdown. The main Settings dropdown lists all categories; no permanent sidebar is used. The menus stay usable without JavaScript. Home Assistant-managed options show a redacted saved summary and an explicit configuration link.
 - **Detail pages:** a back icon button replaces the tabs.
 - **Skip link:** admin and public pages expose “Skip to content” on keyboard focus and link to the main content landmark.
 
@@ -549,3 +549,20 @@ checks and mobile checks were recorded incrementally (17 axe views, zero
 violations or overflow). Keyboard open/close and native no-script category
 navigation passed. No further visual repair round was needed. Fixture evidence
 is under `.impeccable/audits/settings-dropdown/`. No raster assets ship in the UI.
+
+## All section dropdowns (2026-10-05)
+
+All five main navigation triggers now use the same native disclosure component.
+The four operational menus offer their existing tasks and relevant settings;
+Settings retains its six categories. IPSK no longer duplicates those destinations
+in a horizontal page menu. Enrollment forms and authority sections have stable
+fragment targets, with current selection following the hash when scripts run.
+The first two desktop menus align left to remain within the viewport. Tablet
+spacing keeps every trigger visible; phones retain small visible carets.
+
+The bounded inspection and confirmation found no axe violations or horizontal
+overflow in 27 recorded views, and all 28 distinct destinations worked in the
+local fixture. Left-edge clipping was corrected using the recorded geometry;
+the final 1px Enroll correction did not trigger a third visual inspection.
+Native no-script navigation, keyboard closing/focus and authority hash selection
+passed. Evidence is under `.impeccable/audits/all-menus/`.

@@ -362,14 +362,7 @@ class SettingsMixin:
             + (' aria-current="page"' if path == "/settings" else "")
             + f'>{ui.icon("cog")}<span>All settings</span></a>'
         )
-        return (
-            '<details class="tab-menu settings-dropdown"><summary class="tab'
-            + (' current" aria-current=page' if selected else '"')
-            + '>' + ui.icon("cog") + '<span>Settings</span>'
-            + ui.icon("chevron-down", "caret")
-            + '</summary><nav class="menu" aria-label="Settings navigation">'
-            + links + overview + '</nav></details>'
-        )
+        return ui.navigation_dropdown("Settings", "cog", links + overview, selected, "settings-dropdown")
 
     def settings_shell(self, title, body):
         path, group, leaf = self.settings_location()

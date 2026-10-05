@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.2.54
+
+- Added matching dropdowns to Certificates, Enroll, IPSK and Authority, with
+  working status views, task links and addressable authority/enrollment sections.
+- Removed the duplicate IPSK page tabs; its main dropdown includes all management
+  pages and key creation. Shared identity and portal settings stay under Settings.
+- Kept visible dropdown carets on phones, bounded scrollable menus, keyboard and
+  no-script navigation; selecting an option closes the menu.
+
 ## 0.30.2.53
 
 - Changed the Settings tab into a category dropdown on desktop and mobile.

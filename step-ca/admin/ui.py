@@ -62,6 +62,17 @@ def icon(name, cls=""):
             f'<path d="{ICONS[name]}"/></svg>')
 
 
+def navigation_dropdown(label, glyph, links, selected=False, cls=""):
+    """Native disclosure navigation: the browser owns keyboard/expanded state."""
+    return (
+        f'<details class="tab-menu{(" " + esc(cls)) if cls else ""}"><summary class="tab'
+        + (' current" aria-current=page' if selected else '"')
+        + '>' + icon(glyph) + f'<span>{esc(label)}</span>' + icon("chevron-down", "caret")
+        + f'</summary><nav class="menu" aria-label="{esc(label)} navigation">'
+        + links + '</nav></details>'
+    )
+
+
 def chip(kind, text):
     """Status chip; kind is ok, warn, bad, info, or neutral."""
     return f'<span class="chip {kind}">{esc(text)}</span>'
@@ -246,13 +257,14 @@ html:not(.js) .js-only { display: none !important; }
   content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px;
   border-radius: 2px 2px 0 0; background: var(--primary-color);
 }
-/* Native Settings dropdowns also work without the script. */
+/* Native section dropdowns also work without the script. */
 .tab-menu { position: relative; height: 100%; }
 .tab-menu > summary { list-style: none; cursor: pointer; user-select: none; }
 .tab-menu > summary::-webkit-details-marker { display: none; }
 .tab-menu > summary .caret { width: 18px; height: 18px; margin-left: -4px; transition: transform .2s var(--ease-out); }
 .tab-menu[open] > summary .caret { transform: rotate(180deg); }
 .tab-menu > summary:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -2px; }
+.tab-menu .menu { max-height:calc(100dvh - 80px); overflow-y:auto; }
 .menu {
   position: absolute; top: calc(100% + 4px); right: 0; z-index: 6; min-width: 260px; padding: 8px 0;
   background: var(--card-background-color); color: var(--primary-text-color); border-radius: 12px;
@@ -263,6 +275,10 @@ html:not(.js) .js-only { display: none !important; }
 .menu a[aria-current] { color: var(--accent-ink); background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
 .menu a .mdi { color: var(--secondary-text-color); }
 .menu a[aria-current] .mdi { color: var(--accent-ink); }
+.menu .menu-divider { margin-top:8px; border-top:1px solid var(--divider-color); }
+@media (min-width: 641px) {
+  .tab-menu:nth-child(-n+2) .menu { left:0; right:auto; }
+}
 .menu-text { display: flex; flex-direction: column; min-width: 0; }
 .menu-sub { font-size: 12px; color: var(--secondary-text-color); }
 .back { margin-left: -8px; color: inherit; }
@@ -330,7 +346,6 @@ a.icon-btn:hover { text-decoration: none; }
 .settings-page-menu[open] .caret { transform:rotate(180deg); }
 .settings-page-menu > summary:hover { background:var(--hover); }
 .settings-page-menu .menu { max-height:min(50dvh,360px); overflow-y:auto; max-width:calc(100vw - 24px); }
-.settings-dropdown .menu { max-height:calc(100dvh - 80px); overflow-y:auto; }
 .settings-dropdown .settings-overview { margin-top:8px; border-top:1px solid var(--divider-color); }
 .settings-breadcrumb { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; font-size:14px; }
 .settings-breadcrumb a { min-height:44px; display:inline-flex; align-items:center; }
@@ -391,6 +406,11 @@ form[aria-busy=true] { cursor: progress; }
 @media (max-width: 860px) {
   .network-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .network-layout > aside, .network-layout > div { grid-column: auto; grid-row: auto; }
+}
+@media (min-width: 641px) and (max-width: 1100px) {
+  .toolbar:has(.tabs) .toolbar-title { position:absolute; width:1px; height:1px; margin:0; overflow:hidden; clip-path:inset(50%); }
+  .tab { padding:0 10px; gap:6px; }
+  .tab-menu > summary .caret { width:14px; height:14px; margin-left:0; }
 }
 @media (max-width: 640px) {
   .tool-nav { gap: 4px; margin-bottom: 16px; }
@@ -701,7 +721,7 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
   .tab { flex: 1; flex-direction: column; justify-content: center; gap: 2px; padding: 0 4px; font-size: 12px; }
   .tab-menu { flex: 1; position: static; }
   .tab-menu > summary { height: 100%; }
-  .tab-menu > summary .caret { display: none; }
+  .tab-menu > summary .caret { position:absolute; top:7px; left:calc(50% + 12px); width:10px; height:10px; margin:0; }
   .tabs .menu { position: fixed; top: auto; bottom: 64px; right: 8px; left: 8px; min-width: 0; }
   .tab[aria-current="page"]::after, .tab.current::after { top: 0; bottom: auto; border-radius: 0 0 2px 2px; left: 25%; right: 25%; }
   .content { padding: 16px 12px 32px; }
@@ -831,6 +851,12 @@ SCRIPT = r"""
   function openTarget() {
     var target = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
     if (target && target.tagName === "DETAILS") target.open = true;
+    document.querySelectorAll(".tab-menu:has(summary.current) .menu a").forEach(function (link) {
+      var url = new URL(link.href);
+      if (url.pathname !== location.pathname || url.search !== location.search) return;
+      if (url.hash === location.hash) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
   }
   openTarget();
   window.addEventListener("hashchange", openTarget);
@@ -873,8 +899,15 @@ SCRIPT = r"""
 
   // Navigation dropdowns close outside or on Escape, restoring keyboard focus.
   var menus = Array.prototype.slice.call(document.querySelectorAll("details.tab-menu, details.settings-page-menu"));
+  menus.forEach(function (menu) {
+    menu.addEventListener("toggle", function () {
+      if (menu.open) menus.forEach(function (other) { if (other !== menu) other.open = false; });
+    });
+  });
   document.addEventListener("click", function (event) {
-    menus.forEach(function (menu) { if (menu.open && !menu.contains(event.target)) menu.open = false; });
+    menus.forEach(function (menu) {
+      if (menu.open && (!menu.contains(event.target) || event.target.closest(".menu a"))) menu.open = false;
+    });
   });
   document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
