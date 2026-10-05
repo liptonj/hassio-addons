@@ -1,4 +1,17 @@
 configuration:
+  meraki:
+    name: Meraki connection
+    description: Reuse Meraki HA's authenticated session, or use a Dashboard API key when the integration is unavailable.
+    fields:
+      source:
+        name: Connection source
+        description: auto prefers Meraki HA and falls back to the entered key only when the bridge or provider is unavailable. meraki_ha and api_key select one source.
+      api_key:
+        name: Meraki Dashboard API key
+        description: Optional fallback key. Manage and test it under Settings > Meraki > Connection.
+      organization_id:
+        name: Organization ID for API key connection
+        description: Blank discovers all accessible organizations. This filter does not apply to Meraki HA.
   ca_name:
     name: CA name
     description: >-
@@ -221,11 +234,11 @@ configuration:
           Turns off Private Wi-Fi Address (MAC randomization) for this network on iOS 14 and
           macOS 15 or later, so devices use their real MAC address.
       radius_server:
-        name: RADIUS server
+        name: Authentication service
         description: >-
-          custom: your own RADIUS server; add its CA under Tools > Other trusted CAs and set the
-          server names. meraki_access_manager: devices trust Meraki Access Manager's RADIUS
-          certificate (eap.meraki.com) without an upload.
+          meraki_access_manager (default): devices trust Cisco Access Manager's server certificate
+          (eap.meraki.com). Upload Step CA's client CA chain to Access Manager and configure EAP-TLS
+          rules. custom: another RADIUS service with its own CA and trusted server names.
       radius_server_names:
         name: RADIUS server names
         description: >-

@@ -1,6 +1,6 @@
 name: "Step CA SCEP Server"
 description: "Private certificate authority that issues client certificates over SCEP on Home Assistant's own port, powered by smallstep step-ca"
-version: "0.30.2.57"
+version: "0.30.2.58"
 slug: "step-ca-scep"
 url: "https://github.com/liptonj/hassio-addons/tree/master/step-ca"
 stage: experimental
@@ -55,6 +55,10 @@ options:
   default_cert_duration: "8760h"
   max_cert_duration: "17520h"
   install_integration: true
+  meraki:
+    source: auto
+    api_key: ""
+    organization_id: ""
   database: "mariadb"
   mariadb_database: "stepca"
   enrollment:
@@ -69,7 +73,7 @@ options:
     hidden: false
     auto_join: true
     disable_mac_randomization: false
-    radius_server: "custom"
+    radius_server: "meraki_access_manager"
     radius_server_names: []
   wifi_networks: []
   captive_portal:
@@ -130,6 +134,10 @@ schema:
   default_cert_duration: match(^[0-9]+(h|m)$)
   max_cert_duration: match(^[0-9]+(h|m)$)
   install_integration: bool
+  meraki:
+    source: list(auto|meraki_ha|api_key)?
+    api_key: password?
+    organization_id: match(^[0-9]{0,80}$)?
   database: list(mariadb|embedded)
   mariadb_database: match(^[A-Za-z0-9_]{1,64}$)
   enrollment:

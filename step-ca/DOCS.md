@@ -7,7 +7,8 @@ This add-on runs [smallstep step-ca](https://github.com/smallstep/certificates)
 SCEP provisioner so that devices, MDM platforms with a static SCEP challenge
 (Jamf Pro, Kandji, Mosyle, and others; see [Using an MDM](#using-an-mdm)),
 and network gear can enroll for client certificates, for example for
-802.1X / EAP-TLS with the FreeRADIUS add-on.
+802.1X / EAP-TLS authenticated by Cisco Access Manager. Step CA issues the client
+certificates; Access Manager authenticates and authorizes network access.
 
 The add-on is built on the official `smallstep/step-ca` container image.
 
@@ -129,20 +130,31 @@ add-on's, so back up both.
 ## Resident Wi-Fi
 
 The **IPSK** tab brings the WPN portal's resident iPSK onboarding and
-key management into Step CA. Set up the `meraki_ha` integration in Home
-Assistant with access to the target Meraki organization. Step CA's companion
-integration **1.5.0 or later** supplies the `step_ca_scep/ipsk/` bridge for
-options, listing, creation, retrieval, password reveal, revocation and deletion.
-It reuses Meraki HA's authenticated SDK session, including OAuth refresh;
-no additional API credential is stored in the portal. Only Home Assistant
+key management into Step CA. Open **Settings → Meraki → Connection**. The default
+`meraki.source: auto` reuses the `meraki_ha` integration's authenticated SDK
+session, including OAuth refresh. When its provider or bridge is absent, it
+uses your optional `meraki.api_key`. Select `meraki_ha` or `api_key` to require
+one source. `meraki.organization_id` optionally restricts discovery for the API
+key connection; blank discovers all accessible organizations. Meraki HA retains
+its existing organization scope. API errors, authentication failures and uncertain
+writes never trigger a switch to another provider. Test the saved connection to
+see the selected source and wireless network count.
+
+The bundled companion **1.6.0** supplies the `step_ca_scep/ipsk/` bridge for key
+operations, SSID configuration and Access Manager. Install the bundled integration
+and restart Home Assistant when upgrading; direct API key mode can operate without
+the Meraki HA integration. Only Home Assistant
 administrators and its authenticated Supervisor service user can call the bridge.
 The Meraki integration pins **SDK 4.5.0b4**, the latest beta checked on October 2,
 2026. Its existing Push API operations require the beta; stable 4.5.0 omits them.
 Store the Cisco client secret in Home Assistant's **Application credentials**;
 access and refresh tokens are kept in the Meraki integration's config entry.
 These Home Assistant files are not an encrypted vault: restrict configuration
-directory access and protect its backups. Step CA keeps no Meraki credentials
-in its options or MariaDB. Meraki diagnostic exports and routine dashboard
+directory access and protect its backups. An optional fallback API key is stored
+in Step CA's add-on options and their backups. Leave the key field blank to retain
+it, or select **Remove the saved API key** to clear it. It is never copied to the
+companion or displayed in settings summaries. Meraki HA credentials remain in that
+integration. SDK request logging is disabled for direct API operations. Routine
 responses redact Wi-Fi/RADIUS secrets; explicit password reveal remains an
 administrator operation.
 Resident and invitation records are stored as
@@ -162,12 +174,84 @@ in MariaDB. Deletion removes it from Meraki and retains a deleted history row.
 If a provisioning request times out, check Meraki Dashboard before retrying:
 Dashboard's create operation has no verified idempotency contract.
 
-Enable `resident_onboarding.enabled`, choose the Meraki `network_id` and
-`ssid_number`, and set an optional key lifetime in hours (`0` means no
-expiration). `invite_required` defaults to true. Restart the add-on, then use
+Open **Settings → IPSK → Network and onboarding**. Choose a Meraki network and
+click **Load network options**, then select its enabled iPSK SSID and registered
+resident policy. Set the key lifetime in hours (`0` means no expiration),
+invitation requirement and onboarding switch. These edit `enabled`, `network_id`,
+`ssid_number`, `group_policy_id`, `duration_hours` and `invite_required` under
+`resident_onboarding`. SSID 0 is valid; invitations default to required.
+Enabling onboarding requires MariaDB. Saved choices are checked against Meraki
+before saving. Restart the add-on to apply these changes, then use
 **IPSK → Invitations → Create invitation code** to issue single-use codes. The public
 registration page is served through Home Assistant at
 `/api/step_ca_scep/portal`.
+
+### Configure Meraki SSIDs and portals
+
+Open **Settings → Meraki → SSIDs and portals**, select a wireless network and
+load its enabled SSIDs. The inventory includes every enabled authentication mode,
+so an ordinary PSK or open network can be prepared for iPSK. Disabled slots are
+excluded; enable them in Dashboard first. The key issuer's network picker continues
+to show only enabled iPSK-without-RADIUS SSIDs.
+
+Choose the SSID, portal assignment and authentication. Step CA resident assignment
+requires the running `resident_onboarding` network/SSID and public HTTPS URL ending
+in `/api/step_ca_scep/portal`. Save and restart Step CA first. The resident issuer
+supports one SSID; external portals, including a separate WPN portal, can be assigned
+to other enabled SSIDs using their own HTTPS URL. Guest bypass sets the SSID splash
+page to `None` and disables its custom splash URL.
+
+**Preview SSID changes** reads the current configuration without writing. It lists
+the organization/network/SSID, managed before/after values and manual steps. Apply
+uses a single-use preview bound to the administrator and connection, expiring after
+10 minutes, and rejects changes to managed Meraki settings since the preview.
+SSID and splash settings are separate writes. The result reports confirmed steps
+and read-back status; if a step fails, check Dashboard before retrying. No automatic
+rollback runs. Authentication changes can disconnect clients.
+
+The API can select iPSK without RADIUS, `ipsk-with-nac` (Access Manager iPSK), or
+`8021x-nac` (Access Manager enterprise authentication), WPA2,
+disabled 802.11r, bridge mode, VLAN tagging/default VLAN, click-through splash and
+the custom splash URL. Blank VLAN preserves the current setting. Existing
+walled-garden entries are retained and the portal hostname is added. Supply Duo
+and any other portal dependencies that clients need before authorization.
+These requests use the [published SSID API](https://developer.cisco.com/meraki/api-v1/update-network-wireless-ssid/)
+and [splash settings API](https://developer.cisco.com/meraki/api-v1/update-network-wireless-ssid-splash-settings/).
+
+**Prepare bridge mode for WPN** selects bridge mode, WPA2 and disabled 802.11r.
+Create at least one iPSK, then enable WPN in Dashboard on supported AP models and
+firmware. Neither the current stable nor beta public API exposes the WPN enable
+switch, and Step CA does not send an invented setting. Verify device isolation,
+VLAN routing and association on real APs using the
+[WPN configuration guide](https://documentation.meraki.com/Wireless/Design_and_Configure/Configuration_Guides/Encryption_and_Authentication/Wi-Fi_Personal_Network_%28WPN%29).
+
+### Access Manager client iPSKs
+
+**Settings → Meraki → Access Manager** loads existing authorization policies,
+rule status/key mode and client groups for the selected network's organization.
+Configure an enabled `ipsk-with-nac` SSID under SSIDs and portals, then select
+its Access Manager group and enter the hardware MAC, owner and 8–63 character
+client key. Preview and apply create a BYOD client or update the existing client,
+preserving its other group memberships. Policy and client passphrases are never
+included in previews or returned write results.
+
+Per-client iPSK uses documented beta NAC endpoints from the official
+[Meraki OpenAPI specification](https://github.com/meraki/openapi/tree/v1-beta),
+through the existing SDK's authenticated transport. The organization needs the
+`access-manager-ipsk-per-client` feature and an enabled PERMIT rule with
+`clientIpskOnly` or `clientIpskWithDefaultFallback`. The preview checks that such
+a rule exists, but does not prove its conditions match the selected SSID/group.
+Configure and verify matching conditions in Dashboard. Feature availability and
+API permissions are checked by Meraki when applying; unsupported organizations
+receive an error. See the [Access Manager release notes](https://documentation.meraki.com/Platform_Management/Access_Manager/Product_Information/Cisco_Access_Manager_Release_Notes).
+
+Client keys apply across the organization and have no automatic expiry in this
+workflow. They are managed separately from the MariaDB resident key inventory;
+resident self-service, revocation and expiry still use iPSK without RADIUS.
+Private MAC addressing must be disabled. Test actual association and policy
+matching after configuration. Step CA does not create or replace authorization
+policies automatically. Results larger than the supported NAC page limit are
+rejected rather than silently truncated.
 
 ### Default PSK captive portal
 
@@ -227,10 +311,19 @@ category** opens the sibling pages; breadcrumbs return to the category overview.
 Menus start closed, work with the keyboard and remain usable without JavaScript.
 With JavaScript enabled, Escape closes the menu and returns focus to its trigger.
 
+### Captive portal authentication and access
+
+Open **Settings → Captive portal → Authentication and access** to choose Duo
+verification, user selection without verification, self-service and device
+limits. **User directory** opens the shared Duo group configuration and
+connection check. These are the same settings used by **IPSK → Device access**
+and **Identity & access**; there is no second set of credentials or access rules.
+Guest QR access bypasses the portal and has no resident authentication step.
+
 ### Captive portal appearance and content
 
-Open **Settings → Captive portal** to skin the public Wi-Fi portal. Its settings
-are independent of IPSK policy and the shared identity provider.
+Use **Appearance** and **Content** to skin the public Wi-Fi portal. These
+branding settings are independent of IPSK policy and the shared identity provider.
 
 - **Appearance:** upload a logo, set the accent and optional background colors,
   and choose light, dark or device-controlled appearance. Colors use six-digit
@@ -309,6 +402,15 @@ Authentication** and the permitted group/Admin API connection under **User
 directory**. These shared settings are available even when IPSK onboarding is
 disabled. Each page saves only its own fields; blank secrets keep their saved
 values. Directory selection does not authenticate a user.
+
+After saving, click **Test Duo connection** on Authentication to run the SDK
+health check with the saved credentials. This does not sign in a user or prove
+that a browser callback works. On User directory, click **Test directory and
+load users** to check the saved Admin API credentials, group status and paged
+membership, then display the permitted users. The directory check works without
+an IPSK network or Web SDK configuration. An empty group shows instructions to
+add members; failures let you correct settings and retry. Both checks are
+administrator-only, require the form token, and do not create users or keys.
 
 Enable the public resident portal and select MariaDB, then open **Settings →
 IPSK → Device access** to choose whether Wi-Fi uses authentication or the user
@@ -429,8 +531,10 @@ Assistant’s external URL where needed. It does not issue certificates, create
 keys, change policies or validate a physical Wi-Fi connection.
 
 “Configured; not verified” means required settings are present, not that the
-service or device flow has passed. The Duo check validates local settings;
-actual credentials, group permissions and callbacks need deployment checks.
+service or device flow has passed. The readiness view validates local Duo
+settings. Use the explicit connection checks under **Identity & access** to
+verify saved credentials and group access. Browser callbacks and actual factor
+verification still require a portal sign-in on the deployed installation.
 After editing add-on options, restart Step CA; the readiness view checks the
 running configuration. Service timeouts produce recovery guidance without
 showing credentials or provider response bodies.
@@ -578,13 +682,14 @@ enrollment link for the new group). The device installs a certificate from
 the new group's profile; then revoke the old certificate on **Certificates**.
 Removing the old profile in the MDM removes its certificate from the device.
 
-### Using the OU in RADIUS
+### Using certificate attributes in Access Manager
 
-The RADIUS server reads the OU from the client certificate. For example, in
-FreeRADIUS the subject is in `TLS-Client-Cert-Subject`, so a policy such as
-`if (&TLS-Client-Cert-Subject =~ /OU=Kids/) { … }` can assign the kids VLAN.
-Other servers (NPS, ClearPass, ISE, cloud RADIUS) have a similar
-certificate-attribute rule.
+Access Manager can match endpoint certificate attributes in an EAP-TLS rule
+and return a VLAN, Meraki group policy or Adaptive Policy. Configure the rule
+to match this CA's issuer and the intended subject attributes for your groups.
+Entra ID lookup is optional for certificate authentication; when used, choose
+an identity field that matches the user's UPN, typically the RFC822 email SAN.
+See the [Access Manager deployment guide](https://documentation.meraki.com/Platform_Management/Access_Manager/Design_and_Configure/Cisco_Access_Manager_Deployment_Guide).
 
 Passpoint and OpenRoaming need certificates from the WBA's own PKI, which
 this CA cannot issue. Groups apply to your own Wi-Fi.
@@ -975,20 +1080,28 @@ with these payloads.
 
   The signing is written to the add-on log.
 
-### Your RADIUS server
+### Access Manager certificate trust
 
-The RADIUS server must trust the client certificates. Give it
-`ca-chain.pem` (or `root_ca.pem` alone if it builds the chain from the
-certificates the clients send). To reject revoked
-certificates, see [Revocation](#revocation).
+Upload the **Meraki Access Manager** CA-chain download from Authority to
+**Access Manager → Configure → Certificates** as a single chain. Enable the
+chain and its trusted anchor, then configure matching EAP-TLS rules. For device
+trust and SSID configuration, see [Cisco Meraki Access Manager](#cisco-meraki-access-manager).
+Revocation enforcement needs separate CRL configuration; see [Revocation](#revocation).
 
 ## Revocation
 
 Revoked certificates are published in a CRL signed by the intermediate CA.
 Issued certificates do not contain a CRL distribution point, so configure
-relying systems to download the CRL themselves. For FreeRADIUS, periodically
-fetch `<Home Assistant URL>/api/step_ca_scep/crl?pem` into its CA directory
-and enable CRL checking.
+Access Manager's CRL enforcement separately. Download the current PEM CRL from
+`<Home Assistant URL>/api/step_ca_scep/crl?pem` and associate it with its actual
+issuer certificate in Access Manager through the supported NAC CRL API or
+Dashboard workflow available for your organization. The beta
+`createOrganizationNacCertificatesAuthoritiesCrl` endpoint accepts
+`trustedCertificateId` and `crlBody`; organization feature availability still
+applies. Refresh the CRL after revocations and before its next update time.
+This add-on does not yet synchronize CRLs to Access Manager automatically.
+Verify a revoked device is rejected before relying on the migration. See the
+[official beta API specification](https://github.com/meraki/openapi/tree/v1-beta).
 
 Removing a device's profile from an MDM removes its certificate from the
 device but does not revoke it. Revoke it on **Certificates** if it should no
@@ -1154,9 +1267,10 @@ Each network:
   network, so devices use their real MAC address on it (for DHCP
   reservations or MAC-based rules). iOS and iPadOS 14, macOS 15, and later;
   the device shows a privacy warning for the network.
-- `radius_server`: `custom` (default) for your own RADIUS server, whose CA
-  you add under **Settings → Certificates → Device trust certificates**; or `meraki_access_manager`,
-  which makes devices trust Meraki Access Manager's RADIUS certificate. See
+- `radius_server`: `meraki_access_manager` (default), which makes devices trust
+  Access Manager's server certificate and pins `eap.meraki.com`. An explicitly
+  saved `custom` service retains its own CA/server-name configuration under
+  **Settings → Certificates → Device trust certificates**. See
   [Cisco Meraki Access Manager](#cisco-meraki-access-manager).
 - `radius_server_names`: optional. Pins the names in the RADIUS server's
   certificate that devices accept. Without it, devices accept any server
@@ -1207,14 +1321,32 @@ not chain to one of them, the device never joins the network.
 
 EAP-TLS needs trust in both directions.
 
+Access Manager is the default authentication service for new Wi-Fi profiles
+and entries without an explicit service. For an existing profile with
+`radius_server: custom`, open **Settings → Enrollment & Wi-Fi → Wi-Fi profiles**,
+select the network and change **Authentication service** to **Cisco Meraki Access
+Manager**. Choose **EAP-TLS** for Step CA certificates. Access Manager also supports
+**EAP-TTLS with PAP** for its supported user credentials; PAP is the default inner
+method when Access Manager is selected. PEAP and EAP-FAST are rejected for this
+service. Existing generic EAP methods remain available with an explicitly selected
+compatible custom service. These choices follow the
+[Access Manager authentication guide](https://documentation.meraki.com/Platform_Management/Access_Manager).
+
+Under **Settings → Meraki → SSIDs and portals**, select the enabled corporate
+SSID, choose **No captive portal (enterprise Wi-Fi)** and **Enterprise / EAP-TLS
+with Access Manager**, then preview/apply. This selects `8021x-nac` and removes
+splash from that SSID; certificate trust and matching Access Manager rules must
+also be configured. It does not convert resident self-service key issuance.
+
 **Devices trust Meraki.** Access Manager's RADIUS server presents a
 certificate for `eap.meraki.com` issued under IdenTrust Commercial Root CA 1.
 Set the network's RADIUS server to Meraki Access Manager; every Wi-Fi profile
 (enrollment links, **Enroll this device**, and MDM downloads) then installs
 that root as a trusted anchor and trusts the server name `eap.meraki.com`.
-No upload is needed. Devices that installed a profile before the change need
-the new one: remove the old profile and enroll again, or push the new MDM
-profile.
+No upload is needed for that server root. Existing clients already connecting
+through Access Manager do not need new profiles for this add-on update. Replace
+an installed profile only when changing its SSID, authentication method or
+trust settings; distribute the changed profile through enrollment or MDM.
 
 **Meraki trusts devices.** In Meraki, go to **Access Manager > Configure >
 Certificates** and upload the **Meraki Access Manager** download from
@@ -1298,6 +1430,6 @@ adds the label column to MariaDB at add-on startup; restart after updating.
 
 On a phone, IPSK inventories stack their metadata and actions. Registered-device
 key links open the exact key and provide a return to the originating device list.
-Duo settings appear only when enabled features require them; switching a feature
-off retains its saved configuration. Current-device success puts password saving
+Duo credentials are always editable on the shared identity pages; switching a
+feature off retains its saved configuration. Current-device success puts password saving
 and Finish setup ahead of the optional QR.

@@ -254,7 +254,7 @@ class WebsocketPermissionTests(unittest.IsolatedAsyncioTestCase):
         self.bridge.async_register(self.hass)
         self.bridge.async_register(self.hass)
         calls = self.api.async_register_command.call_args_list
-        self.assertEqual(len(calls), 7)
+        self.assertEqual(len(calls), len(self.bridge.COMMANDS))
         self.assertEqual({c.args[1]._ws_command for c in calls},
                          {"step_ca_scep/ipsk/" + action for action in self.bridge.COMMANDS})
 

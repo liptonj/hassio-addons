@@ -12,7 +12,8 @@ from .meraki_ipsk import MerakiIpsk
 
 _LOGGER = logging.getLogger(__name__)
 PREFIX = "step_ca_scep/ipsk/"
-COMMANDS = ("options", "list", "create", "get", "reveal_passphrase", "revoke", "delete")
+COMMANDS = ("options", "list", "create", "get", "reveal_passphrase", "revoke", "delete",
+            "configuration_plan", "configure", "access_manager", "client_key_plan", "assign_client_key")
 
 
 def command_schema(command):
@@ -28,6 +29,22 @@ def command_schema(command):
                        vol.Required("name"): str, vol.Optional("group_policy_id"): str,
                        vol.Optional("duration_hours"): int, vol.Optional("passphrase"): str,
                        vol.Optional("associated_user"): str, vol.Optional("associated_unit"): str})
+    elif command == "access_manager":
+        schema[vol.Required("network_id")] = str
+    elif command in ("configuration_plan", "configure"):
+        schema.update({vol.Required("network_id"): str, vol.Required("ssid_number"): int,
+                       vol.Required("portal_type"): str, vol.Optional("portal_url"): str,
+                       vol.Optional("auth_mode"): str, vol.Optional("prepare_wpn"): bool,
+                       vol.Optional("vlan_id"): vol.Any(int, None),
+                       vol.Optional("walled_garden_ranges"): [str]})
+        if command == "configure":
+            schema[vol.Required("expected_revision")] = str
+    elif command in ("client_key_plan", "assign_client_key"):
+        schema.update({vol.Required("network_id"): str, vol.Required("ssid_number"): int,
+                       vol.Required("mac"): str, vol.Required("owner"): str,
+                       vol.Required("passphrase"): str, vol.Required("group_id"): str})
+        if command == "assign_client_key":
+            schema[vol.Required("expected_revision")] = str
     else:
         schema.update({vol.Required("ipsk_id"): str, vol.Optional("network_id"): str,
                        vol.Optional("ssid_number"): int})
@@ -53,10 +70,15 @@ async def dispatch(hass, connection, msg):
         async with asyncio.timeout(45):
             if action == "options":
                 result = await service.options(msg.get("network_id", ""))
+                result["provider"] = "meraki_ha"
             elif action == "list":
                 result = await service.list(msg.get("scopes", []))
             elif action == "create":
                 result = await service.create(msg)
+            elif action == "access_manager":
+                result = await service.access_manager(msg["network_id"])
+            elif action in ("configuration_plan", "configure", "client_key_plan", "assign_client_key"):
+                result = await getattr(service, action)(msg)
             else:
                 result = await service.key(action, msg.get("ipsk_id"), msg.get("network_id", ""), msg.get("ssid_number", 0))
         connection.send_result(msg["id"], result)

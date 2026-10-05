@@ -113,7 +113,7 @@ def form(config, kind, csrf, action_url, related_url):
         )
         return (
             f'<div class="field"><label for="{key}">{LABELS[key]}</label>'
-            f'<input id="{key}" name="{key}" maxlength="512" aria-describedby="{key}-help" {attrs}>'
+            f'<input id="{key}" name="{key}" maxlength="{2048 if key == "duo_redirect_uri" else 512}" aria-describedby="{key}-help" {attrs}>'
             f'<small class="muted" id="{key}-help">{esc(hint)}</small></div>'
         )
 
@@ -143,4 +143,9 @@ def form(config, kind, csrf, action_url, related_url):
         f'<form method="post" action="{esc(action_url)}">{csrf}{rows}'
         f'<p class="hint">{help_text}</p><button class="btn" type="submit">Save {kind if authentication else "user directory"}</button>'
         f'</form></div></section><p class="hint"><a href="{esc(related_url)}">{other}</a></p>'
+        f'<section class="card"><div class="card-content"><h3>{"Test authentication" if authentication else "Load permitted users"}</h3>'
+        '<p>Save changes first. This check uses saved settings and does not change users or Wi-Fi keys.</p>'
+        + ('<p class="hint">The connection check does not verify a user’s factor or the browser callback. Complete a portal sign-in to test those.</p>' if authentication else '')
+        + f'<form method="post" action="{esc(action_url.removesuffix("/save") + "/test")}">{csrf}'
+        f'<button class="btn text" type="submit">{"Test Duo connection" if authentication else "Test directory and load users"}</button></form></div></section>'
     )

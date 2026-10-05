@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.30.2.58
+
+- Default new certificate Wi-Fi profiles to Cisco Access Manager, pin its server
+  name and include its trust root. Default Access Manager EAP-TTLS to PAP and
+  reject unsupported PEAP/EAP-FAST selections for that service.
+- Add Access Manager enterprise SSID configuration (`8021x-nac`) and an explicit
+  no-captive-portal assignment. Replace FreeRADIUS setup advice with Access Manager
+  certificate trust, policy and CRL migration guidance.
+- Add Meraki connection settings: reuse Meraki HA's authenticated session or use
+  a saved Dashboard API key, with a read-only connection check and org filter.
+- Discover every enabled SSID and preview/apply captive portal, iPSK, VLAN and
+  walled-garden configuration with stale-preview checks and partial-write results.
+- Prepare WPN prerequisites and identify the remaining Dashboard enable step.
+- Inspect Access Manager policies/groups and preview/apply per-client iPSKs using
+  documented beta NAC endpoints. Explain feature, rule, scope and expiry limits.
+- Bundle companion 1.6.0 with twelve authenticated Meraki operations and add SDK
+  HTTP contract tests for SSID, splash and Access Manager writes.
+- Add editable IPSK network/onboarding settings with Meraki choice validation,
+  SSID 0 support, MariaDB checks and restart guidance.
+- Expose authentication/access and the shared user directory from Captive portal
+  settings; restore older resident access and QR settings bookmarks.
+- Add Duo connection testing and permitted-user directory loading. Directory
+  checks no longer depend on IPSK network or Web SDK configuration.
+- Validate device limits when access modes are disabled and test all four
+  existing portal entry modes.
+
 ## 0.30.2.57
 
 - Split Authority into a compact overview and dedicated Root CA, Intermediate CA,

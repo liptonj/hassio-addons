@@ -39,12 +39,16 @@ def enabled(config=None):
 
 
 def validate_settings(config):
+    try:
+        limit = int(config.get("max_devices_per_resident", 5))
+    except (TypeError, ValueError) as err:
+        raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.") from err
+    if not 1 <= limit <= 50:
+        raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.")
     if not enabled(config):
         return
     if not config.get("network_id"):
         raise ValueError("Choose the resident Meraki network in the add-on options first.")
-    if not 1 <= int(config.get("max_devices_per_resident", 5)) <= 50:
-        raise guidance.FieldError("max_devices_per_resident", "Choose a device limit from 1 to 50.")
     needs_directory = config.get("sign_in_required") or config.get("no_sign_in_user_list")
     if needs_directory:
         identity_settings.validate(config, "directory", required=True)
@@ -91,8 +95,8 @@ def duo_form_origin():
 
 def group_members(config):
     """Use the group endpoint exclusively; never fall back to the tenant user list."""
-    validate_settings(config)
-    client = admin_client(config)
+    identity_settings.validate(config, "directory", required=True)
+    client = _duo_call(admin_client, config)
     group = _duo_call(client.get_group, config["duo_group_id"], api_version=2)
     if group.get("status") != "active":
         raise ValueError("The permitted Duo group must be active. Contact your administrator.")

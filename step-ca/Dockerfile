@@ -13,7 +13,8 @@ RUN python3 -m venv --system-site-packages /opt/step-ca-runtime \
     && /opt/step-ca-runtime/bin/pip install --no-cache-dir -r /opt/step-ca-admin/requirements.txt
 
 COPY custom_components/step_ca_scep /opt/step_ca_scep
-COPY admin/app.py admin/captive.py admin/db_setup.py admin/enroll.py admin/guidance.py admin/identity_settings.py admin/portal_skin.py admin/ipsk.py admin/resident_access.py admin/settings_menu.py admin/ui.py /opt/step-ca-admin/
+COPY admin/app.py admin/captive.py admin/db_setup.py admin/enroll.py admin/guidance.py admin/identity_settings.py admin/portal_skin.py admin/ipsk.py admin/meraki_provider.py admin/meraki_settings.py admin/resident_access.py admin/settings_menu.py admin/ui.py /opt/step-ca-admin/
+COPY custom_components/step_ca_scep/meraki_ipsk.py /opt/step-ca-admin/meraki_service.py
 COPY run.sh /usr/bin/run-step-ca
 RUN chmod 0755 /usr/bin/run-step-ca
 

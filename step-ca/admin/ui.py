@@ -297,6 +297,12 @@ html:not(.js) .js-only { display: none !important; }
 .card-header h2 { font-size: 20px; line-height: 28px; margin-right: auto; }
 .card-header > p { flex-basis: 100%; margin: 0; max-width: 72ch; }
 .card-content { padding: 0 16px 16px; }
+.meraki-settings .card-content { padding-top: 16px; }
+.meraki-settings form > label { margin-top: 16px; }
+.meraki-settings form > label:first-of-type { margin-top: 0; }
+.meraki-settings .card-content h3 { margin-bottom: 8px; }
+.meraki-settings form > button { margin-top: 16px; }
+.meraki-settings td { overflow-wrap: anywhere; }
 .card-content.flush { padding: 0; }
 .card-actions {
   border-top: 1px solid var(--divider-color); padding: 8px 12px; display: flex; gap: 8px;

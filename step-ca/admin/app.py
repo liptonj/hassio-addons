@@ -47,6 +47,8 @@ import ui
 import identity_settings
 import portal_skin
 from settings_menu import SettingsMixin, canonical_url, legacy_path
+from meraki_settings import MerakiSettingsMixin
+import meraki_provider
 
 STEP_PATH = os.environ.get("STEPPATH", "/data/step")
 ROOT_CERT = f"{STEP_PATH}/certs/root_ca.crt"
@@ -569,13 +571,14 @@ def wifi_settings(option):
         "eap_outer_identity": text("eap_outer_identity"),
         "eap_password_per_connection": flag("eap_password_per_connection"),
         "eap_client_certificate": flag("eap_client_certificate"),
-        "ttls_inner_authentication": text("ttls_inner_authentication") or "MSCHAPv2",
+        "ttls_inner_authentication": text("ttls_inner_authentication") or (
+            "PAP" if (text("radius_server") or "meraki_access_manager") == "meraki_access_manager" else "MSCHAPv2"),
         "tls_minimum": text("tls_minimum") or "1.2", "tls_maximum": text("tls_maximum"),
         "eap_fast_use_pac": flag("eap_fast_use_pac"), "eap_fast_provision_pac": flag("eap_fast_provision_pac"),
         "eap_sim_rands": int(option.get("eap_sim_rands") or 3),
         "hidden": flag("hidden"), "auto_join": flag("auto_join", True),
         "disable_mac_randomization": flag("disable_mac_randomization"),
-        "radius_server": text("radius_server") or "custom",
+        "radius_server": text("radius_server") or "meraki_access_manager",
         "proxy": text("proxy") or "none", "proxy_server": text("proxy_server"),
         "proxy_port": int(option.get("proxy_port") or 0) or None, "proxy_username": text("proxy_username"),
         "proxy_password": str(option.get("proxy_password") or ""), "proxy_pac_url": text("proxy_pac_url"),
@@ -661,6 +664,11 @@ def check_wifi_option(wifi, others=()):
     if method in enroll.TLS_EAP:
         if wifi["radius_server"] != "custom" and wifi["radius_server"] not in enroll.RADIUS_SERVICES:
             raise ValueError("Choose a RADIUS server from the list.")
+        if wifi["radius_server"] == "meraki_access_manager":
+            if method not in ("eap_tls", "eap_ttls"):
+                raise guidance.FieldError("authentication", "Access Manager supports EAP-TLS or EAP-TTLS. Choose one of those methods, or select a compatible custom authentication service.")
+            if method == "eap_ttls" and wifi["ttls_inner_authentication"] != "PAP":
+                raise guidance.FieldError("ttls_inner_authentication", "Choose PAP inner authentication for Access Manager EAP-TTLS.")
         for server in wifi["radius_server_names"]:
             if not SERVER_NAME_RE.fullmatch(server):
                 raise ValueError(f"{server!r} is not a server name, such as radius.example.com.")
@@ -1231,7 +1239,7 @@ class DeletedCerts:
 DELETED = DeletedCerts()
 
 
-class Handler(SettingsMixin, BaseHTTPRequestHandler):
+class Handler(MerakiSettingsMixin, SettingsMixin, BaseHTTPRequestHandler):
     server_version = "step-ca-admin"
     sys_version = ""
 
@@ -1370,6 +1378,8 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             section_title = next((label for path, label, _ in self.TABS if path == current), title)
             bar = f'<h1 class="toolbar-title">{esc(heading or section_title)}</h1><nav class="tabs" aria-label="Sections">{tabs}</nav>'
         if not back and self.current_tab() == "/settings":
+            if urllib.parse.urlsplit(self.path).path.startswith("/settings/meraki/"):
+                body = '<div class="meraki-settings">' + body + '</div>'
             body = self.settings_shell(title, body)
             narrow = False
         self.document(
@@ -1531,7 +1541,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             self.send(400, "Invalid request size", "text/plain")
             return
         if length > (portal_skin.UPLOAD_LIMIT if path.startswith("/settings/captive-portal/") else UPLOAD_LIMIT if path in ("/ca/extra", "/ca/sign") else 16384 if path == "/tools/wifi/save"
-                     else 4096):
+                     else 16384 if path.startswith("/settings/meraki/") else 4096):
             self.send(413, "Request too large", "text/plain")
             return
         body = self.rfile.read(length)
@@ -1539,12 +1549,21 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         if content_type.startswith("multipart/form-data"):
             form = parse_multipart(content_type, body)
         else:
-            form = urllib.parse.parse_qs(body.decode(errors="replace"), keep_blank_values=path.startswith(("/settings/identity/", "/settings/captive-portal/")))
+            form = urllib.parse.parse_qs(body.decode(errors="replace"), keep_blank_values=path.startswith(("/settings/identity/", "/settings/captive-portal/", "/settings/meraki/")))
         if any(len(values) != 1 for values in form.values()):
             self.send(400, "Submit each form field once.", "text/plain")
             return
         if not secrets.compare_digest(str(form.get("csrf", [""])[0]), CSRF_TOKEN):
             self.send(403, "Invalid form token; reload the page and try again.", "text/plain")
+            return
+        if m := re.fullmatch(r"/settings/meraki/(connection|ssids|access-manager)/(save|test|preview|apply)", path):
+            self.meraki_post(m.group(1), m.group(2), form)
+            return
+        if path == "/settings/ipsk/network/save":
+            self.ipsk_network_save(form)
+            return
+        if path in ("/settings/identity/authentication/test", "/settings/identity/directory/test"):
+            self.identity_test(path.split("/")[3])
             return
         if path in ("/settings/captive-portal/appearance/save", "/settings/captive-portal/content/save"):
             self.portal_skin_save(path.split("/")[3], form)
@@ -2865,21 +2884,21 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                 except Exception:
                     database_state = "Needs attention"
                     database_detail = "Could not read the resident tables. Start MariaDB, restart Step CA to initialize its schema, then check again. Review add-on logs if this persists."
-        provider_state = "Not connected" if not SUPERVISOR_TOKEN else "Not checked"
-        provider_detail = "Install the Step CA companion and Meraki HA integration, then restart Home Assistant."
+        provider_state = "Not connected" if not meraki_provider.available(SUPERVISOR_TOKEN) else "Not checked"
+        provider_detail = "Connect Meraki HA or save an API key under Settings → Meraki → Connection. Install the bundled companion to reuse Meraki HA."
         network_state = "Not configured"
         network_detail = "Choose the network, SSID and policy under Settings → IPSK → Network and onboarding."
         selected = config.get("network_id") and config.get("group_policy_id")
         if selected:
             network_state = "Configured; not checked"
             network_detail = "Network, SSID and resident policy are selected. Check connections to validate their availability."
-        if check and SUPERVISOR_TOKEN:
+        if check and meraki_provider.available(SUPERVISOR_TOKEN):
             try:
                 choices = ipsk.get_options(str(config.get("network_id") or ""))
                 if not isinstance(choices.get("networks"), list):
                     raise RuntimeError("Invalid options response")
                 provider_state = "Reachable" if choices["networks"] else "No Meraki networks"
-                provider_detail = "The Step CA companion answered through Home Assistant’s existing Meraki connection. Key creation and captive behavior remain unverified."
+                provider_detail = {"meraki_ha": "Meraki HA", "api_key": "The API key connection"}.get(choices.get("provider"), "Meraki") + " returned wireless networks. Key creation and captive behavior remain unverified."
                 if selected:
                     found_network = any(str(row.get("id")) == str(config["network_id"]) for row in choices.get("networks", []))
                     found_ssid = any(str(row.get("number")) == str(config.get("ssid_number", 0)) for row in choices.get("ssids", []))
@@ -2929,7 +2948,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         body = ('<div class="card"><div class="card-header"><h2>Prepare your installation</h2></div><div class="card-content">'
                 '<p>Follow the steps below, then check the running connections. Checks read configuration and service metadata; they do not issue certificates, create keys or change network settings.</p>'
                 '<ol><li>Install MariaDB and Step CA; select MariaDB and restart the add-on.</li>'
-                '<li>Install/restart the Step CA companion and Meraki integration in Home Assistant.</li>'
+                '<li>Connect Meraki under Settings → Meraki → Connection; install/restart the companion to reuse Meraki HA.</li>'
                 '<li>Configure the resident network, default setup key and registered-resident policy.</li>'
                 '<li>Choose resident identity/invitation settings and save guest/setup QR credentials.</li>'
                 '<li>After installation, verify real devices, Duo callbacks, HTTPS and certificate enrollment.</li></ol>'
@@ -3002,7 +3021,109 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             error = err if isinstance(err, ValueError) else RuntimeError("Could not save portal settings. Check the Home Assistant connection and try again.")
             self.portal_skin_page(kind, error=error, draft=config, logo=logo)
 
-    def identity_page(self, kind, query=None, error=None, draft=None):
+    def ipsk_network_page(self, query=None, error=None, draft=None):
+        try:
+            config = dict(saved_options().get("resident_onboarding") or {})
+        except RuntimeError:
+            self.page("Network and onboarding", ui.alert("warning", "Saved IPSK settings could not be read. Check the Home Assistant connection and try again.", "Settings unavailable"))
+            return
+        config.update(draft or {})
+        notice = ""
+        if error:
+            notice = ui.alert("error", esc(error), "Could not save onboarding")
+        elif (query or {}).get("saved"):
+            notice = ui.alert("success", "Settings saved. Restart Step CA to apply network, lifetime and invitation changes.", "Restart required")
+        network = str((query or {}).get("network", [config.get("network_id") or ""])[0])
+        config["network_id"] = network
+        try:
+            choices = ipsk.get_options(network) if meraki_provider.available(SUPERVISOR_TOKEN) else {}
+            if not meraki_provider.available(SUPERVISOR_TOKEN):
+                notice += ui.alert("warning", "Connect Meraki HA or save an API key under Settings → Meraki → Connection, then reload.", "Meraki unavailable")
+        except Exception:
+            choices = {}
+            notice += ui.alert("warning", "Could not load Meraki networks. Check the companion integration and Meraki connection, then reload. Saved choices are retained.", "Meraki unavailable")
+
+        def select(name, label, rows, value_key, help_text=""):
+            current = str(config.get(name, 0 if name == "ssid_number" else "") or (0 if name == "ssid_number" else ""))
+            values = {str(row[value_key]): str(row.get("name") or row[value_key]) for row in rows}
+            if current and current not in values:
+                values[current] = "Saved selection: " + current
+            options = '<option value="">Choose ' + label.lower() + '</option>'
+            options += ''.join(f'<option value="{esc(value)}"' + (' selected' if value == current else '') + f'>{esc(title)}</option>' for value, title in values.items())
+            return f'<label for="{name}">{label}</label><select id="{name}" name="{name}">{options}</select><p class="hint">{help_text}</p>'
+
+        csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
+        network_select = select("network_id", "Meraki network", choices.get("networks") or [], "id", "Load the network to choose its enabled iPSK SSID and resident policy.")
+        lookup = (f'<form method="get" action="{esc(self.url("/settings/ipsk/network"))}">'
+                  + network_select.replace('name="network_id"', 'name="network"').replace('id="network_id"', 'id="network_lookup"').replace('for="network_id"', 'for="network_lookup"')
+                  + '<button class="btn text" type="submit">Load network options</button></form>')
+        fields = (f'<input type="hidden" name="network_id" value="{esc(network)}">'
+                  + '<label class="check"><input type="checkbox" name="enabled" value="1"' + (' checked' if config.get("enabled") else '') + '>Enable resident onboarding</label>'
+                  + '<label class="check"><input type="checkbox" name="invite_required" value="1"' + (' checked' if config.get("invite_required", True) else '') + '>Require an invitation</label>'
+                  + select("ssid_number", "Resident SSID", choices.get("ssids") or [], "number", "Only enabled iPSK-without-RADIUS SSIDs are listed. SSID 0 is valid.")
+                  + select("group_policy_id", "Registered-resident policy", choices.get("group_policies") or [], "id", "Use a policy that bypasses splash after registration.")
+                  + '<label for="duration_hours">Key lifetime in hours</label>'
+                  + f'<input id="duration_hours" type="number" name="duration_hours" min="0" max="87600" value="{esc(config.get("duration_hours", 0))}" required>'
+                  + '<p class="hint">0 creates keys without an expiry. Changing this applies to new keys.</p>')
+        body = (notice + '<p class="settings-intro">Configure the setup network for resident registration. Changes apply after restarting Step CA.</p>'
+                + '<section class="card"><div class="card-content">' + lookup
+                + f'<form method="post" action="{esc(self.url("/settings/ipsk/network/save"))}">{csrf}' + fields
+                + '<button class="btn" type="submit">Save onboarding</button></form></div></section>'
+                + f'<p class="hint"><a href="{esc(self.url("/settings/ipsk/access"))}">Authentication and device access</a> · '
+                + f'<a href="{esc(self.url("/settings/meraki/ssids"))}">Configure Meraki SSIDs and portals</a> · '
+                + f'<a href="{esc(self.url("/settings/system/checks"))}">Setup and checks</a></p>')
+        self.page("Network and onboarding", guidance.form_error(body, error))
+
+    def ipsk_network_save(self, form):
+        draft = {key: str(form.get(key, [""])[0])[:128] for key in ("network_id", "ssid_number", "group_policy_id", "duration_hours")}
+        draft.update({key: form.get(key, [""])[0] == "1" for key in ("enabled", "invite_required")})
+        try:
+            options = saved_options()
+            config = dict(options.get("resident_onboarding") or {})
+            config.update(draft)
+            for key, maximum in (("ssid_number", 14), ("duration_hours", 87600)):
+                try:
+                    config[key] = int(config[key])
+                    if not 0 <= config[key] <= maximum:
+                        raise ValueError()
+                except ValueError as err:
+                    raise guidance.FieldError(key, f"Enter a whole number from 0 to {maximum}.") from err
+            if config["enabled"] and options.get("database") != "mariadb":
+                raise ValueError("Select MariaDB under Settings → System → Database before enabling resident onboarding.")
+            if config["enabled"] and (not config["network_id"] or not config["group_policy_id"]):
+                raise ValueError("Choose the Meraki network and registered-resident policy before enabling onboarding.")
+            if config["network_id"]:
+                try:
+                    choices = ipsk.get_options(config["network_id"])
+                except Exception:
+                    raise RuntimeError("The Meraki network options could not be checked.") from None
+                for key, rows, identifier in (("network_id", "networks", "id"), ("ssid_number", "ssids", "number"), ("group_policy_id", "group_policies", "id")):
+                    if not any(str(row.get(identifier)) == str(config[key]) for row in choices.get(rows) or []):
+                        raise guidance.FieldError(key, "Choose an available option from the selected Meraki network.")
+            ipsk.resident_access.validate_settings(config)
+            options["resident_onboarding"] = config
+            supervisor("POST", "/addons/self/options", {"options": options})
+            self.ipsk_network_page({"saved": ["1"]})
+        except Exception as err:
+            error = err if isinstance(err, ValueError) else RuntimeError("Could not save onboarding. Check the Home Assistant and Meraki connections, then try again.")
+            self.ipsk_network_page(error=error, draft=draft)
+
+    def identity_test(self, kind):
+        access = ipsk.resident_access
+        try:
+            config = dict(saved_options().get("resident_onboarding") or {})
+            identity_settings.validate(config, kind, required=True)
+            if kind == "directory":
+                members = access.group_members(config)
+                self.identity_page(kind, test_message=f"Directory connected. {len(members)} permitted users loaded.", members=members)
+            else:
+                access._duo_call(lambda: access.universal_client(config).health_check())
+                self.identity_page(kind, test_message="Duo connection succeeded. Test a portal sign-in to verify the factor and browser callback.")
+        except Exception as err:
+            error = err if isinstance(err, ValueError) else RuntimeError("The connection check failed. Check the saved hostname, credentials, Duo permissions and network access, then try again.")
+            self.identity_page(kind, error=error)
+
+    def identity_page(self, kind, query=None, error=None, draft=None, test_message="", members=None):
         title = "Authentication" if kind == "authentication" else "User directory"
         try:
             config = dict(saved_options().get("resident_onboarding") or {})
@@ -3013,8 +3134,15 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         csrf = f'<input type="hidden" name="csrf" value="{esc(CSRF_TOKEN)}">'
         other = "directory" if kind == "authentication" else "authentication"
         body = identity_settings.form(config, kind, csrf, self.url(f"/settings/identity/{kind}/save"), self.url(f"/settings/identity/{other}"))
+        body += f'<p class="hint"><a href="{esc(self.url("/settings/captive-portal/authentication"))}">Captive portal authentication and access</a></p>'
+        if test_message:
+            body = ui.alert("success", esc(test_message), "Connection checked") + body
+        if members is not None:
+            rows = ''.join(f'<tr><td>{esc(member["display_name"])}</td><td>{esc(member["username"])}</td></tr>' for member in members)
+            body += ('<section class="card"><div class="card-header"><h3>Permitted users</h3></div>'
+                     + ('<div class="table-wrap"><table><thead><tr><th>Name</th><th>Username</th></tr></thead><tbody>' + rows + '</tbody></table></div>' if rows else '<div class="card-content"><p>No users are in the permitted group. Add members in Duo, then run the directory check again.</p></div>') + '</section>')
         if error:
-            body = ui.alert("error", esc(error), "Could not save settings") + '<p class="hint">Your other details are kept. Re-enter any new secret before saving.</p>' + guidance.form_error(body, error)
+            body = ui.alert("error", esc(error), "Could not complete the action") + ('<p class="hint">Your other details are kept. Re-enter any new secret before saving.</p>' if draft is not None else '') + guidance.form_error(body, error)
         elif (query or {}).get("saved"):
             body = ui.alert("success", f"{title} settings were saved.", "Settings saved") + body
         self.page(title, body)
@@ -3031,7 +3159,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             access.SETTINGS_OVERRIDE = config
             self.identity_page(kind, {"saved": ["1"]})
         except Exception as err:
-            draft = {key: str(form[key][0])[:512] for key in identity_settings.FIELDS[kind] if key not in identity_settings.SECRET_FIELDS and key in form}
+            draft = {key: str(form[key][0])[:2048 if key == "duo_redirect_uri" else 512] for key in identity_settings.FIELDS[kind] if key not in identity_settings.SECRET_FIELDS and key in form}
             error = err if isinstance(err, ValueError) else RuntimeError("Could not save identity settings. Check the Home Assistant connection and try again.")
             self.identity_page(kind, error=error, draft=draft)
 
@@ -3139,11 +3267,11 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                 "Resident and invitation records share Step CA's MariaDB database. Select MariaDB in the add-on options to use this page.",
                 "MariaDB required",
             )
-        if section in ("keys", "devices", "create", "access") and not SUPERVISOR_TOKEN:
+        if section in ("keys", "devices", "create", "access") and not meraki_provider.available(SUPERVISOR_TOKEN):
             notice += ui.alert(
                 "warning",
-                "Home Assistant has not provided its service connection. iPSK actions are unavailable until the add-on is connected to Home Assistant.",
-                "Home Assistant connection unavailable",
+                "Connect Meraki HA or save an API key under Settings → Meraki → Connection before managing iPSKs.",
+                "Meraki connection unavailable",
             )
 
         try:
@@ -3157,7 +3285,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
             notice += ui.alert("error", "Could not read resident records. Check MariaDB under Setup and checks, then reload this page.", "Resident database unavailable")
 
         try:
-            keys = ipsk.list_ipsks() if section in ("keys", "devices") and SUPERVISOR_TOKEN else []
+            keys = ipsk.list_ipsks() if section in ("keys", "devices") and meraki_provider.available(SUPERVISOR_TOKEN) else []
             keys = [dict(row, status=row.get("status") if row.get("status") in ("active", "revoked", "expired") else "unknown") for row in keys]
             inactive = ipsk.inactive_ipsk_ids(keys) if section == "devices" else []
             if inactive and os.environ.get("PORTAL_DB_HOST"):
@@ -3173,7 +3301,7 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         selected_network = str((query.get("network") or [""])[0] or
                                ipsk.resident_access.settings().get("network_id") or "")
         try:
-            options = ipsk.get_options(selected_network) if section == "create" and SUPERVISOR_TOKEN else {}
+            options = ipsk.get_options(selected_network) if section == "create" and meraki_provider.available(SUPERVISOR_TOKEN) else {}
             networks = options.get("networks") or []
             ssids = options.get("ssids") or []
             policies = options.get("group_policies") or []
@@ -3913,8 +4041,8 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
         auth = select("authentication", [(key, f"{label} — {credential}")
                                          for key, (label, _, credential) in enroll.WIFI_AUTH.items()])
         security = select("security", (("WPA2", "WPA2"), ("WPA3", "WPA3"), ("Any", "Any (includes legacy WPA / WEP)")))
-        radius = select("radius_server", [("custom", "My own RADIUS server")]
-                        + [(key, service["label"]) for key, service in enroll.RADIUS_SERVICES.items()])
+        radius = select("radius_server", [(key, service["label"]) for key, service in enroll.RADIUS_SERVICES.items()]
+                        + [("custom", "Custom RADIUS server")])
         proxy = select("proxy", (("none", "None"), ("manual", "Manual"), ("auto", "Automatic")))
         qos = select("qos_marking", (("default", "All apps (default)"), ("allowlist", "Only the apps below"),
                                      ("off", "Off")))
@@ -3986,8 +4114,9 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                        "Turn off for a network you download on its own from Tools > MDM profiles."), True)
             + section("Authentication", '<div class="field"><label for="w-auth">802.1X / network authentication</label>'
             f'<select id="w-auth" name="authentication">{auth}</select>'
-            '<p class="hint">Match the method enabled on RADIUS. EAP-TLS uses the certificate from this CA; '
-            'password methods use a RADIUS account; a pre-shared key uses one network password.</p></div>'
+            '<p class="hint">Access Manager uses EAP-TLS for this CA’s device certificates or EAP-TTLS for '
+            'supported user credentials. Other enterprise methods require a compatible custom server. '
+            'A pre-shared key uses one network password.</p></div>'
             '<div class="field"><label for="w-security">Security</label>'
             f'<select id="w-security" name="security">{security}</select>'
             '<p class="hint">WPA2 permits WPA2/WPA3 on current Apple devices. WPA3 requires WPA3. '
@@ -4005,12 +4134,14 @@ class Handler(SettingsMixin, BaseHTTPRequestHandler):
                        "devices show a privacy warning for the network."), bool(values["hidden"] or values["disable_mac_randomization"]))
             + '<div data-show-when="w-auth=eap_tls|peap|eap_ttls|eap_fast">'
             + section("Server trust & TLS", '<div>'
-            '<div class="field"><label for="w-radius">RADIUS server</label>'
+            '<div class="field"><label for="w-radius">Authentication service</label>'
             f'<select id="w-radius" name="radius_server">{radius}</select>'
-            '<p class="hint">With Cisco Meraki Access Manager, profiles trust its server '
+            '<p class="hint">Cisco Meraki Access Manager is the default. Profiles trust its server '
             "(eap.meraki.com, under IdenTrust Commercial Root CA 1) without anything else to add. With your "
             f'own server, add the CA that issued its certificate under <a href="{esc(self.url("/tools/cas"))}">'
-            "Other trusted CAs</a> if it is not this CA.</p></div>"
+            "Device trust certificates</a> if it is not this CA.</p>"
+            '<p class="hint">For EAP-TLS, upload this CA’s intermediate/root chain to Access Manager, enable '
+            'its trusted anchor, and configure matching certificate rules. The client profile alone does not configure Dashboard.</p></div>'
             + textarea(
                 "radius_server_names", "RADIUS server names (optional)",
                 "List the names on the RADIUS server certificate, one per line. Empty accepts any name under "

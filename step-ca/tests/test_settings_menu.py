@@ -36,13 +36,13 @@ class SettingsMenuTests(unittest.TestCase):
     def markup(self, handler):
         return handler.send.call_args.args[1]
 
-    def test_hub_has_six_categories_and_no_eager_service_requests(self):
+    def test_hub_has_seven_categories_and_no_eager_service_requests(self):
         handler = self.handler()
         with patch.object(app, "supervisor") as remote:
             handler.do_GET()
         remote.assert_not_called()
         markup = self.markup(handler)
-        self.assertEqual(markup.count('class="row settings-row"'), 6)
+        self.assertEqual(markup.count('class="row settings-row"'), 7)
         self.assertIn('href="/api/hassio_ingress/fixture/settings/ipsk"', markup)
         self.assertIn("aria-current=page", markup)
         self.assertIn("<span>Settings</span>", markup)
@@ -59,10 +59,8 @@ class SettingsMenuTests(unittest.TestCase):
                 self.assertIn('aria-current="page">' + menu.esc(title), markup)
                 for leaf, label, _ in leaves:
                     self.assertIn(
-                        'href="/api/hassio_ingress/fixture/settings/'
-                        + slug
-                        + "/"
-                        + leaf
+                        'href="/api/hassio_ingress/fixture'
+                        + menu.canonical_url('/settings/' + slug + '/' + leaf)
                         + '"',
                         markup,
                     )
@@ -91,7 +89,8 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertNotIn('class="settings-menu"', markup)
         local = markup.split('aria-label="Captive portal pages"')[1].split('</nav>')[0]
         self.assertIn('/settings/captive-portal/content', local)
-        self.assertNotIn('/settings/identity/', local)
+        self.assertIn('/settings/identity/directory', local)
+        self.assertIn('/settings/captive-portal/authentication', local)
 
     def test_old_bookmarks_preserve_query_when_redirecting(self):
         for old, new in menu.ALIASES.items():
@@ -163,7 +162,7 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertIn("Additional add-on options", markup)
         self.assertIn("Saved", markup)
 
-    def test_onboarding_summary_excludes_identity_and_join_code_fields(self):
+    def test_onboarding_editor_excludes_identity_and_join_code_fields(self):
         handler = self.handler("/settings/ipsk/network")
         options = {
             "resident_onboarding": {
@@ -178,8 +177,8 @@ class SettingsMenuTests(unittest.TestCase):
             handler.do_GET()
         markup = self.markup(handler)
         self.assertIn("N_fixture", markup)
-        self.assertIn('settings-value">0', markup)
-        self.assertIn('settings-value">No', markup)
+        self.assertIn('<option value="0" selected>', markup)
+        self.assertIn('name="invite_required" value="1">', markup)
         self.assertNotIn("private-host", markup)
         self.assertNotIn("private-guest", markup)
 

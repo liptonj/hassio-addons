@@ -1,11 +1,14 @@
 *
 !run.sh
 !custom_components/
+!custom_components/step_ca_scep/meraki_ipsk.py
 !admin/app.py
 !admin/captive.py
 !admin/db_setup.py
 !admin/enroll.py
 !admin/ipsk.py
+!admin/meraki_provider.py
+!admin/meraki_settings.py
 !admin/requirements.txt
 !admin/resident_access.py
 !admin/ui.py

@@ -238,3 +238,38 @@ The new module provides provider field groups, validation and rendering;
 scoped saves preserve unrelated options and retained secrets. Legacy option
 keys remain compatible. Current runtime remains Duo verification plus a
 group-scoped directory, not primary password SSO.
+
+### Meraki configuration (2026-10-05)
+
+Settings now includes Meraki Connection, SSIDs and portals, and Access Manager.
+The existing HA visual world, shared controls and admin/CSRF boundaries remain.
+Connection settings prefer the Meraki HA session with an optional API key fallback.
+Enabled SSIDs include every authentication mode; human-readable change previews
+precede SSID/splash writes and per-client Access Manager key assignment.
+
+The bounded desktop/light and phone/dark inspection and confirmation covered the
+three pages and two previews. SSID 0, labels, layout, connection testing, both
+preview/apply flows and SSID read-back passed with local fixtures. Static detection
+reported no findings; rendered detector scanning was unavailable without Puppeteer.
+251 tests and the twelve-command real Home Assistant 2026.9.4 compatibility check
+passed, including real SDK HTTP fixtures. This is scoped functional verification,
+not a new independent accessibility or design score. Evidence is in
+`../../../output/playwright/meraki-browser-check.json`. Live providers, physical
+devices, a container rebuild and deployment remain unverified. WPN enablement and
+matching Access Manager policy conditions still require Meraki Dashboard.
+
+### Access Manager certificate defaults (2026-10-05)
+
+New Wi-Fi profiles select Access Manager and EAP-TLS. EAP-TTLS defaults to PAP;
+unsupported enterprise methods receive field validation. The SSID editor now
+offers enterprise Access Manager authentication and no captive portal. Existing
+explicit custom-server profiles retain their setting and require replacement
+profiles when migrated. Certificate trust and matching rules require Dashboard.
+
+Desktop/light and phone/dark checks covered the Wi-Fi editor and enterprise SSID
+form with no horizontal overflow. Preview/apply/read-back passed on a local
+fixture. All 255 tests and the real Home Assistant twelve-command validation
+passed, including enterprise writes through the actual Meraki SDK to a loopback
+HTTP fixture. Evidence is in `../../../output/playwright/access-manager-*`.
+Resident self-service remains iPSK without RADIUS; deployment and live device
+authentication have not been tested.

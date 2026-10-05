@@ -37,7 +37,7 @@ async def main():
         bridge.async_register(hass)
         bridge.async_register(hass)
         handlers = hass.data['websocket_api']
-        assert len(handlers) == 7
+        assert len(handlers) == len(bridge.COMMANDS)
         connection = MagicMock()
         connection.user = SimpleNamespace(id='fixture-supervisor', name='Fixture', is_admin=False)
         hass.data[DATA_HASSIO_SUPERVISOR_USER] = SimpleNamespace(id='fixture-supervisor')
@@ -47,6 +47,8 @@ async def main():
         service.list = AsyncMock(return_value=[])
         service.create = AsyncMock(return_value={})
         service.key = AsyncMock(return_value={})
+        for name in ('configuration_plan', 'configure', 'access_manager', 'client_key_plan', 'assign_client_key'):
+            setattr(service, name, AsyncMock(return_value={}))
         with patch.object(bridge, 'MerakiIpsk', return_value=service):
             outbound = []
             def send_message(message):
@@ -69,6 +71,14 @@ async def main():
                            'passphrase': 'fixture-password', 'associated_user': 'Resident',
                            'associated_unit': 'Unit 1'},
             }
+            ssid_fields = {'network_id': 'N_fixture', 'ssid_number': 0, 'portal_type': 'none',
+                           'portal_url': '', 'auth_mode': '8021x-nac',
+                           'prepare_wpn': False, 'vlan_id': None, 'walled_garden_ranges': []}
+            client_fields = {'network_id': 'N_fixture', 'ssid_number': 0, 'mac': '00:11:22:33:44:55',
+                             'owner': 'Alice', 'group_id': '10', 'passphrase': 'fixture-password'}
+            payloads.update(configuration_plan=ssid_fields, configure={**ssid_fields, 'expected_revision': 'r1'},
+                            access_manager={'network_id': 'N_fixture'}, client_key_plan=client_fields,
+                            assign_client_key={**client_fields, 'expected_revision': 'r1'})
             for ident, action in enumerate(bridge.COMMANDS, 2):
                 fields = payloads.get(action, {'ipsk_id': 'N_fixture:0:key',
                                                'network_id': 'N_fixture', 'ssid_number': 0})
@@ -80,7 +90,7 @@ async def main():
             service.list.assert_awaited_once_with(payloads['list']['scopes'])
             service.create.assert_awaited_once()
             assert service.key.await_count == 4
-            actual.async_handle({'id': 9, 'type': bridge.PREFIX + 'options',
+            actual.async_handle({'id': 20, 'type': bridge.PREFIX + 'options',
                                  'network_id': '', 'unexpected': True})
             assert not outbound[-1]['success']
             service.options.reset_mock()
@@ -92,7 +102,7 @@ async def main():
             service.options.assert_awaited_once()
         print(json.dumps({'status': 'passed', 'homeassistant': __version__,
               'checks': ['real companion and config flow imports', 'original options request failure reproduced',
-                         'all seven commands dispatched through real ActiveConnection with full portal payloads',
+                         'all twelve commands dispatched through real ActiveConnection with full portal payloads',
                          'unknown request fields rejected before dispatch',
                          'idempotent registration', 'real Supervisor data key authorization', 'ordinary resident denied']}))
 

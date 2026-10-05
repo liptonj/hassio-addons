@@ -160,6 +160,25 @@ class AccessHttpFlow(unittest.TestCase):
         self.assertIn("HttpOnly; Secure; SameSite=Lax", headers["Set-Cookie"])
         self.assertNotIn("Create device key", page)
 
+    def test_captive_entry_renders_each_configured_authentication_mode(self):
+        modes = ((True, True, False, "Continue with Duo"),
+                 (True, False, True, "Resident account"),
+                 (True, False, False, "Full name"),
+                 (False, False, False, "Get Wi-Fi access"))
+        for self_service, sign_in, directory, expected in modes:
+            with self.subTest(sign_in=sign_in, directory=directory, self_service=self_service):
+                access.SETTINGS_OVERRIDE.update(self_service_enabled=self_service,
+                                               sign_in_required=sign_in,
+                                               no_sign_in_user_list=directory)
+                with patch.object(access, "group_members", return_value=[
+                        {"user_id": "DUresident", "username": "resident", "display_name": "Resident"}]):
+                    status, _, page = self.request(action="", query={
+                        "client_mac": MAC, "base_grant_url": "https://n1.network-auth.com/splash/grant"})
+                self.assertEqual(status, 200)
+                self.assertIn(expected, page)
+                if not sign_in:
+                    self.assertNotIn("Continue with Duo", page)
+
     def test_no_sign_in_cannot_load_directory_without_captive_entry(self):
         access.SETTINGS_OVERRIDE.update(sign_in_required=False, no_sign_in_user_list=True)
         with patch.object(access, "group_members") as members:

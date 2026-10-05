@@ -10,6 +10,12 @@ import identity_settings
 
 GROUPS = (
     (
+        "meraki", "Meraki", "wifi", "Connection, enabled SSIDs, captive portals and Access Manager",
+        (("connection", "Connection", "Reuse Meraki HA or enter a Dashboard API key"),
+         ("ssids", "SSIDs and portals", "Discover SSIDs and configure authentication, captive portals and WPN prerequisites"),
+         ("access-manager", "Access Manager", "Inspect policies and assign per-client iPSKs")),
+    ),
+    (
         "certificates",
         "Certificates",
         "shield-check",
@@ -99,8 +105,10 @@ GROUPS = (
     ),
     (
         "captive-portal", "Captive portal", "wifi-lock",
-        "Branding, appearance and welcome content",
-        (("appearance", "Appearance", "Logo, colors and light or dark appearance"),
+        "Authentication, user directory, appearance and welcome content",
+        (("authentication", "Authentication and access", "Duo verification, registration and device limits"),
+         ("directory", "User directory", "Configure and test the permitted Duo user group"),
+         ("appearance", "Appearance", "Logo, colors and light or dark appearance"),
          ("content", "Content", "Portal name, welcome message and footer")),
     ),
     (
@@ -152,11 +160,15 @@ ALIASES = {
     "/residents/qr/settings": "/settings/ipsk/join-codes/save",
     "/ipsk/access": "/settings/ipsk/access",
     "/ipsk/join-codes/settings": "/settings/ipsk/join-codes",
+    "/settings/captive-portal/directory": "/settings/identity/directory",
+    "/residents/access": "/settings/ipsk/access",
+    "/residents/join-codes/settings": "/settings/ipsk/join-codes",
 }
 
 # Every top-level add-on option belongs to one of these pages. Nested Wi-Fi and
 # identity options retain their existing editors; no new configuration store.
 OPTION_PAGES = {
+    "meraki/connection": (("meraki", "Meraki connection"),),
     "certificates/issuance": (
         ("ca_name", "Authority name"),
         ("certificate_subject", "Issued certificate subject"),
@@ -213,6 +225,7 @@ LABELS = {
     "max_devices_per_resident": "Device limit per resident",
 }
 SECRET_NAMES = {
+    "api_key",
     "scep_challenge",
     "challenge",
     "password",
@@ -477,6 +490,10 @@ class SettingsMixin:
             self.settings_index(category)
             return True
         pages = {
+            "/settings/meraki/connection": lambda: self.meraki_page("connection", query),
+            "/settings/meraki/ssids": lambda: self.meraki_page("ssids", query),
+            "/settings/meraki/access-manager": lambda: self.meraki_page("access-manager", query),
+            "/settings/ipsk/network": lambda: self.ipsk_network_page(query),
             "/settings/certificates/groups": lambda: self.groups_page(query),
             "/settings/certificates/trust": lambda: self.cas_page(query),
             "/settings/enrollment/networks": lambda: self.wifi_page(query),
@@ -494,6 +511,7 @@ class SettingsMixin:
                 "directory", query
             ),
             "/settings/captive-portal/appearance": lambda: self.portal_skin_page("appearance", query),
+            "/settings/captive-portal/authentication": lambda: self.residents_page(query, section="access"),
             "/settings/captive-portal/content": lambda: self.portal_skin_page("content", query),
             "/settings/system/checks": lambda: self.setup_page(query),
             "/settings/system/help": lambda: self.help_page(query),

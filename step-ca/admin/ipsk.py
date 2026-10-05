@@ -30,6 +30,7 @@ import portal_skin
 import guidance
 import captive
 import resident_access
+import meraki_provider
 import sys
 
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -120,14 +121,16 @@ async def _core_exchange(*messages):
                 if not reply.get("success"):
                     error = reply.get("error") or {}
                     if error.get("code") == "unknown_command":
-                        raise RuntimeError("Update the Step CA companion integration to version 1.5.0 or later, then restart Home Assistant.")
+                        raise meraki_provider.ProviderUnavailable("Update the bundled Step CA companion integration, then restart Home Assistant.")
+                    if error.get("code") == "provider_unavailable":
+                        raise meraki_provider.ProviderUnavailable("Connect Meraki HA or save an API key under Settings → Meraki → Connection.")
                     raise RuntimeError(error.get("message") or "The Wi-Fi service rejected the request.")
                 results.append(reply.get("result"))
             return results
 
 
 def core_call(*messages):
-    return asyncio.run(_core_call(*messages))
+    return asyncio.run(meraki_provider.call(_core_call, messages, SUPERVISOR_TOKEN))
 
 
 def get_options(network_id=""):

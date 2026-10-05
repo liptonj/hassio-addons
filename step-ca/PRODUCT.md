@@ -8,7 +8,7 @@ web
 
 ## Users
 
-- **Home Assistant administrator** (primary). Runs a homelab or small office on Home Assistant and operates this add-on as their private certificate authority, mostly to put devices on 802.1X / EAP-TLS Wi-Fi (often with the FreeRADIUS add-on) and to hand certificates to servers, VPNs, and MDMs. Opens the panel from the Home Assistant sidebar on a desktop or laptop, occasionally a phone. Visits are episodic: enroll a new device, revoke a lost one, grab a CA file for a RADIUS server or MDM, sign a CSR (for example Meraki's SCEP CA).
+- **Home Assistant administrator** (primary). Runs a homelab or small office on Home Assistant and operates this add-on as their private certificate authority, using Cisco Access Manager for 802.1X / EAP-TLS Wi-Fi and handing certificates to servers, VPNs, and MDMs. Opens the panel from the Home Assistant sidebar on a desktop or laptop, occasionally a phone. Visits are episodic: enroll a new device, revoke a lost one, grab a CA file for Access Manager or MDM, sign a CSR (for example Meraki's SCEP CA).
 - **Device owner** (secondary). A family member or colleague who received a one-time enrollment link or QR code. Opens it on the device being enrolled, usually an iPhone, Android phone, or laptop, with no Home Assistant login and no PKI knowledge. Needs to know what to tap and nothing more.
 - **Resident** (secondary). A household member or tenant who needs an individual Meraki Wi-Fi key. Connects with the default setup PSK and opens the captive portal without a Home Assistant login. Turns off private/randomized addressing for the network if prompted, enters their details and (when enabled) a one-time invitation, then saves the passphrase or scans its Wi-Fi QR code.
 

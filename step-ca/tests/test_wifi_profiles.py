@@ -47,7 +47,33 @@ class WifiProfiles(unittest.TestCase):
             wifi=networks, **extra))
 
     def wifi(self, method='eap_tls', **values):
-        return app.wifi_settings({'ssid': 'Office', 'authentication': method, **values})
+        return app.wifi_settings({'ssid': 'Office', 'authentication': method, 'radius_server': 'custom', **values})
+
+    def test_new_wifi_profiles_default_to_access_manager_server_trust(self):
+        network = app.wifi_settings({'ssid': 'Office'})
+        self.assertEqual(network['radius_server'], 'meraki_access_manager')
+        eap = self.payloads(self.profile(network))[0]['EAPClientConfiguration']
+        self.assertEqual(eap['TLSTrustedServerNames'], ['eap.meraki.com'])
+        self.assertEqual(eap['AcceptEAPTypes'], [13])
+        self.assertEqual(len(eap['PayloadCertificateAnchorUUID']), 3)
+        config = yaml.safe_load((Path(__file__).resolve().parents[1] / 'config.yaml').read_text())
+        self.assertEqual(config['options']['wifi']['radius_server'], 'meraki_access_manager')
+
+    def test_explicit_custom_service_is_retained(self):
+        self.assertEqual(app.wifi_settings({'ssid': 'Office', 'radius_server': 'custom'})['radius_server'], 'custom')
+
+    def test_access_manager_ttls_defaults_to_pap_and_invalid_methods_are_rejected(self):
+        network = app.wifi_settings({'ssid': 'Office', 'authentication': 'eap_ttls'})
+        self.assertEqual(network['ttls_inner_authentication'], 'PAP')
+        app.check_wifi_option(network)
+        eap = self.payloads(self.profile(network))[0]['EAPClientConfiguration']
+        self.assertEqual(eap['TTLSInnerAuthentication'], 'PAP')
+        self.assertEqual(eap['TLSTrustedServerNames'], ['eap.meraki.com'])
+        for method in ('peap', 'eap_fast'):
+            with self.subTest(method=method), self.assertRaisesRegex(ValueError, 'Access Manager supports'):
+                app.check_wifi_option(app.wifi_settings({'ssid': 'Office', 'authentication': method}))
+        with self.assertRaisesRegex(ValueError, 'Choose PAP'):
+            app.check_wifi_option({**network, 'ttls_inner_authentication': 'MSCHAPv2'})
 
     def payloads(self, profile):
         return [p for p in profile['PayloadContent'] if p['PayloadType'] == 'com.apple.wifi.managed']
