@@ -5,13 +5,16 @@ import logging
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
-from homeassistant.components.hassio.const import DATA_HASSIO_SUPERVISOR_USER
 from homeassistant.core import callback
 
 from .meraki_ipsk import MerakiIpsk
 
 _LOGGER = logging.getLogger(__name__)
 PREFIX = "step_ca_scep/ipsk/"
+# Read by value: Home Assistant keeps moving and renaming the constant for this
+# key (http.const, hassio.const in 2026.9, http.const in 2026.11), and importing
+# it stops the whole integration, including enrollment links, from loading.
+SUPERVISOR_USER_KEY = "hassio_supervisor_user"
 COMMANDS = ("options", "list", "create", "get", "reveal_passphrase", "revoke", "delete",
             "configuration_plan", "configure", "access_manager", "client_key_plan", "assign_client_key",
             "resident_key_plan", "resident_create", "resident_list")
@@ -59,7 +62,7 @@ def command_schema(command):
 
 async def dispatch(hass, connection, msg):
     user = connection.user
-    supervisor = hass.data.get(DATA_HASSIO_SUPERVISOR_USER)
+    supervisor = hass.data.get(SUPERVISOR_USER_KEY)
     if user is None or not (user.is_admin or supervisor is not None and user.id == supervisor.id):
         connection.send_error(msg["id"], "unauthorized", "Administrator access is required.")
         return

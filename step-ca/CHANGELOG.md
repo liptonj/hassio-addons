@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.2.62
+
+- Fix the companion failing to load on Home Assistant 2026.11, which left it
+  "Not loaded" and made enrollment links, SCEP, and the root certificate return
+  404. Update the companion to 1.7.1. Restart Home Assistant after updating.
+
 ## 0.30.2.61
 
 - Add Cisco Access Manager resident self-service for captive registration and

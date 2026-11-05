@@ -1,6 +1,6 @@
 """Import/register the real companion with an installed Home Assistant package.
 
-Run with Python 3.14 and Home Assistant 2026.9.4 installed. No HA modules are
+Run with Python 3.14 and Home Assistant 2026.11.0 installed. No HA modules are
 stubbed and no deployed system or provider credentials are accessed.
 """
 import asyncio
@@ -13,7 +13,7 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from homeassistant.components.hassio.const import DATA_HASSIO_SUPERVISOR_USER
+from homeassistant.components.http.const import DATA_SUPERVISOR_USER
 from homeassistant.components.websocket_api.connection import ActiveConnection
 from homeassistant.const import __version__
 from homeassistant.core import HomeAssistant
@@ -40,7 +40,7 @@ async def main():
         assert len(handlers) == len(bridge.COMMANDS)
         connection = MagicMock()
         connection.user = SimpleNamespace(id='fixture-supervisor', name='Fixture', is_admin=False)
-        hass.data[DATA_HASSIO_SUPERVISOR_USER] = SimpleNamespace(id='fixture-supervisor')
+        hass.data[DATA_SUPERVISOR_USER] = SimpleNamespace(id='fixture-supervisor')
         hass.data['meraki_ha'] = {'entry': {'client': SimpleNamespace(dashboard=object())}}
         service = MagicMock()
         service.options = AsyncMock(return_value={'networks': []})

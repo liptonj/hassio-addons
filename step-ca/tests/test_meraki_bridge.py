@@ -206,16 +206,13 @@ class WebsocketPermissionTests(unittest.IsolatedAsyncioTestCase):
         api.async_response = response
         components = types.ModuleType("homeassistant.components")
         components.websocket_api = api
-        const = types.ModuleType("homeassistant.components.hassio.const")
-        const.DATA_HASSIO_SUPERVISOR_USER = "fixture_supervisor_user"
         core = types.ModuleType("homeassistant.core")
         core.callback = lambda fn: fn
         modules = {package_name: package, package_name + ".meraki_ipsk": service,
                    "homeassistant": types.ModuleType("homeassistant"),
                    "homeassistant.components": components,
                    "homeassistant.components.websocket_api": api,
-                   "homeassistant.components.hassio": types.ModuleType("homeassistant.components.hassio"),
-                   "homeassistant.components.hassio.const": const, "homeassistant.core": core}
+                   "homeassistant.core": core}
         spec = importlib.util.spec_from_file_location(package_name + ".ipsk_websocket", directory / "ipsk_websocket.py")
         self.bridge = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, modules):
@@ -235,7 +232,7 @@ class WebsocketPermissionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_authenticated_supervisor_service_user_can_call_bridge(self):
         self.connection.user.is_admin = False
-        self.hass.data["fixture_supervisor_user"] = types.SimpleNamespace(id="admin")
+        self.hass.data[self.bridge.SUPERVISOR_USER_KEY] = types.SimpleNamespace(id="admin")
         await self.bridge.dispatch(self.hass, self.connection, self.message)
         self.connection.send_result.assert_called_once()
 
